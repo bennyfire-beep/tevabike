@@ -40,19 +40,30 @@ export default function Home() {
         <img src="/logo.png" alt="טבע בייק" style={{ height: "50px" }} />
         <div className="flex gap-6 text-sm text-gray-500">
           <a href="#classes" className="hover:text-gray-900">חוגים</a>
-          <a href="#register" className="text-green-600 font-medium hover:text-green-700">הרשמה</a>
+          <a href="#register" className="text-pink-600 font-medium hover:text-pink-700">הרשמה</a>
         </div>
       </nav>
 
       {/* Hero */}
-      <div className="bg-gray-900 text-white text-center py-16 px-6">
-        <h1 className="text-3xl font-semibold mb-2">חוגי רכיבה לילדים ומבוגרים</h1>
-        <p className="text-gray-400 mb-6">גרביטי, טכניקה וכושר בשטח — משגב, מצובה וביריה</p>
-        <div className="flex gap-3 justify-center flex-wrap">
-          <a href="#register" className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg text-sm font-medium">הירשם עכשיו</a>
-          <a href="#classes" className="border border-white text-white px-6 py-2 rounded-lg text-sm hover:bg-white hover:text-gray-900">צפה בחוגים</a>
-        </div>
-      </div>
+      <div className="relative text-white text-center py-16 px-6 overflow-hidden" style={{minHeight: '400px'}}>
+  <div className="absolute inset-0 z-0">
+    <iframe
+      src="https://www.youtube.com/embed/mm0esszVJv0?autoplay=1&mute=1&loop=1&playlist=mm0esszVJv0&controls=0&showinfo=0&rel=0"
+      className="w-full h-full"
+      style={{border: 'none', pointerEvents: 'none', transform: 'scale(1.5)'}}
+      allow="autoplay; fullscreen"
+    />
+  </div>
+  <div className="absolute inset-0 bg-black opacity-50 z-10" />
+  <div className="relative z-20">
+    <h1 className="text-3xl font-semibold mb-2">חוגי רכיבה לילדים ומבוגרים</h1>
+    <p className="text-gray-400 mb-6">גרביטי, טכניקה וכושר בשטח — משגב, מצובה וביריה</p>
+    <div className="flex gap-3 justify-center flex-wrap">
+      <a href="#register" className="bg-pink-500 hover:bg-pink-600 text-white px-6 py-2 rounded-lg text-sm font-medium">הירשמו עכשיו</a>
+      <a href="#classes" className="border border-white text-white px-6 py-2 rounded-lg text-sm hover:bg-white hover:text-gray-900">צפה בחוגים</a>
+    </div>
+  </div>
+</div>
 
       {/* Info Cards */}
       <div className="max-w-4xl mx-auto px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -91,17 +102,17 @@ export default function Home() {
             <tbody>
               {activeTab === "kids" ? classes.kids.map((c, i) => (
                 <tr key={i} className="border-t border-gray-100 hover:bg-gray-50">
-                  <td className="px-4 py-3"><span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">{c.level}</span></td>
+                  <td className="px-4 py-3"><span className="bg-pink-100 text-pink-800 text-xs px-2 py-1 rounded-full">{c.level}</span></td>
                   <td className="px-4 py-3 text-gray-700">{c.branch}</td>
                   <td className="px-4 py-3 text-gray-700">{c.days}</td>
                   <td className="px-4 py-3 text-gray-500">{c.age}</td>
-                  <td className="px-4 py-3"><a href="#register" className="text-green-600 text-xs hover:underline">הרשמה</a></td>
+                  <td className="px-4 py-3"><a href="#register" className="text-pink-600 text-xs hover:underline">הרשמה</a></td>
                 </tr>
               )) : classes.adults.map((c, i) => (
                 <tr key={i} className="border-t border-gray-100 hover:bg-gray-50">
                   <td className="px-4 py-3"><span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{c.level}</span></td>
                   <td className="px-4 py-3 text-gray-700">{c.day}</td>
-                  <td className="px-4 py-3"><a href="#register" className="text-green-600 text-xs hover:underline">הרשמה</a></td>
+                  <td className="px-4 py-3"><a href="#register" className="text-pink-600 text-xs hover:underline">הרשמה</a></td>
                 </tr>
               ))}
             </tbody>
@@ -124,34 +135,34 @@ export default function Home() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">שם פרטי *</label>
-                  <input type="text" placeholder="ישראל" value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" />
+                  <input type="text" placeholder="ישראל" value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-pink-500" />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">שם משפחה</label>
-                  <input type="text" placeholder="ישראלי" value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" />
+                  <input type="text" placeholder="ישראלי" value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-pink-500" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">טלפון *</label>
-                  <input type="tel" placeholder="05X-XXXXXXX" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" />
+                  <input type="tel" placeholder="05X-XXXXXXX" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-pink-500" />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">אימייל</label>
-                  <input type="email" placeholder="name@example.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500" />
+                  <input type="email" placeholder="name@example.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-pink-500" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">סניף</label>
-                  <select value={form.branch} onChange={e => setForm({...form, branch: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500">
+                  <select value={form.branch} onChange={e => setForm({...form, branch: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-pink-500">
                     <option value="">בחר סניף</option>
                     <option>משגב</option><option>מצובה</option><option>ביריה</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">חוג *</label>
-                  <select value={form.classType} onChange={e => setForm({...form, classType: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500">
+                  <select value={form.classType} onChange={e => setForm({...form, classType: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-pink-500">
                     <option value="">בחר חוג</option>
                     <optgroup label="ילדים">
                       <option>גרביטי מתחילים</option>
@@ -169,7 +180,7 @@ export default function Home() {
                 </div>
               </div>
               <p className="text-xs text-gray-400">בלחיצה על שלח מאשר/ת קריאת תנאי ההשתתפות. קישור לתשלום בהוראת קבע יישלח תוך 24 שעות.</p>
-              <button type="submit" className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg text-sm font-medium">שלח הרשמה</button>
+              <button type="submit" className="w-full bg-pink-500 hover:bg-pink-600 text-white py-3 rounded-lg text-sm font-medium">שלח הרשמה</button>
             </form>
           )}
         </div>
