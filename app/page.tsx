@@ -184,8 +184,28 @@ export default function Home() {
             </form>
           )}
         </div>
-      </div>
+      </div>{/* שותפים */}
+<section className="py-12 bg-white border-t border-gray-100">
+  <div className="max-w-4xl mx-auto px-4 text-center">
+    <p className="text-gray-400 text-sm mb-8">שותפים שלנו</p>
+    <div className="flex justify-center items-center gap-12 flex-wrap">
+      <a href="https://www.motosport-bicycle.co.il/" target="_blank" rel="noopener noreferrer"
+        className="opacity-50 hover:opacity-100 transition-opacity duration-300">
+        <img src="/logos/bh.png" alt="BH Bikes" className="h-10 object-contain" />
+      </a>
+      <a href="https://www.motosport-bicycle.co.il/" target="_blank" rel="noopener noreferrer"
+        className="opacity-50 hover:opacity-100 transition-opacity duration-300">
+        <img src="/logos/ktm.png" alt="KTM Bikes" className="h-10 object-contain" />
+      </a>
+      <a href="https://www.motosport-bicycle.co.il/" target="_blank" rel="noopener noreferrer"
+        className="opacity-50 hover:opacity-100 transition-opacity duration-300">
+        <img src="/logos/whistle.png" alt="Whistle Bikes" className="h-10 object-contain" />
+      </a>
+    </div>
+  </div>
+</section>
     </main>
   );
 }
 
+ 
