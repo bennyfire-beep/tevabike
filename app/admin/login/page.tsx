@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { setAdminSession, checkRateLimit, resetRateLimit } from '@/lib/auth-actions'
@@ -38,14 +38,23 @@ const S = {
   label: { fontSize: 12, color: '#7a8f7d', display: 'block', marginBottom: 4 },
 }
 
+// useSearchParams must live inside a <Suspense> boundary to allow static export
+function ResetSuccessBanner() {
+  const searchParams = useSearchParams()
+  if (searchParams.get('reset') !== 'success') return null
+  return (
+    <div style={{ background: '#4cdb7a22', border: '1px solid #4cdb7a44', borderRadius: 8, padding: '10px 14px', color: '#4cdb7a', fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
+      ✓ הסיסמה עודכנה בהצלחה — אפשר להתחבר עכשיו
+    </div>
+  )
+}
+
 export default function AdminLoginPage() {
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
-  const router       = useRouter()
-  const searchParams = useSearchParams()
-  const resetSuccess = searchParams.get('reset') === 'success'
+  const router = useRouter()
 
   // Redirect if already logged in
   useEffect(() => {
@@ -121,12 +130,10 @@ export default function AdminLoginPage() {
           </p>
         </div>
 
-        {/* Password-reset success banner */}
-        {resetSuccess && (
-          <div style={{ background: '#4cdb7a22', border: '1px solid #4cdb7a44', borderRadius: 8, padding: '10px 14px', color: '#4cdb7a', fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
-            ✓ הסיסמה עודכנה בהצלחה — אפשר להתחבר עכשיו
-          </div>
-        )}
+        {/* Password-reset success banner (Suspense required for useSearchParams) */}
+        <Suspense fallback={null}>
+          <ResetSuccessBanner />
+        </Suspense>
 
         {/* Form */}
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
