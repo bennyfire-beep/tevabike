@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { setAdminSession, checkRateLimit, resetRateLimit } from '@/lib/auth-actions'
 
@@ -43,7 +43,9 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
-  const router = useRouter()
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const resetSuccess = searchParams.get('reset') === 'success'
 
   // Redirect if already logged in
   useEffect(() => {
@@ -119,6 +121,13 @@ export default function AdminLoginPage() {
           </p>
         </div>
 
+        {/* Password-reset success banner */}
+        {resetSuccess && (
+          <div style={{ background: '#4cdb7a22', border: '1px solid #4cdb7a44', borderRadius: 8, padding: '10px 14px', color: '#4cdb7a', fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
+            ✓ הסיסמה עודכנה בהצלחה — אפשר להתחבר עכשיו
+          </div>
+        )}
+
         {/* Form */}
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
@@ -169,6 +178,16 @@ export default function AdminLoginPage() {
           >
             {loading ? 'מתחבר...' : 'כניסה'}
           </button>
+
+          {/* Forgot password */}
+          <a
+            href="/admin/forgot-password"
+            style={{ textAlign: 'center', color: '#7a8f7d', fontSize: 13, textDecoration: 'none', marginTop: 2 }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#b5e853')}
+            onMouseLeave={e => (e.currentTarget.style.color = '#7a8f7d')}
+          >
+            שכחתי סיסמה
+          </a>
         </form>
 
         {/* Role hints */}

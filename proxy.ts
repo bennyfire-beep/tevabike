@@ -6,6 +6,13 @@ const ADMIN_LOGIN       = '/admin/login'
 const ADMIN_PREFIX      = '/admin'
 const STUDENT_PREFIX    = '/student'
 
+// These admin paths are publicly accessible (no auth cookie required)
+const ADMIN_PUBLIC_PATHS = [
+  '/admin/login',
+  '/admin/forgot-password',
+  '/admin/reset-password',   // receives ?code= from Supabase reset email
+]
+
 const ROLE_PREFIXES: Record<string, string> = {
   instructor:  '/admin/instructor',
   coordinator: '/admin/coordinator',
@@ -45,9 +52,9 @@ export function proxy(request: NextRequest): NextResponse {
 
   // ── Admin routes ──────────────────────────────────────────────────────────
   if (pathname.startsWith(ADMIN_PREFIX)) {
-    // Allow /admin/login to pass through always
-    if (pathname === ADMIN_LOGIN || pathname.startsWith(ADMIN_LOGIN + '/')) {
-      return NextResponse.next()
+    // Allow public admin paths (login, forgot-password, reset-password)
+    if (ADMIN_PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))) {
+      return NextResponse.next()   // do NOT strip params — reset-password needs ?code=
     }
 
     const token    = request.cookies.get('sb_auth_token')?.value
