@@ -106,7 +106,7 @@ export default function AdminLoginPage() {
     // Reset rate limit counter on success
     await resetRateLimit(email.toLowerCase(), 'login')
 
-    router.push(`/admin/${rd.role}`)
+    router.push('/admin')
   }
 
   const ROLE_LABELS: Record<string, string> = {
@@ -217,3 +217,4 @@ export default function AdminLoginPage() {
     </div>
   )
 }
+
