@@ -106,7 +106,8 @@ export default function AdminLoginPage() {
     // Reset rate limit counter on success
     await resetRateLimit(email.toLowerCase(), 'login')
 
-    router.push('/admin')
+    // Redirect directly to the role-specific dashboard (bypasses the hub)
+    router.push(`/admin/${rd.role}`)
   }
 
   const ROLE_LABELS: Record<string, string> = {
