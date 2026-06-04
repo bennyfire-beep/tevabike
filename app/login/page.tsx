@@ -36,7 +36,8 @@ export default function LoginPage() {
     const redirects: Record<string, string> = {
       admin: '/admin',
       coordinator: '/admin/coordinator',
-      instructor: '/instructor',
+      instructor: '/admin/instructor',
+      accountant: '/admin/accountant',
       trainee: '/student',
     }
 
@@ -102,3 +103,5 @@ export default function LoginPage() {
     </div>
   )
 }
+
+
