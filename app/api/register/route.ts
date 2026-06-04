@@ -5,49 +5,34 @@ const ADMIN_EMAIL = 'bennyfire@gmail.com'
 const ADMIN_PHONE = '972525708084'
 
 type RegisterData = {
-  firstName: string
-  lastName: string
-  phone: string
-  email?: string
-  branch?: string
-  classType: string
+  firstName: string; lastName: string; phone: string
+  email?: string; branch?: string; classType: string
   registrationType: 'child' | 'adult'
-  childName?: string
-  childAge?: string
-  notes?: string
+  childName?: string; childAge?: string; notes?: string
 }
 
 export async function POST(request: NextRequest) {
   let body: RegisterData
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
-  }
+  try { body = await request.json() }
+  catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
 
   const { firstName, lastName, phone, classType } = body
-  if (!firstName || !phone || !classType) {
+  if (!firstName || !phone || !classType)
     return NextResponse.json({ error: 'חסרים שדות חובה' }, { status: 400 })
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (supabaseUrl && supabaseKey) {
+    const supabase = createClient(supabaseUrl, supabaseKey)
+    const { error: dbErr } = await supabase.from('registrations').insert({
+      full_name: `${firstName} ${lastName}`.trim(), phone,
+      email: body.email || null, branch: body.branch || null,
+      class_type: classType, child_name: body.childName || null,
+      child_age: body.childAge ? parseInt(body.childAge) : null,
+      notes: body.notes || null, status: 'pending',
+    })
+    if (dbErr) console.error('DB insert error:', dbErr)
   }
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
-
-  const { error: dbErr } = await supabase.from('registrations').insert({
-    full_name:  `${firstName} ${lastName}`.trim(),
-    phone,
-    email:      body.email || null,
-    branch:     body.branch || null,
-    class_type: classType,
-    child_name: body.childName || null,
-    child_age:  body.childAge ? parseInt(body.childAge) : null,
-    notes:      body.notes || null,
-    status:     'pending',
-  })
-
-  if (dbErr) console.error('DB insert error:', dbErr)
 
   const resendKey = process.env.RESEND_API_KEY
   if (resendKey) {
@@ -64,7 +49,5 @@ export async function POST(request: NextRequest) {
   }
 
   const waText = encodeURIComponent(`הרשמה חדשה לטבע בייק!\nשם: ${firstName} ${lastName}\nטלפון: ${phone}\nחוג: ${classType}${body.branch ? ` | ${body.branch}` : ''}`)
-  const whatsappUrl = `https://wa.me/${ADMIN_PHONE}?text=${waText}`
-
-  return NextResponse.json({ success: true, whatsappUrl })
+  return NextResponse.json({ success: true, whatsappUrl: `https://wa.me/${ADMIN_PHONE}?text=${waText}` })
 }
