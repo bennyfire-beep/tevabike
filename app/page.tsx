@@ -11,12 +11,12 @@ const OFF_WHITE = '#F5F2EE'
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 const KIDS_CLASSES = [
-  { level: 'גרביטי מתחילים', branch: 'משגב',  days: "א' + ג'",  age: '6-10', icon: '🌱' },
-  { level: 'גרביטי מתחילים', branch: 'מצובה', days: "ב' + ד'",  age: '6-10', icon: '🌱' },
+  { level: 'גרביטי מתחילים', branch: 'משגב',  days: "א' + ה'",  age: '6-10', icon: '🌱' },
+  { level: 'גרביטי מתחילים', branch: 'מצובה', days: "ג'",  age: '6-10', icon: '🌱' },
   { level: 'גרביטי מתחילים', branch: 'ביריה', days: "א' + ה'",  age: '6-10', icon: '🌱' },
-  { level: 'גרביטי מתקדמים', branch: 'משגב',  days: "ב' + ד'",  age: '10-14', icon: '🔥' },
-  { level: 'גרביטי מתקדמים', branch: 'מצובה', days: "א' + ג'",  age: '10-14', icon: '🔥' },
-  { level: 'גרביטי פרו',     branch: 'משגב',  days: "ג' + ו'",  age: '12+',   icon: '⚡' },
+  { level: 'גרביטי מתקדמים', branch: 'משגב',  days: "א' + ה'",  age: '10-14', icon: '🔥' },
+  { level: 'גרביטי מתקדמים', branch: 'מצובה', days: "ג'",  age: '10-14', icon: '🔥' },
+  { level: 'גרביטי פרו',     branch: 'משגב',  days: "א' + ה'",  age: '12+',   icon: '⚡' },
 ]
 
 const ADULTS_CLASSES = [

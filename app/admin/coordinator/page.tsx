@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useAdminAuth } from '@/lib/use-admin-auth'
+import { useCoordinator } from '@/lib/coordinator-context'
 
 const MONTHS_HE = ['ינו', 'פבר', 'מרץ', 'אפר', 'מאי', 'יונ', 'יול', 'אוג', 'ספט', 'אוק', 'נוב', 'דצמ']
 const BRANCH_COLORS: Record<string, string> = {
@@ -51,7 +51,6 @@ function TrendChart({ points }: { points: MonthlyPoint[] }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: W, display: 'block' }}>
-      {/* Grid lines */}
       {[0, 25, 50, 75, 100].map(y => {
         const cy = PADDING.top + chartH - (y / maxPct) * chartH
         return (
@@ -61,8 +60,6 @@ function TrendChart({ points }: { points: MonthlyPoint[] }) {
           </g>
         )
       })}
-
-      {/* Bars */}
       {points.map((p, i) => {
         const barH = (p.pct / maxPct) * chartH
         const x    = PADDING.left + (i * (chartW / points.length)) + 2
@@ -92,7 +89,7 @@ function TrendChart({ points }: { points: MonthlyPoint[] }) {
 }
 
 export default function CoordinatorPage() {
-  const { user, loading, logout } = useAdminAuth('coordinator')
+  const user = useCoordinator()
   const [classStats, setClassStats]   = useState<ClassStat[]>([])
   const [branchStats, setBranchStats] = useState<Record<string, { present: number; total: number }>>({})
   const [alerts, setAlerts]           = useState<Alert[]>([])
@@ -112,7 +109,6 @@ export default function CoordinatorPage() {
     cutoff.setDate(cutoff.getDate() - parseInt(period))
     const cutoffStr = cutoff.toISOString().split('T')[0]
 
-    // ── Sessions + attendance for period ──────────────────────────────────
     const { data: sessions } = await supabase
       .from('class_sessions')
       .select('id, class_name, branch, session_date')
@@ -136,7 +132,6 @@ export default function CoordinatorPage() {
 
     const att = attRows ?? []
 
-    // ── Per-class stats ───────────────────────────────────────────────────
     const classMap: Record<string, ClassStat> = {}
     for (const s of sessions) {
       const key = `${s.class_name}||${s.branch}`
@@ -157,7 +152,6 @@ export default function CoordinatorPage() {
     }
     setClassStats(Object.values(classMap).sort((a, b) => b.pct - a.pct))
 
-    // ── Per-branch stats ──────────────────────────────────────────────────
     const bmap: Record<string, { present: number; total: number }> = {}
     for (const a of att) {
       const s = sessions.find(x => x.id === a.session_id)
@@ -168,7 +162,6 @@ export default function CoordinatorPage() {
     }
     setBranchStats(bmap)
 
-    // ── Alerts: riders with 2+ absences ──────────────────────────────────
     const absenceMap: Record<string, { name: string; count: number; lastClass: string; branch: string }> = {}
     for (const a of att.filter(x => !x.present)) {
       const s = sessions.find(x => x.id === a.session_id)
@@ -199,7 +192,6 @@ export default function CoordinatorPage() {
       .gte('session_date', yearAgoStr)
 
     if (!sessions?.length) {
-      // Generate empty 12-month skeleton
       const now = new Date()
       const pts: MonthlyPoint[] = Array.from({ length: 12 }, (_, i) => {
         const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1)
@@ -240,25 +232,24 @@ export default function CoordinatorPage() {
     setTrendPoints(pts)
   }
 
-  if (loading) return (
-    <div style={{ background: '#0d0f0e', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7a8f7d', fontFamily: 'Heebo, Arial, sans-serif' }}>
-      טוען...
-    </div>
-  )
+  if (!user) return null
 
-  const totalPresent = classStats.reduce((s, c) => s + c.present, 0)
-  const totalAtt     = classStats.reduce((s, c) => s + c.total, 0)
-  const avgPct       = totalAtt > 0 ? Math.round(totalPresent / totalAtt * 100) : 0
+  const totalPresent  = classStats.reduce((s, c) => s + c.present, 0)
+  const totalAtt      = classStats.reduce((s, c) => s + c.total, 0)
+  const avgPct        = totalAtt > 0 ? Math.round(totalPresent / totalAtt * 100) : 0
   const totalSessions = classStats.reduce((s, c) => s + c.sessions, 0)
 
   return (
-    <div dir="rtl" style={{ fontFamily: 'Heebo, Arial, sans-serif', background: '#0d0f0e', minHeight: '100vh', color: '#e8efe9' }}>
-      {/* ── Header ── */}
-      <div style={{ background: '#141716', borderBottom: '1px solid #252b27', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <span style={{ color: '#b5e853', fontWeight: 900, fontSize: 18 }}>🚵 טבע בייק</span>
-        <span style={{ background: '#1a2637', color: '#81d4fa', padding: '2px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>רכז סניף</span>
-        <span style={{ color: '#e8efe9', fontSize: 14, fontWeight: 700 }}>{user?.name}</span>
-        <div style={{ marginRight: 'auto', display: 'flex', gap: 8 }}>
+    <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
+      {/* Title row + period picker */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 3px' }}>לוח בקרה — {period} ימים אחרונים</h2>
+          <p style={{ color: '#7a8f7d', fontSize: 13, margin: 0 }}>
+            {new Date().toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
           {(['30', '90'] as const).map(p => (
             <button
               key={p}
@@ -268,149 +259,133 @@ export default function CoordinatorPage() {
               {p === '30' ? '30 יום' : '90 יום'}
             </button>
           ))}
-          <button onClick={logout} style={{ background: 'transparent', border: '1px solid #252b27', color: '#7a8f7d', borderRadius: 8, padding: '5px 14px', fontFamily: 'Heebo, Arial, sans-serif', fontSize: 12, cursor: 'pointer' }}>
-            יציאה
-          </button>
         </div>
       </div>
 
-      <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
-        <h2 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 6px' }}>לוח בקרה — {period} ימים אחרונים</h2>
-        <p style={{ color: '#7a8f7d', fontSize: 13, margin: '0 0 24px' }}>
-          {new Date().toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-        </p>
-
-        {dataLoading ? (
-          <div style={{ color: '#7a8f7d', padding: 40, textAlign: 'center' }}>טוען נתונים...</div>
-        ) : (
-          <>
-            {/* ── KPI Cards ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 14, marginBottom: 28 }}>
-              {[
-                { label: 'ממוצע נוכחות',  value: `${avgPct}%`,            color: avgPct >= 80 ? '#4cdb7a' : avgPct >= 60 ? '#b5e853' : '#ff8080', icon: '📊' },
-                { label: 'סה"כ אימונים', value: totalSessions,             color: '#81d4fa',  icon: '🗓️' },
-                { label: 'קבוצות פעילות', value: classStats.length,        color: '#b5e853',  icon: '🚵' },
-                { label: 'התראות',         value: alerts.length,            color: alerts.length > 0 ? '#ff8080' : '#4cdb7a', icon: '⚠️' },
-              ].map(c => (
-                <div key={c.label} style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, padding: '18px 20px' }}>
-                  <div style={{ fontSize: 22, marginBottom: 6 }}>{c.icon}</div>
-                  <div style={{ fontSize: 11, color: '#7a8f7d', marginBottom: 4 }}>{c.label}</div>
-                  <div style={{ fontSize: 30, fontWeight: 900, color: c.color }}>{c.value}</div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 28 }}>
-              {/* ── Per-class table ── */}
-              <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, overflow: 'hidden' }}>
-                <div style={{ padding: '14px 18px', borderBottom: '1px solid #252b27', fontWeight: 700, fontSize: 15 }}>
-                  נוכחות לפי קבוצה
-                </div>
-                {classStats.length === 0 ? (
-                  <div style={{ padding: 24, color: '#7a8f7d', fontSize: 13, textAlign: 'center' }}>אין נתונים</div>
-                ) : (
-                  classStats.map((c, i) => (
-                    <div key={`${c.class_name}${c.branch}`} style={{ padding: '11px 18px', borderBottom: i < classStats.length - 1 ? '1px solid #1a1e1c' : 'none' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                        <div>
-                          <span style={{ fontWeight: 600, fontSize: 13 }}>{c.class_name}</span>
-                          <span style={{ marginRight: 6, background: BRANCH_COLORS[c.branch] ? BRANCH_COLORS[c.branch] + '22' : '#1a1e1c', color: BRANCH_COLORS[c.branch] ?? '#7a8f7d', padding: '1px 8px', borderRadius: 10, fontSize: 11 }}>
-                            {c.branch}
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ color: '#7a8f7d', fontSize: 11 }}>{c.present}/{c.total}</span>
-                          <AttendanceBadge pct={c.pct} />
-                        </div>
-                      </div>
-                      <ProgressBar pct={c.pct} />
-                    </div>
-                  ))
-                )}
+      {dataLoading ? (
+        <div style={{ color: '#7a8f7d', padding: 40, textAlign: 'center' }}>טוען נתונים...</div>
+      ) : (
+        <>
+          {/* ── KPI Cards ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 14, marginBottom: 28 }}>
+            {[
+              { label: 'ממוצע נוכחות',   value: `${avgPct}%`,       color: avgPct >= 80 ? '#4cdb7a' : avgPct >= 60 ? '#b5e853' : '#ff8080', icon: '📊' },
+              { label: 'סה"כ אימונים',  value: totalSessions,        color: '#81d4fa',  icon: '🗓️' },
+              { label: 'קבוצות פעילות', value: classStats.length,    color: '#b5e853',  icon: '🚵' },
+              { label: 'התראות',         value: alerts.length,        color: alerts.length > 0 ? '#ff8080' : '#4cdb7a', icon: '⚠️' },
+            ].map(c => (
+              <div key={c.label} style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, padding: '18px 20px' }}>
+                <div style={{ fontSize: 22, marginBottom: 6 }}>{c.icon}</div>
+                <div style={{ fontSize: 11, color: '#7a8f7d', marginBottom: 4 }}>{c.label}</div>
+                <div style={{ fontSize: 30, fontWeight: 900, color: c.color }}>{c.value}</div>
               </div>
+            ))}
+          </div>
 
-              {/* ── Per-branch table ── */}
-              <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, overflow: 'hidden' }}>
-                <div style={{ padding: '14px 18px', borderBottom: '1px solid #252b27', fontWeight: 700, fontSize: 15 }}>
-                  נוכחות לפי סניף
-                </div>
-                {Object.keys(branchStats).length === 0 ? (
-                  <div style={{ padding: 24, color: '#7a8f7d', fontSize: 13, textAlign: 'center' }}>אין נתונים</div>
-                ) : (
-                  Object.entries(branchStats).map(([branch, stats], i, arr) => {
-                    const pct = stats.total > 0 ? Math.round(stats.present / stats.total * 100) : 0
-                    return (
-                      <div key={branch} style={{ padding: '14px 18px', borderBottom: i < arr.length - 1 ? '1px solid #1a1e1c' : 'none' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: BRANCH_COLORS[branch] ?? '#7a8f7d' }} />
-                            <span style={{ fontWeight: 700, fontSize: 15 }}>{branch}</span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ color: '#7a8f7d', fontSize: 12 }}>{stats.present}/{stats.total}</span>
-                            <AttendanceBadge pct={pct} />
-                          </div>
-                        </div>
-                        <ProgressBar pct={pct} />
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* ── Yearly Trend Chart ── */}
-            <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, padding: '18px 20px', marginBottom: 28 }}>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>
-                מגמת נוכחות שנתית
-              </div>
-              <TrendChart points={trendPoints} />
-              <div style={{ display: 'flex', gap: 16, marginTop: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-                {[['#4cdb7a', '80%+'], ['#b5e853', '60-79%'], ['#ff6b6b', '<60%']].map(([color, label]) => (
-                  <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#7a8f7d' }}>
-                    <span style={{ width: 10, height: 10, background: color, borderRadius: 2, display: 'inline-block' }} />
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* ── Alerts ── */}
-            <div style={{ background: '#141716', border: alerts.length > 0 ? '1px solid #ff4f4f44' : '1px solid #252b27', borderRadius: 12, overflow: 'hidden' }}>
-              <div style={{ padding: '14px 18px', borderBottom: '1px solid #252b27', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 16 }}>⚠️</span>
-                <span style={{ fontWeight: 700, fontSize: 15 }}>תלמידים עם 2+ היעדרויות</span>
-                {alerts.length > 0 && (
-                  <span style={{ background: '#ff4f4f22', color: '#ff8080', border: '1px solid #ff4f4f44', borderRadius: 20, padding: '1px 10px', fontSize: 12, fontWeight: 700 }}>
-                    {alerts.length}
-                  </span>
-                )}
-              </div>
-              {alerts.length === 0 ? (
-                <div style={{ padding: 28, color: '#4cdb7a', textAlign: 'center', fontSize: 14 }}>
-                  <div style={{ fontSize: 28, marginBottom: 6 }}>✓</div>
-                  אין תלמידים עם יותר מ-2 היעדרויות בתקופה זו
-                </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 28 }}>
+            {/* Per-class */}
+            <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid #252b27', fontWeight: 700, fontSize: 15 }}>נוכחות לפי קבוצה</div>
+              {classStats.length === 0 ? (
+                <div style={{ padding: 24, color: '#7a8f7d', fontSize: 13, textAlign: 'center' }}>אין נתונים</div>
               ) : (
-                alerts.map((a, i) => (
-                  <div key={a.riderId} style={{ padding: '12px 18px', borderBottom: i < alerts.length - 1 ? '1px solid #1a1e1c' : 'none', display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#ff4f4f22', border: '1px solid #ff4f4f44', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff8080', fontWeight: 900, fontSize: 14, flexShrink: 0 }}>
-                      {a.absences}
+                classStats.map((c, i) => (
+                  <div key={`${c.class_name}${c.branch}`} style={{ padding: '11px 18px', borderBottom: i < classStats.length - 1 ? '1px solid #1a1e1c' : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <div>
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>{c.class_name}</span>
+                        <span style={{ marginRight: 6, background: BRANCH_COLORS[c.branch] ? BRANCH_COLORS[c.branch] + '22' : '#1a1e1c', color: BRANCH_COLORS[c.branch] ?? '#7a8f7d', padding: '1px 8px', borderRadius: 10, fontSize: 11 }}>
+                          {c.branch}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ color: '#7a8f7d', fontSize: 11 }}>{c.present}/{c.total}</span>
+                        <AttendanceBadge pct={c.pct} />
+                      </div>
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{a.riderName}</div>
-                      <div style={{ color: '#7a8f7d', fontSize: 12 }}>{a.lastClass} · {a.branch}</div>
-                    </div>
-                    <span style={{ background: '#ff4f4f22', color: '#ff8080', border: '1px solid #ff4f4f44', borderRadius: 20, padding: '3px 12px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                      {a.absences} היעדרויות
-                    </span>
+                    <ProgressBar pct={c.pct} />
                   </div>
                 ))
               )}
             </div>
-          </>
-        )}
-      </div>
+
+            {/* Per-branch */}
+            <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid #252b27', fontWeight: 700, fontSize: 15 }}>נוכחות לפי סניף</div>
+              {Object.keys(branchStats).length === 0 ? (
+                <div style={{ padding: 24, color: '#7a8f7d', fontSize: 13, textAlign: 'center' }}>אין נתונים</div>
+              ) : (
+                Object.entries(branchStats).map(([branch, stats], i, arr) => {
+                  const pct = stats.total > 0 ? Math.round(stats.present / stats.total * 100) : 0
+                  return (
+                    <div key={branch} style={{ padding: '14px 18px', borderBottom: i < arr.length - 1 ? '1px solid #1a1e1c' : 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 10, height: 10, borderRadius: '50%', background: BRANCH_COLORS[branch] ?? '#7a8f7d' }} />
+                          <span style={{ fontWeight: 700, fontSize: 15 }}>{branch}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ color: '#7a8f7d', fontSize: 12 }}>{stats.present}/{stats.total}</span>
+                          <AttendanceBadge pct={pct} />
+                        </div>
+                      </div>
+                      <ProgressBar pct={pct} />
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Trend chart */}
+          <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, padding: '18px 20px', marginBottom: 28 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>מגמת נוכחות שנתית</div>
+            <TrendChart points={trendPoints} />
+            <div style={{ display: 'flex', gap: 16, marginTop: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              {[['#4cdb7a', '80%+'], ['#b5e853', '60-79%'], ['#ff6b6b', '<60%']].map(([color, label]) => (
+                <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#7a8f7d' }}>
+                  <span style={{ width: 10, height: 10, background: color, borderRadius: 2, display: 'inline-block' }} />
+                  {label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Alerts */}
+          <div style={{ background: '#141716', border: alerts.length > 0 ? '1px solid #ff4f4f44' : '1px solid #252b27', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #252b27', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 16 }}>⚠️</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>תלמידים עם 2+ היעדרויות</span>
+              {alerts.length > 0 && (
+                <span style={{ background: '#ff4f4f22', color: '#ff8080', border: '1px solid #ff4f4f44', borderRadius: 20, padding: '1px 10px', fontSize: 12, fontWeight: 700 }}>
+                  {alerts.length}
+                </span>
+              )}
+            </div>
+            {alerts.length === 0 ? (
+              <div style={{ padding: 28, color: '#4cdb7a', textAlign: 'center', fontSize: 14 }}>
+                <div style={{ fontSize: 28, marginBottom: 6 }}>✓</div>
+                אין תלמידים עם יותר מ-2 היעדרויות בתקופה זו
+              </div>
+            ) : (
+              alerts.map((a, i) => (
+                <div key={a.riderId} style={{ padding: '12px 18px', borderBottom: i < alerts.length - 1 ? '1px solid #1a1e1c' : 'none', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#ff4f4f22', border: '1px solid #ff4f4f44', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ff8080', fontWeight: 900, fontSize: 14, flexShrink: 0 }}>
+                    {a.absences}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{a.riderName}</div>
+                    <div style={{ color: '#7a8f7d', fontSize: 12 }}>{a.lastClass} · {a.branch}</div>
+                  </div>
+                  <span style={{ background: '#ff4f4f22', color: '#ff8080', border: '1px solid #ff4f4f44', borderRadius: 20, padding: '3px 12px', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    {a.absences} היעדרויות
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }

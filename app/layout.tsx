@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Heebo } from "next/font/google";
 import { Geist_Mono } from "next/font/google";
 import "./globals.css";
+import AccessibilityWidget from "@/components/AccessibilityWidget";
 
 const heebo = Heebo({
   subsets: ["hebrew", "latin"],
@@ -27,7 +28,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="he" dir="rtl" className={`${heebo.variable} ${geistMono.variable}`}>
-      <body className="min-h-full antialiased">{children}</body>
+      <body className="min-h-full antialiased">
+        {children}
+        <AccessibilityWidget />
+      </body>
     </html>
   );
 }

@@ -71,6 +71,17 @@ body {
   animation: scrollPulse 2s ease-in-out infinite;
 }
 
+/* ─── Accessibility widget modes ─────────────── */
+html.a11y-high-contrast {
+  filter: contrast(1.5);
+}
+html.a11y-grayscale {
+  filter: grayscale(1);
+}
+html.a11y-high-contrast.a11y-grayscale {
+  filter: contrast(1.5) grayscale(1);
+}
+
 /* ─── Navbar link hover ───────────────────────── */
 .nav-link {
   color: rgba(255,255,255,0.75);
