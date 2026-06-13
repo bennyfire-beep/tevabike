@@ -113,7 +113,7 @@ export default function AttendancePage() {
   async function saveAttendance() {
     if (!selected || riders.length === 0) return
     setSaving(true)
-    const records = riders.map(r => ({ session_id: selected.id, rider_id: r.id, rider_name: r.full_name, present: attendance[r.id] ?? true }))
+    const records = riders.map(r => ({ session_id: selected.id, rider_id: r.id, rider_name: r.full_name, present: attendance[r.id] ?? true, date: selected.session_date }))
     const { error } = await supabase.from('attendance').upsert(records, { onConflict: 'session_id,rider_id' })
     if (error) { alert(error.message); setSaving(false); return }
     setSavedMsg('נוכחות נשמרה! ✓')
