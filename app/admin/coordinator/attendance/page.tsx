@@ -173,6 +173,13 @@ export default function AttendancePage() {
     }
   }
 
+  async function removeFromGroup(rider: Rider) {
+    if (!window.confirm(`להסיר את ${rider.full_name} מרשימת הקבועים של הקבוצה?\nהוא יישאר במערכת, אבל לא יופיע יותר אוטומטית באימוני קבוצה זו.`)) return
+    await supabase.from('riders').update({ is_regular: false }).eq('id', rider.id)
+    setRiders(p => p.filter(x => x.id !== rider.id))
+    setAtt(p => { const n = { ...p }; delete n[rider.id]; return n })
+  }
+
   if (!user) return null
 
   const presentCount = riders.filter(r => attendance[r.id] !== false).length
@@ -348,6 +355,11 @@ export default function AttendancePage() {
                         <button onClick={e => { e.stopPropagation(); setAtt(p => ({ ...p, [r.id]: true })) }} style={{ padding: '4px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 11, background: present ? '#4cdb7a' : '#1a1e1c', color: present ? '#0d0f0e' : '#7a8f7d' }}>נוכח</button>
                         <button onClick={e => { e.stopPropagation(); setAtt(p => ({ ...p, [r.id]: false })) }} style={{ padding: '4px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 11, background: !present ? '#ff6b6b' : '#1a1e1c', color: !present ? '#0d0f0e' : '#7a8f7d' }}>נעדר</button>
                       </div>
+                      <button
+                        onClick={e => { e.stopPropagation(); removeFromGroup(r) }}
+                        title="הסר מהקבוצה"
+                        style={{ background: 'transparent', border: '1px solid #3a2626', color: '#ff8080', borderRadius: 8, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 15, flexShrink: 0 }}
+                      >🗑</button>
                     </div>
                   )
                 })
