@@ -42,6 +42,12 @@ export default function InstructorPage() {
   const [savedMsg, setSavedMsg]             = useState('')
   const [history, setHistory]               = useState<HistoryRow[]>([])
 
+  // Add-rider-from-system search
+  const [adding, setAdding]                 = useState(false)
+  const [searchQ, setSearchQ]               = useState('')
+  const [searchRes, setSearchRes]           = useState<Rider[]>([])
+  const [searching, setSearching]           = useState(false)
+
   // New-session form
   const [showNew, setShowNew]       = useState(false)
   const [newClass, setNewClass]     = useState(CLASSES[0])
@@ -93,6 +99,9 @@ export default function InstructorPage() {
     setSelectedSession(session)
     setRiders([])
     setAttendance({})
+    setAdding(false)
+    setSearchQ('')
+    setSearchRes([])
 
     const { data: riderData } = await supabase
       .from('riders')
@@ -166,6 +175,7 @@ export default function InstructorPage() {
       rider_id:   r.id,
       rider_name: r.full_name,
       present:    attendance[r.id] ?? true,
+      date:       selectedSession.session_date,
     }))
     const { error } = await supabase
       .from('attendance')
@@ -212,6 +222,29 @@ export default function InstructorPage() {
 
   function toggle(riderId: string) {
     setAttendance(p => ({ ...p, [riderId]: !p[riderId] }))
+  }
+
+  async function searchRiders(q: string) {
+    setSearchQ(q)
+    if (q.trim().length < 2) { setSearchRes([]); return }
+    setSearching(true)
+    const { data } = await supabase
+      .from('riders')
+      .select('id, full_name, phone, group_name, branch')
+      .ilike('full_name', `%${q.trim()}%`)
+      .order('full_name')
+      .limit(15)
+    const existing = new Set(riders.map(r => r.id))
+    setSearchRes((data ?? []).filter(r => !existing.has(r.id)))
+    setSearching(false)
+  }
+
+  function addRider(r: Rider) {
+    setRiders(p => [...p, r])
+    setAttendance(p => ({ ...p, [r.id]: true }))
+    setSearchQ('')
+    setSearchRes([])
+    setAdding(false)
   }
 
   if (loading) return (
@@ -349,6 +382,9 @@ export default function InstructorPage() {
               <span style={{ background: '#1a2e1a', color: '#b5e853', padding: '2px 10px', borderRadius: 12, fontSize: 12 }}>📍 {selectedSession.branch}</span>
               <span style={{ color: '#7a8f7d', fontSize: 13 }}>{selectedSession.duration_hours}ש' אימון</span>
               <div style={{ marginRight: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button onClick={() => setAdding(p => !p)} style={{ background: adding ? '#1a1e1c' : '#1f2a1f', color: adding ? '#7a8f7d' : '#b5e853', border: '1px solid #b5e85344', borderRadius: 20, padding: '5px 13px', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                  {adding ? '✕ סגור' : '➕ הוסף חניך'}
+                </button>
                 <span style={{ background: '#4cdb7a22', color: '#4cdb7a', border: '1px solid #4cdb7a44', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>
                   ✓ {presentCount}
                 </span>
@@ -358,6 +394,29 @@ export default function InstructorPage() {
                 <span style={{ color: '#7a8f7d', fontSize: 12 }}>{riders.length} תלמידים</span>
               </div>
             </div>
+
+            {adding && (
+              <div style={{ padding: '12px 20px', borderBottom: '1px solid #252b27', background: '#0d0f0e' }}>
+                <input
+                  autoFocus
+                  value={searchQ}
+                  onChange={e => searchRiders(e.target.value)}
+                  placeholder="חיפוש חניך לפי שם..."
+                  style={{ ...inp, marginBottom: (searching || searchRes.length > 0 || searchQ.trim().length >= 2) ? 10 : 0 }}
+                />
+                {searching && <div style={{ color: '#7a8f7d', fontSize: 12 }}>מחפש...</div>}
+                {searchRes.map(r => (
+                  <div key={r.id} onClick={() => addRider(r)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, cursor: 'pointer', background: '#141716', marginBottom: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13 }}>{r.full_name}</span>
+                    {r.phone && <span style={{ color: '#7a8f7d', fontSize: 12 }}>📞 {r.phone}</span>}
+                    <span style={{ marginRight: 'auto', color: '#b5e853', fontSize: 18, fontWeight: 700, lineHeight: 1 }}>＋</span>
+                  </div>
+                ))}
+                {!searching && searchQ.trim().length >= 2 && searchRes.length === 0 && (
+                  <div style={{ color: '#7a8f7d', fontSize: 12 }}>לא נמצאו רוכבים תואמים (ייתכן שכבר ברשימה)</div>
+                )}
+              </div>
+            )}
 
             {riders.length === 0 ? (
               <div style={{ padding: 32, color: '#7a8f7d', textAlign: 'center' }}>
