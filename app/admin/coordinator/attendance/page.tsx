@@ -50,6 +50,7 @@ export default function AttendancePage() {
   const [searchQ, setSearchQ]     = useState('')
   const [searchRes, setSearchRes] = useState<Rider[]>([])
   const [searching, setSearching] = useState(false)
+  const [makePermanent, setMakePermanent] = useState(false)
 
   const [showNew, setShowNew]         = useState(false)
   const [newClass, setNewClass]       = useState(CLASSES[0])
@@ -149,12 +150,27 @@ export default function AttendancePage() {
     setSearching(false)
   }
 
-  function addRider(r: Rider) {
+  async function addRider(r: Rider) {
     setRiders(p => [...p, r])
     setAtt(p => ({ ...p, [r.id]: true }))
     setSearchQ('')
     setSearchRes([])
     setAdding(false)
+    if (makePermanent && selected) {
+      const patch: Record<string, unknown> = {
+        group_name: selected.class_name,
+        branch:     selected.branch,
+        is_regular: true,
+      }
+      const { data: g } = await supabase
+        .from('groups')
+        .select('id')
+        .eq('name', selected.class_name)
+        .eq('branch', selected.branch)
+        .maybeSingle()
+      if (g?.id) patch.group_id = g.id
+      await supabase.from('riders').update(patch).eq('id', r.id)
+    }
   }
 
   if (!user) return null
@@ -290,8 +306,12 @@ export default function AttendancePage() {
                     value={searchQ}
                     onChange={e => searchRiders(e.target.value)}
                     placeholder="חיפוש חניך לפי שם..."
-                    style={{ ...inp, marginBottom: (searching || searchRes.length > 0 || searchQ.trim().length >= 2) ? 10 : 0 }}
+                    style={{ ...inp, marginBottom: 0 }}
                   />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: makePermanent ? '#b5e853' : '#7a8f7d', fontSize: 12, margin: '10px 0', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={makePermanent} onChange={e => setMakePermanent(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#b5e853', cursor: 'pointer' }} />
+                    קבע כחבר קבוע בקבוצה (יופיע אוטומטית באימונים הבאים)
+                  </label>
                   {searching && <div style={{ color: '#7a8f7d', fontSize: 12 }}>מחפש...</div>}
                   {searchRes.map(r => (
                     <div key={r.id} onClick={() => addRider(r)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, cursor: 'pointer', background: '#141716', marginBottom: 6 }}>
