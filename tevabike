@@ -1,0 +1,220 @@
+'use client'
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
+ 
+/* ────────────────────────────────────────────────────────────────────────
+   מסך נשירה — חניכים שנעדרו פעמיים ברצף
+   נתיב: app/admin/coordinator/dropouts/page.tsx
+   עצמאי לחלוטין: לא נוגע בשום קובץ אחר.
+   ──────────────────────────────────────────────────────────────────────── */
+ 
+const BRANCH_COLOR: Record<string, string> = {
+  'משגב': '#b5e853', 'מצובה': '#81d4fa', 'ביריה': '#ff8f6b', 'אמירים': '#c084fc',
+}
+ 
+type Att   = { rider_id: string; present: boolean | null; date: string | null }
+type Rider = { id: string; full_name: string; phone: string | null; group_name: string | null; branch: string | null }
+ 
+type Dropout = {
+  id: string
+  name: string
+  phone: string | null
+  group: string | null
+  branch: string | null
+  missedDates: string[]   // 2 התאריכים האחרונים שהוחמצו
+}
+ 
+// 05x-xxxxxxx  →  9725xxxxxxx  (פורמט שוואטסאפ דורש)
+function toIntlPhone(phone: string | null): string | null {
+  if (!phone) return null
+  let d = phone.replace(/\D/g, '')
+  if (!d) return null
+  if (d.startsWith('972')) return d
+  if (d.startsWith('0')) return '972' + d.slice(1)
+  return '972' + d
+}
+ 
+function waLink(intl: string, name: string): string {
+  const first = (name || '').trim().split(' ')[0] || ''
+  const msg =
+    `היי ${first}, כאן טבע בייק 🚵\n` +
+    `שמנו לב שלא הגעת לשני האימונים האחרונים — הכל בסדר?\n` +
+    `נשמח מאוד לראות אותך שוב באימון הקרוב 💚`
+  return `https://wa.me/${intl}?text=${encodeURIComponent(msg)}`
+}
+ 
+function fmtDate(d: string | null): string {
+  if (!d) return ''
+  try {
+    return new Date(d + 'T12:00:00').toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })
+  } catch { return d }
+}
+ 
+// מפתח זיכרון ל"טופל" — כולל תאריך ההיעדרות האחרון, כך שהחניך חוזר אם ייעדר שוב
+function handledKey(id: string, lastMissed: string): string {
+  return `tevabike_dropout_handled:${id}:${lastMissed}`
+}
+ 
+export default function DropoutsPage() {
+  const [loading, setLoading] = useState(true)
+  const [dropouts, setDropouts] = useState<Dropout[]>([])
+  const [branchFilter, setBranchFilter] = useState<string>('all')
+ 
+  const load = useCallback(async () => {
+    setLoading(true)
+ 
+    // 1) כל רשומות הנוכחות (rider_id, present, date)
+    const { data: att } = await supabase
+      .from('attendance')
+      .select('rider_id, present, date')
+ 
+    const rows = (att ?? []) as Att[]
+ 
+    // 2) לכל חניך — 2 הרשומות האחרונות לפי תאריך; אם שתיהן "נעדר" → נשירה
+    const byRider: Record<string, Att[]> = {}
+    for (const r of rows) {
+      if (!r.rider_id) continue
+      ;(byRider[r.rider_id] ||= []).push(r)
+    }
+ 
+    const flagged: { id: string; missedDates: string[] }[] = []
+    for (const id of Object.keys(byRider)) {
+      const sorted = byRider[id]
+        .filter(a => a.date)
+        .sort((a, b) => (b.date! < a.date! ? -1 : b.date! > a.date! ? 1 : 0))
+      const lastTwo = sorted.slice(0, 2)
+      if (lastTwo.length === 2 && lastTwo[0].present === false && lastTwo[1].present === false) {
+        flagged.push({ id, missedDates: [lastTwo[0].date!, lastTwo[1].date!] })
+      }
+    }
+ 
+    if (flagged.length === 0) { setDropouts([]); setLoading(false); return }
+ 
+    // 3) פרטי החניכים שסומנו (שם, טלפון, קבוצה)
+    const { data: ridersData } = await supabase
+      .from('riders')
+      .select('id, full_name, phone, group_name, branch')
+      .in('id', flagged.map(f => f.id))
+ 
+    const rmap: Record<string, Rider> = {}
+    for (const r of (ridersData ?? []) as Rider[]) rmap[r.id] = r
+ 
+    const result: Dropout[] = flagged
+      .map(f => {
+        const r = rmap[f.id]
+        if (!r) return null
+        return {
+          id: f.id, name: r.full_name, phone: r.phone,
+          group: r.group_name, branch: r.branch, missedDates: f.missedDates,
+        } as Dropout
+      })
+      .filter(Boolean) as Dropout[]
+ 
+    // מסתירים את מי שכבר טופל (לפי התאריך האחרון)
+    const visible = result.filter(d => {
+      try { return localStorage.getItem(handledKey(d.id, d.missedDates[0])) !== '1' }
+      catch { return true }
+    })
+ 
+    visible.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he'))
+    setDropouts(visible)
+    setLoading(false)
+  }, [])
+ 
+  useEffect(() => { load() }, [load])
+ 
+  function markHandled(d: Dropout) {
+    try { localStorage.setItem(handledKey(d.id, d.missedDates[0]), '1') } catch {}
+    setDropouts(prev => prev.filter(x => x.id !== d.id))
+  }
+ 
+  const branches = ['all', ...Array.from(new Set(dropouts.map(d => d.branch).filter(Boolean) as string[]))]
+  const shown = branchFilter === 'all' ? dropouts : dropouts.filter(d => d.branch === branchFilter)
+ 
+  return (
+    <div style={{ padding: 24, maxWidth: 900, margin: '0 auto', fontFamily: 'Heebo, Arial, sans-serif' }}>
+ 
+      {/* כותרת */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 6, flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ margin: '0 0 3px', fontSize: 20, fontWeight: 800, color: '#e8efe9' }}>
+            ⚠️ חניכים שצריך לחזור אליהם
+          </h2>
+          <p style={{ color: '#7a8f7d', fontSize: 13, margin: 0 }}>
+            מי שנעדר בשני האימונים האחרונים ברצף
+          </p>
+        </div>
+        <button
+          onClick={load}
+          style={{ marginRight: 'auto', background: '#1a1e1c', color: '#b5e853', border: '1px solid #252b27', borderRadius: 8, padding: '7px 16px', fontFamily: 'inherit', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+        >↻ רענן</button>
+      </div>
+ 
+      {/* פילטר סניף */}
+      {branches.length > 2 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '14px 0 18px' }}>
+          {branches.map(b => (
+            <button key={b} onClick={() => setBranchFilter(b)}
+              style={{
+                background: branchFilter === b ? (BRANCH_COLOR[b] || '#b5e853') : '#1a1e1c',
+                color: branchFilter === b ? '#0d0f0e' : '#7a8f7d',
+                border: '1px solid #252b27', borderRadius: 20, padding: '5px 14px',
+                fontFamily: 'inherit', fontWeight: 700, fontSize: 12, cursor: 'pointer',
+              }}>
+              {b === 'all' ? 'הכל' : b}
+            </button>
+          ))}
+        </div>
+      )}
+ 
+      {loading && <p style={{ color: '#7a8f7d', fontSize: 14, marginTop: 30 }}>טוען…</p>}
+ 
+      {!loading && shown.length === 0 && (
+        <div style={{ background: '#14181688', border: '1px solid #1a1e1c', borderRadius: 14, padding: '40px 24px', textAlign: 'center', marginTop: 20 }}>
+          <div style={{ fontSize: 38, marginBottom: 10 }}>🎉</div>
+          <div style={{ color: '#4cdb7a', fontWeight: 800, fontSize: 16 }}>אין נשירות כרגע</div>
+          <div style={{ color: '#7a8f7d', fontSize: 13, marginTop: 4 }}>כל החניכים מגיעים — כל הכבוד!</div>
+        </div>
+      )}
+ 
+      {!loading && shown.map(d => {
+        const intl = toIntlPhone(d.phone)
+        return (
+          <div key={d.id} style={{ background: '#14181688', border: '1px solid #2a1414', borderRight: '3px solid #ff6b6b', borderRadius: 14, padding: '16px 18px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 180 }}>
+              <div style={{ fontWeight: 800, fontSize: 16, color: '#e8efe9' }}>{d.name}</div>
+              <div style={{ color: '#7a8f7d', fontSize: 12, marginTop: 3, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {d.group && <span style={{ color: BRANCH_COLOR[d.branch || ''] || '#b5e853' }}>{d.group}</span>}
+                {d.branch && <span>· {d.branch}</span>}
+              </div>
+              <div style={{ color: '#ff8080', fontSize: 12, marginTop: 4 }}>
+                ✗ הוחמצו: {d.missedDates.map(fmtDate).join('  ·  ')}
+              </div>
+              {!intl && <div style={{ color: '#c9923f', fontSize: 12, marginTop: 4 }}>אין מספר טלפון לחניך — הוסיפו בכרטיס</div>}
+            </div>
+ 
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {intl && (
+                <a href={waLink(intl, d.name)} target="_blank" rel="noopener noreferrer"
+                  style={{ background: '#25D366', color: '#0d0f0e', borderRadius: 22, padding: '9px 18px', fontWeight: 800, fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap' }}>
+                  💬 שלח וואטסאפ
+                </a>
+              )}
+              <button onClick={() => markHandled(d)}
+                style={{ background: '#1a1e1c', color: '#7a8f7d', border: '1px solid #252b27', borderRadius: 22, padding: '9px 16px', fontFamily: 'inherit', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                ✓ סומן כטופל
+              </button>
+            </div>
+          </div>
+        )
+      })}
+ 
+      {!loading && shown.length > 0 && (
+        <p style={{ color: '#7a8f7d', fontSize: 12, marginTop: 18, textAlign: 'center' }}>
+          {shown.length} חניכים ברשימה
+        </p>
+      )}
+    </div>
+  )
+}
+ 
