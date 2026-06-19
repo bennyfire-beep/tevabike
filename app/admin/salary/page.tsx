@@ -158,14 +158,14 @@ export default function SalaryPage() {
 
     const { first, last } = firstLastDay(month)
 
-    const [{ data: instructors }, { data: hoursRows }] = await Promise.all([
+    const [{ data: instructors }, { data: sessionRows }] = await Promise.all([
       supabase.from('admin_roles').select('id, name, branch, hourly_rate').eq('role', 'instructor').order('name'),
-      supabase.from('instructor_hours').select('instructor_id, date, class_name, branch, hours').gte('date', first).lte('date', last).order('date'),
+      supabase.from('class_sessions').select('instructor_id, session_date, class_name, branch, duration').not('instructor_id', 'is', null).gte('session_date', first).lte('session_date', last).order('session_date'),
     ])
 
     const compiled: InstructorRow[] = (instructors ?? []).map(inst => {
-      const detail = (hoursRows ?? []).filter(h => h.instructor_id === inst.id)
-      const totalHours  = detail.reduce((s, h) => s + Number(h.hours), 0)
+      const detail = (sessionRows ?? []).filter(h => h.instructor_id === inst.id)
+      const totalHours  = detail.reduce((s, h) => s + Number(h.duration ?? 0), 0)
       const hourlyRate  = inst.hourly_rate ?? 60
       return {
         adminRoleId: inst.id,
@@ -175,7 +175,7 @@ export default function SalaryPage() {
         totalHours:  Math.round(totalHours * 10) / 10,
         totalSalary: Math.round(totalHours * hourlyRate),
         sessions:    detail.length,
-        hoursDetail: detail.map(h => ({ date: h.date, class_name: h.class_name, branch: h.branch, hours: Number(h.hours) })),
+        hoursDetail: detail.map(h => ({ date: h.session_date, class_name: h.class_name, branch: h.branch, hours: Number(h.duration ?? 0) })),
       }
     })
 
