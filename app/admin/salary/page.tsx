@@ -19,6 +19,10 @@ type InstructorRow = {
   totalSalary: number
   sessions:    number
   hoursDetail: HoursDetail[]
+  workdays:     number
+  travelMode:   'none' | 'pass' | 'car'
+  travelKm:     number
+  travelAmount: number
 }
 
 type HoursDetail = {
@@ -115,8 +119,9 @@ function printPayslip(row: InstructorRow, ym: string) {
   </table>
 
   <div class="total-box">
+    ${row.travelAmount > 0 ? `<div style="font-size:13px;color:#555;margin-bottom:8px">שכר עבודה: ₪${row.totalSalary.toLocaleString()} &nbsp;·&nbsp; החזר נסיעות: ₪${row.travelAmount.toLocaleString()}</div>` : ''}
     <div style="font-size:12px;color:#555;margin-bottom:4px">סה"כ לתשלום</div>
-    <div class="amount">₪${row.totalSalary.toLocaleString()}</div>
+    <div class="amount">₪${(row.totalSalary + row.travelAmount).toLocaleString()}</div>
   </div>
 
   <div class="footer">
@@ -158,15 +163,18 @@ export default function SalaryPage() {
 
     const { first, last } = firstLastDay(month)
 
-    const [{ data: instructors }, { data: sessionRows }] = await Promise.all([
+    const [{ data: instructors }, { data: sessionRows }, { data: travelRows }] = await Promise.all([
       supabase.from('admin_roles').select('id, name, branch, hourly_rate').eq('role', 'instructor').order('name'),
       supabase.from('class_sessions').select('instructor_id, session_date, class_name, branch, duration').not('instructor_id', 'is', null).gte('session_date', first).lte('session_date', last).order('session_date'),
+      supabase.from('instructor_travel').select('instructor_id, mode, km, amount').eq('month', month),
     ])
 
     const compiled: InstructorRow[] = (instructors ?? []).map(inst => {
       const detail = (sessionRows ?? []).filter(h => h.instructor_id === inst.id)
       const totalHours  = detail.reduce((s, h) => s + Number(h.duration ?? 0), 0)
       const hourlyRate  = inst.hourly_rate ?? 60
+      const workdays    = new Set(detail.map(h => h.session_date)).size
+      const tr          = (travelRows ?? []).find(t => t.instructor_id === inst.id)
       return {
         adminRoleId: inst.id,
         name:        inst.name,
@@ -176,6 +184,10 @@ export default function SalaryPage() {
         totalSalary: Math.round(totalHours * hourlyRate),
         sessions:    detail.length,
         hoursDetail: detail.map(h => ({ date: h.session_date, class_name: h.class_name, branch: h.branch, hours: Number(h.duration ?? 0) })),
+        workdays,
+        travelMode:   (tr?.mode as 'none' | 'pass' | 'car') ?? 'none',
+        travelKm:     Number(tr?.km ?? 0),
+        travelAmount: Number(tr?.amount ?? 0),
       }
     })
 
@@ -195,6 +207,14 @@ export default function SalaryPage() {
       setEditingRate(null)
     } else alert('שגיאה: ' + error.message)
     setSavingRate(false)
+  }
+
+  async function updateTravel(adminRoleId: string, mode: 'none' | 'pass' | 'car', km: number, amount: number) {
+    setRows(prev => prev.map(r => r.adminRoleId === adminRoleId ? { ...r, travelMode: mode, travelKm: km, travelAmount: amount } : r))
+    await supabase.from('instructor_travel').upsert(
+      { instructor_id: adminRoleId, month, mode, km, amount },
+      { onConflict: 'instructor_id,month' }
+    )
   }
 
   async function sendReport() {
@@ -218,6 +238,8 @@ export default function SalaryPage() {
 
   const totalHours  = rows.reduce((s, r) => s + r.totalHours,  0)
   const totalSalary = rows.reduce((s, r) => s + r.totalSalary, 0)
+  const totalTravel = rows.reduce((s, r) => s + r.travelAmount, 0)
+  const totalPay    = totalSalary + totalTravel
   const canEditRate = user?.role === 'coordinator'
 
   return (
@@ -264,7 +286,7 @@ export default function SalaryPage() {
           {[
             { icon: '👥', label: 'מדריכים',       value: rows.length,                        color: '#81d4fa' },
             { icon: '⏱️', label: 'סה"כ שעות',     value: `${Math.round(totalHours * 10) / 10}ש'`, color: '#b5e853' },
-            { icon: '💰', label: 'סה"כ לתשלום',   value: `₪${totalSalary.toLocaleString()}`, color: '#4cdb7a' },
+            { icon: '💰', label: 'סה"כ לתשלום',   value: `₪${totalPay.toLocaleString()}`, color: '#4cdb7a' },
             { icon: '🗓️', label: 'שיעורים החודש', value: rows.reduce((s, r) => s + r.sessions, 0), color: PINK },
           ].map(c => (
             <div key={c.label} style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, padding: '18px 20px' }}>
@@ -332,9 +354,10 @@ export default function SalaryPage() {
                     )}
                   </div>
 
-                  {/* Total salary */}
+                  {/* Total salary + travel */}
                   <span style={{ color: '#4cdb7a', fontWeight: 900, fontSize: 17 }}>
-                    ₪{row.totalSalary.toLocaleString()}
+                    ₪{(row.totalSalary + row.travelAmount).toLocaleString()}
+                    {row.travelAmount > 0 && <span style={{ display: 'block', color: '#7a8f7d', fontSize: 10, fontWeight: 600 }}>שכר ₪{row.totalSalary.toLocaleString()} + נסיעות ₪{row.travelAmount.toLocaleString()}</span>}
                   </span>
 
                   {/* Actions */}
@@ -347,6 +370,48 @@ export default function SalaryPage() {
                       📄 הפק תלוש
                     </button>
                   </div>
+                </div>
+
+                {/* Travel reimbursement strip */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '8px 20px', borderBottom: '1px solid #1a1e1c', background: '#10130f' }}>
+                  <span style={{ color: '#7a8f7d', fontSize: 12, fontWeight: 600 }}>🚌 החזר נסיעות:</span>
+                  {([['none', 'ללא'], ['pass', 'חופשי חודשי'], ['car', 'רכב']] as const).map(([m, lbl]) => (
+                    <button
+                      key={m}
+                      onClick={() => {
+                        const km = m === 'car' ? row.travelKm : 0
+                        const amount = m === 'pass' ? 7 * row.workdays : m === 'car' ? row.travelKm * 1 : 0
+                        updateTravel(row.adminRoleId, m, km, amount)
+                      }}
+                      style={{ background: row.travelMode === m ? '#b5e853' : '#1a1e1c', color: row.travelMode === m ? '#0d0f0e' : '#7a8f7d', border: 'none', borderRadius: 14, padding: '3px 12px', fontFamily: 'Heebo, Arial, sans-serif', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                    >{lbl}</button>
+                  ))}
+                  {row.travelMode === 'pass' && (
+                    <span style={{ color: '#7a8f7d', fontSize: 11 }}>הצעה: 7₪ × {row.workdays} ימים</span>
+                  )}
+                  {row.travelMode === 'car' && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ color: '#7a8f7d', fontSize: 11 }}>ק&quot;מ:</span>
+                      <input
+                        type="number" min="0" value={row.travelKm || ''}
+                        onChange={e => { const km = parseFloat(e.target.value) || 0; updateTravel(row.adminRoleId, 'car', km, km * 1) }}
+                        style={{ width: 70, background: '#0d0f0e', border: '1px solid #252b27', borderRadius: 6, color: '#e8efe9', fontFamily: 'Heebo, Arial, sans-serif', fontSize: 12, padding: '3px 8px', outline: 'none' }}
+                      />
+                    </span>
+                  )}
+                  {row.travelMode !== 'none' && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ color: '#7a8f7d', fontSize: 11 }}>סכום ₪:</span>
+                      <input
+                        type="number" min="0" value={row.travelAmount || ''}
+                        onChange={e => updateTravel(row.adminRoleId, row.travelMode, row.travelKm, parseFloat(e.target.value) || 0)}
+                        style={{ width: 80, background: '#0d0f0e', border: `1px solid ${PINK}`, borderRadius: 6, color: '#e8efe9', fontFamily: 'Heebo, Arial, sans-serif', fontSize: 12, fontWeight: 700, padding: '3px 8px', outline: 'none' }}
+                      />
+                    </span>
+                  )}
+                  {row.travelAmount > 0 && (
+                    <span style={{ color: '#4cdb7a', fontSize: 12, fontWeight: 700, marginRight: 'auto' }}>+₪{row.travelAmount.toLocaleString()}</span>
+                  )}
                 </div>
 
                 {/* Detail rows for this instructor (collapsible-like mini table) */}
@@ -377,7 +442,7 @@ export default function SalaryPage() {
               <span style={{ color: '#81d4fa', fontWeight: 700 }}>{rows.reduce((s, r) => s + r.sessions, 0)}</span>
               <span style={{ color: '#b5e853', fontWeight: 700 }}>{Math.round(totalHours * 10) / 10}ש'</span>
               <span />
-              <span style={{ color: '#4cdb7a', fontWeight: 900, fontSize: 18 }}>₪{totalSalary.toLocaleString()}</span>
+              <span style={{ color: '#4cdb7a', fontWeight: 900, fontSize: 18 }}>₪{totalPay.toLocaleString()}</span>
               <span />
             </div>
           )}
