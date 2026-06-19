@@ -3,8 +3,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 
-const CLASSES  = ['גרביטי מתחילים', 'גרביטי מתקדמים', 'גרביטי פרו', 'רכיבה טכנית', 'כושר ואושר', 'רכיבה לנשים', 'טכני חשמלי', 'נשים טכני']
-const BRANCHES = ['משגב', 'מצובה', 'ביריה', 'אמירים']
 const BRANCH_COLOR: Record<string, string> = {
   'משגב':  '#b5e853',
   'מצובה': '#81d4fa',
@@ -21,9 +19,22 @@ type Session = {
   instructor_id: string | null
   status: string | null
   notes: string | null
+  group_id: string | null
+  start_time: string | null
+  end_time: string | null
 }
 type Rider       = { id: string; full_name: string; phone: string | null }
 type Instructor  = { id: string; name: string }
+type Group       = { id: string; name: string; branch: string; start_time: string | null; end_time: string | null }
+
+const fmtTime = (t: string | null) => (t ? t.slice(0, 5) : '')
+function hoursBetween(start: string | null, end: string | null): number | null {
+  if (!start || !end) return null
+  const [sh, sm] = start.split(':').map(Number)
+  const [eh, em] = end.split(':').map(Number)
+  const diff = (eh * 60 + em) - (sh * 60 + sm)
+  return diff > 0 ? +(diff / 60).toFixed(2) : null
+}
 
 const inp: React.CSSProperties = {
   background: '#0d0f0e', border: '1px solid #252b27', borderRadius: 8,
@@ -52,9 +63,9 @@ export default function AttendancePage() {
   const [searching, setSearching] = useState(false)
   const [makePermanent, setMakePermanent] = useState(false)
 
+  const [groups, setGroups]           = useState<Group[]>([])
   const [showNew, setShowNew]         = useState(false)
-  const [newClass, setNewClass]       = useState(CLASSES[0])
-  const [newBranch, setNewBranch]     = useState('')
+  const [newGroupId, setNewGroupId]   = useState('')
   const [newInstructor, setNewInst]   = useState('')
   const [newHours, setNewHours]       = useState('1.5')
   const [creating, setCreating]       = useState(false)
@@ -63,6 +74,8 @@ export default function AttendancePage() {
     if (!user) return
     supabase.from('admin_roles').select('id, name').eq('role', 'instructor').order('name')
       .then(({ data }) => setInst(data ?? []))
+    supabase.from('groups').select('id, name, branch, start_time, end_time').eq('is_active', true).order('branch').order('name')
+      .then(({ data }) => setGroups((data ?? []) as Group[]))
   }, [user])
 
   useEffect(() => {
@@ -78,7 +91,7 @@ export default function AttendancePage() {
     setAtt({})
     const { data } = await supabase
       .from('class_sessions')
-      .select('id, class_name, branch, session_date, duration, instructor_id, status, notes')
+      .select('id, class_name, branch, session_date, duration, instructor_id, status, notes, group_id, start_time, end_time')
       .eq('session_date', date)
       .order('class_name')
     setSessions((data ?? []) as Session[])
@@ -105,12 +118,13 @@ export default function AttendancePage() {
   }, [])
 
   async function createSession() {
-    if (!newBranch) return
+    const g = groups.find(x => x.id === newGroupId)
+    if (!g) return
     setCreating(true)
     const { data, error } = await supabase
       .from('class_sessions')
-      .insert({ class_name: newClass, branch: newBranch, session_date: date, instructor_id: newInstructor || null, duration: parseFloat(newHours) || 1.5, status: 'open' })
-      .select('id, class_name, branch, session_date, duration, instructor_id, status, notes')
+      .insert({ group_id: g.id, class_name: g.name, branch: g.branch, session_date: date, start_time: g.start_time, end_time: g.end_time, instructor_id: newInstructor || null, duration: parseFloat(newHours) || 1.5, status: 'open' })
+      .select('id, class_name, branch, session_date, duration, instructor_id, status, notes, group_id, start_time, end_time')
       .single()
     if (error) { alert(error.message); setCreating(false); return }
     const s = data as unknown as Session
@@ -123,7 +137,10 @@ export default function AttendancePage() {
   async function saveAttendance() {
     if (!selected || riders.length === 0) return
     setSaving(true)
-    const records = riders.map(r => ({ session_id: selected.id, rider_id: r.id, rider_name: r.full_name, present: attendance[r.id] ?? true, date: selected.session_date }))
+    const records = riders.map(r => {
+      const present = attendance[r.id] ?? true
+      return { session_id: selected.id, rider_id: r.id, rider_name: r.full_name, present, status: present ? 'present' : 'absent', group_id: selected.group_id, date: selected.session_date }
+    })
     const { error } = await supabase.from('attendance').upsert(records, { onConflict: 'session_id,rider_id' })
     if (error) { alert(error.message); setSaving(false); return }
     setSavedMsg('נוכחות נשמרה! ✓')
@@ -215,18 +232,25 @@ export default function AttendancePage() {
       {showNew && (
         <div style={{ background: '#141716', border: '1px solid #b5e85344', borderRadius: 12, padding: 20, marginBottom: 20 }}>
           <h3 style={{ margin: '0 0 16px', fontSize: 15, color: '#b5e853' }}>פתיחת אימון חדש</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 14 }}>
             <div>
-              <label style={{ fontSize: 11, color: '#7a8f7d', display: 'block', marginBottom: 4 }}>קבוצה</label>
-              <select value={newClass} onChange={e => setNewClass(e.target.value)} style={inp}>
-                {CLASSES.map(c => <option key={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 11, color: '#7a8f7d', display: 'block', marginBottom: 4 }}>סניף *</label>
-              <select value={newBranch} onChange={e => setNewBranch(e.target.value)} style={inp}>
-                <option value="">בחר סניף...</option>
-                {BRANCHES.map(b => <option key={b}>{b}</option>)}
+              <label style={{ fontSize: 11, color: '#7a8f7d', display: 'block', marginBottom: 4 }}>קבוצה *</label>
+              <select
+                value={newGroupId}
+                onChange={e => {
+                  setNewGroupId(e.target.value)
+                  const g = groups.find(x => x.id === e.target.value)
+                  const h = g ? hoursBetween(g.start_time, g.end_time) : null
+                  if (h) setNewHours(String(h))
+                }}
+                style={inp}
+              >
+                <option value="">בחר קבוצה...</option>
+                {groups.map(g => (
+                  <option key={g.id} value={g.id}>
+                    {g.name} · {g.branch}{g.start_time ? ` · ${fmtTime(g.start_time)}` : ''}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -243,8 +267,8 @@ export default function AttendancePage() {
           </div>
           <button
             onClick={createSession}
-            disabled={creating || !newBranch}
-            style={{ background: creating || !newBranch ? '#3a4f3a' : '#b5e853', color: creating || !newBranch ? '#7a8f7d' : '#0d0f0e', border: 'none', borderRadius: 8, padding: '10px 22px', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 15, cursor: creating || !newBranch ? 'default' : 'pointer' }}
+            disabled={creating || !newGroupId}
+            style={{ background: creating || !newGroupId ? '#3a4f3a' : '#b5e853', color: creating || !newGroupId ? '#7a8f7d' : '#0d0f0e', border: 'none', borderRadius: 8, padding: '10px 22px', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 15, cursor: creating || !newGroupId ? 'default' : 'pointer' }}
           >
             {creating ? 'יוצר...' : '✓ פתח אימון'}
           </button>
@@ -280,6 +304,7 @@ export default function AttendancePage() {
                     <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 5, color: isSelected ? '#b5e853' : '#e8efe9' }}>{s.class_name}</div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                       <span style={{ background: bc + '22', color: bc, borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>{s.branch}</span>
+                      {s.start_time && <span style={{ color: '#7a8f7d', fontSize: 11 }}>🕒 {fmtTime(s.start_time)}</span>}
                       {s.instructor_id && <span style={{ color: '#7a8f7d', fontSize: 11 }}>👤 {instructors.find(i => i.id === s.instructor_id)?.name}</span>}
                       <span style={{ color: '#7a8f7d', fontSize: 11 }}>{s.duration}ש׳</span>
                     </div>
@@ -296,6 +321,7 @@ export default function AttendancePage() {
               <div style={{ padding: '14px 20px', borderBottom: '1px solid #252b27', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <span style={{ fontWeight: 800, fontSize: 16 }}>{selected.class_name}</span>
                 <span style={{ color: '#7a8f7d', fontSize: 13 }}>📍 {selected.branch}</span>
+                {selected.start_time && <span style={{ color: '#7a8f7d', fontSize: 13 }}>🕒 {fmtTime(selected.start_time)}{selected.end_time ? `–${fmtTime(selected.end_time)}` : ''}</span>}
                 {selected.instructor_id && <span style={{ color: '#7a8f7d', fontSize: 13 }}>👤 {instructors.find(i => i.id === selected.instructor_id)?.name}</span>}
                 <div style={{ marginRight: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
                   <button onClick={() => setAdding(p => !p)} style={{ background: adding ? '#1a1e1c' : '#1f2a1f', color: adding ? '#7a8f7d' : '#b5e853', border: '1px solid #b5e85344', borderRadius: 20, padding: '5px 13px', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
