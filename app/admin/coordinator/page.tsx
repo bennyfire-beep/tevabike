@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
+import Link from 'next/link'
 
 const MONTHS_HE = ['ינו', 'פבר', 'מרץ', 'אפר', 'מאי', 'יונ', 'יול', 'אוג', 'ספט', 'אוק', 'נוב', 'דצמ']
 const BRANCH_COLORS: Record<string, string> = {
@@ -290,7 +291,7 @@ export default function CoordinatorPage() {
                 <div style={{ padding: 24, color: '#7a8f7d', fontSize: 13, textAlign: 'center' }}>אין נתונים</div>
               ) : (
                 classStats.map((c, i) => (
-                  <div key={`${c.class_name}${c.branch}`} style={{ padding: '11px 18px', borderBottom: i < classStats.length - 1 ? '1px solid #1a1e1c' : 'none' }}>
+                  <Link key={`${c.class_name}${c.branch}`} href={`/admin/coordinator/history?group=${encodeURIComponent(c.class_name)}&branch=${encodeURIComponent(c.branch)}`} style={{ display: 'block', textDecoration: 'none', color: 'inherit', cursor: 'pointer', padding: '11px 18px', borderBottom: i < classStats.length - 1 ? '1px solid #1a1e1c' : 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                       <div>
                         <span style={{ fontWeight: 600, fontSize: 13 }}>{c.class_name}</span>
@@ -304,7 +305,7 @@ export default function CoordinatorPage() {
                       </div>
                     </div>
                     <ProgressBar pct={c.pct} />
-                  </div>
+                  </Link>
                 ))
               )}
             </div>
@@ -318,7 +319,7 @@ export default function CoordinatorPage() {
                 Object.entries(branchStats).map(([branch, stats], i, arr) => {
                   const pct = stats.total > 0 ? Math.round(stats.present / stats.total * 100) : 0
                   return (
-                    <div key={branch} style={{ padding: '14px 18px', borderBottom: i < arr.length - 1 ? '1px solid #1a1e1c' : 'none' }}>
+                    <Link key={branch} href={`/admin/coordinator/history?branch=${encodeURIComponent(branch)}`} style={{ display: 'block', textDecoration: 'none', color: 'inherit', cursor: 'pointer', padding: '14px 18px', borderBottom: i < arr.length - 1 ? '1px solid #1a1e1c' : 'none' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{ width: 10, height: 10, borderRadius: '50%', background: BRANCH_COLORS[branch] ?? '#7a8f7d' }} />
@@ -330,7 +331,7 @@ export default function CoordinatorPage() {
                         </div>
                       </div>
                       <ProgressBar pct={pct} />
-                    </div>
+                    </Link>
                   )
                 })
               )}
