@@ -41,18 +41,20 @@ export default function HistoryPage() {
   const [openId, setOpenId]   = useState<string | null>(null)
   const [attMap, setAttMap]   = useState<Record<string, AttRow[]>>({})
   const [attLoading, setAttLoading] = useState(false)
+  const [paramsReady, setParamsReady] = useState(false)
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search)
     setBranch(p.get('branch') ?? '')
     setGroup(p.get('group') ?? '')
+    setParamsReady(true)
   }, [])
 
   useEffect(() => {
-    if (!user) return
+    if (!user || !paramsReady) return
     load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, branch, group])
+  }, [user, paramsReady, branch, group])
 
   async function load() {
     setLoading(true)
