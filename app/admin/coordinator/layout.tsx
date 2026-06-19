@@ -9,6 +9,7 @@ const NAV = [
   { href: '/admin/coordinator/groups',     label: 'קבוצות',   exact: false },
   { href: '/admin/coordinator/students',   label: 'תלמידים',  exact: false },
   { href: '/admin/coordinator/attendance', label: 'נוכחות',   exact: false },
+  { href: '/admin/coordinator/history',    label: 'היסטוריה', exact: false },
 ]
 
 export default function CoordinatorLayout({ children }: { children: React.ReactNode }) {
