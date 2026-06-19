@@ -119,8 +119,9 @@ function printPayslip(row: InstructorRow, ym: string) {
   </table>
 
   <div class="total-box">
-    ${row.travelAmount > 0 ? `<div style="font-size:13px;color:#555;margin-bottom:8px">שכר עבודה: ₪${row.totalSalary.toLocaleString()} &nbsp;·&nbsp; החזר נסיעות: ₪${row.travelAmount.toLocaleString()}</div>` : ''}
-    <div style="font-size:12px;color:#555;margin-bottom:4px">סה"כ לתשלום</div>
+    <div style="font-size:13px;color:#555;margin-bottom:6px">שכר עבודה (${row.totalHours} ש'): <b style="color:#111">₪${row.totalSalary.toLocaleString()}</b></div>
+    ${row.travelAmount > 0 ? `<div style="font-size:13px;color:#555;margin-bottom:6px">${row.travelMode === 'car' ? `החזר דלק (רכב${row.travelKm ? ` · ${row.travelKm} ק"מ` : ''})` : 'החזר נסיעות (חופשי חודשי)'}: <b style="color:#111">₪${row.travelAmount.toLocaleString()}</b></div>` : ''}
+    <div style="font-size:12px;color:#555;margin:8px 0 4px;border-top:1px solid #ddd;padding-top:8px">סה"כ לתשלום</div>
     <div class="amount">₪${(row.totalSalary + row.travelAmount).toLocaleString()}</div>
   </div>
 
