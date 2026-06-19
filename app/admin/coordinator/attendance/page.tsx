@@ -320,6 +320,7 @@ export default function AttendancePage() {
               {/* Panel header */}
               <div style={{ padding: '14px 20px', borderBottom: '1px solid #252b27', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <span style={{ fontWeight: 800, fontSize: 16 }}>{selected.class_name}</span>
+                <span style={{ color: '#b5e853', fontSize: 13, fontWeight: 600 }}>📅 {new Date(selected.session_date + 'T12:00:00').toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: 'numeric' })}</span>
                 <span style={{ color: '#7a8f7d', fontSize: 13 }}>📍 {selected.branch}</span>
                 {selected.start_time && <span style={{ color: '#7a8f7d', fontSize: 13 }}>🕒 {fmtTime(selected.start_time)}{selected.end_time ? `–${fmtTime(selected.end_time)}` : ''}</span>}
                 {selected.instructor_id && <span style={{ color: '#7a8f7d', fontSize: 13 }}>👤 {instructors.find(i => i.id === selected.instructor_id)?.name}</span>}
