@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -44,7 +44,7 @@ function ResetSuccessBanner() {
   if (searchParams.get('reset') !== 'success') return null
   return (
     <div style={{ background: '#4cdb7a22', border: '1px solid #4cdb7a44', borderRadius: 8, padding: '10px 14px', color: '#4cdb7a', fontSize: 13, marginBottom: 16, textAlign: 'center' }}>
-      âœ“ ×”×¡×™×¡×ž×” ×¢×•×“×›× ×” ×‘×”×¦×œ×—×” â€” ××¤×©×¨ ×œ×”×ª×—×‘×¨ ×¢×›×©×™×•
+      ✓ הסיסמה עודכנה בהצלחה — אפשר להתחבר עכשיו
     </div>
   )
 }
@@ -70,7 +70,7 @@ export default function AdminLoginPage() {
     setLoading(true)
     setError('')
 
-    // â”€â”€ Rate limit check (server-side) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Rate limit check (server-side) ──────────────────────────────────────
     const rl = await checkRateLimit(email.toLowerCase(), 'login')
     if (!rl.allowed) {
       setError(rl.message)
@@ -78,12 +78,12 @@ export default function AdminLoginPage() {
       return
     }
     if (rl.allowed && rl.remainingAttempts <= 1) {
-      setError(`××–×”×¨×”: ${rl.remainingAttempts} × ×™×¡×™×•×Ÿ × ×•×ª×¨ ×œ×¤× ×™ ×—×¡×™×ž×”`)
+      setError(`אזהרה: ${rl.remainingAttempts} ניסיון נותר לפני חסימה`)
     }
 
     const { data, error: authErr } = await supabase.auth.signInWithPassword({ email, password })
     if (authErr || !data.user) {
-      setError((error || '') + '\n×©× ×ž×©×ª×ž×© ××• ×¡×™×¡×ž×” ×©×’×•×™×™×')
+      setError((error || '') + '\nשם משתמש או סיסמה שגויים')
       setLoading(false)
       return
     }
@@ -96,12 +96,12 @@ export default function AdminLoginPage() {
 
     if (roleErr || !rd) {
       await supabase.auth.signOut()
-      setError('×œ×—×©×‘×•×Ÿ ×–×” ××™×Ÿ ×”×¨×©××•×ª ×’×™×©×” ×œ×ž×¢×¨×›×ª ×”× ×™×”×•×œ')
+      setError('לחשבון זה אין הרשאות גישה למערכת הניהול')
       setLoading(false)
       return
     }
 
-    // â”€â”€ Set httpOnly auth cookies (read by proxy.ts) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Set httpOnly auth cookies (read by proxy.ts) ─────────────────────────
     await setAdminSession(data.session!.access_token, rd.role)
     // Reset rate limit counter on success
     await resetRateLimit(email.toLowerCase(), 'login')
@@ -111,9 +111,9 @@ export default function AdminLoginPage() {
   }
 
   const ROLE_LABELS: Record<string, string> = {
-    instructor:  '×ž×“×¨×™×š',
-    coordinator: '×¨×›×– ×¡× ×™×£',
-    accountant:  '×¨×•××” ×—×©×‘×•×Ÿ',
+    instructor:  'מדריך',
+    coordinator: 'רכז סניף',
+    accountant:  'רואה חשבון',
   }
 
   return (
@@ -123,11 +123,11 @@ export default function AdminLoginPage() {
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <img
             src="/logo.png"
-            alt="×˜×‘×¢ ×‘×™×™×§"
+            alt="טבע בייק"
             style={{ height: 54, borderRadius: 8, display: 'block', margin: '0 auto 12px' }}
           />
           <p style={{ color: '#7a8f7d', fontSize: 13, margin: 0 }}>
-            ×›× ×™×¡×” ×œ×ž×¢×¨×›×ª ×”× ×™×”×•×œ
+            כניסה למערכת הניהול
           </p>
         </div>
 
@@ -139,7 +139,7 @@ export default function AdminLoginPage() {
         {/* Form */}
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label style={S.label}>××™×ž×™×™×œ</label>
+            <label style={S.label}>אימייל</label>
             <input
               type="email"
               value={email}
@@ -150,12 +150,12 @@ export default function AdminLoginPage() {
             />
           </div>
           <div>
-            <label style={S.label}>×¡×™×¡×ž×”</label>
+            <label style={S.label}>סיסמה</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+              placeholder="••••••••"
               required
               style={S.input}
             />
@@ -184,7 +184,7 @@ export default function AdminLoginPage() {
               transition: 'background .15s',
             }}
           >
-            {loading ? '×ž×ª×—×‘×¨...' : '×›× ×™×¡×”'}
+            {loading ? 'מתחבר...' : 'כניסה'}
           </button>
 
           {/* Forgot password */}
@@ -194,14 +194,14 @@ export default function AdminLoginPage() {
             onMouseEnter={e => (e.currentTarget.style.color = '#b5e853')}
             onMouseLeave={e => (e.currentTarget.style.color = '#7a8f7d')}
           >
-            ×©×›×—×ª×™ ×¡×™×¡×ž×”
+            שכחתי סיסמה
           </a>
         </form>
 
         {/* Role hints */}
         <div style={{ marginTop: 28, borderTop: '1px solid #252b27', paddingTop: 20 }}>
           <p style={{ color: '#7a8f7d', fontSize: 11, textAlign: 'center', margin: '0 0 12px' }}>
-            ×ª×¤×§×™×“×™× ×‘×ž×¢×¨×›×ª
+            תפקידים במערכת
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
             {Object.entries(ROLE_LABELS).map(([, label]) => (
