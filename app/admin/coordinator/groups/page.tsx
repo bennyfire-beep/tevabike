@@ -71,17 +71,17 @@ export default function GroupsPage() {
 
   async function load() {
     setLoading(true)
-    const [{ data: grps }, { data: insts }, { data: riders }] = await Promise.all([
+    const [{ data: grps }, { data: insts }, { data: memberships }] = await Promise.all([
       supabase.from('groups').select('*').order('branch').order('name'),
       supabase.from('admin_roles').select('id, name, branch').eq('role', 'instructor').order('name'),
-      supabase.from('riders').select('group_name, branch').eq('is_regular', true),
+      supabase.from('rider_groups').select('group_id'),
     ])
     setGroups(grps ?? [])
     setInstructors(insts ?? [])
+    // Rider count per group, keyed by group id (membership lives in rider_groups).
     const c: Record<string, number> = {}
-    for (const r of riders ?? []) {
-      const k = `${r.group_name}||${r.branch}`
-      c[k] = (c[k] ?? 0) + 1
+    for (const m of memberships ?? []) {
+      c[m.group_id] = (c[m.group_id] ?? 0) + 1
     }
     setCounts(c)
     setLoading(false)
@@ -190,7 +190,7 @@ export default function GroupsPage() {
           {displayed.map(g => {
             const bc         = BRANCH_COLOR[g.branch] ?? '#7a8f7d'
             const lc         = LEVEL_COLOR[g.level ?? ''] ?? '#7a8f7d'
-            const riderCount = counts[`${g.name}||${g.branch}`] ?? 0
+            const riderCount = counts[g.id] ?? 0
             const pct        = g.max_riders > 0 ? Math.min(100, Math.round(riderCount / g.max_riders * 100)) : 0
             const capColor   = pct >= 100 ? '#ff8080' : pct >= 80 ? '#f97316' : '#b5e853'
 

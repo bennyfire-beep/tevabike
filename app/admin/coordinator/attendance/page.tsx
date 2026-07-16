@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
 import { useCoordinator } from '@/lib/coordinator-context'
 
 const BRANCH_COLOR: Record<string, string> = {
@@ -106,14 +107,11 @@ export default function AttendancePage() {
     setSearchQ('')
     setSearchRes([])
 
-    // Group membership now lives in rider_groups (keyed by group_id).
+    // Group membership now lives in rider_groups.
+    const groupId = await resolveGroupId(s.group_id, s.class_name, s.branch)
     let list: Rider[] = []
-    if (s.group_id) {
-      const { data: linkRows } = await supabase
-        .from('rider_groups')
-        .select('rider_id')
-        .eq('group_id', s.group_id)
-      const ids = (linkRows ?? []).map(l => l.rider_id)
+    if (groupId) {
+      const ids = await groupRiderIds(groupId)
       if (ids.length) {
         const { data: riderData } = await supabase
           .from('riders')
@@ -123,7 +121,7 @@ export default function AttendancePage() {
         list = riderData ?? []
       }
     } else {
-      // Legacy sessions without a group_id: fall back to name/branch matching.
+      // Legacy fallback when no matching group row exists.
       const { data: riderData } = await supabase
         .from('riders')
         .select('id, full_name, phone')
@@ -198,16 +196,7 @@ export default function AttendancePage() {
     setAdding(false)
     if (makePermanent && selected) {
       // Resolve the group id (from the session, or by name/branch for legacy sessions).
-      let gid = selected.group_id
-      if (!gid) {
-        const { data: g } = await supabase
-          .from('groups')
-          .select('id')
-          .eq('name', selected.class_name)
-          .eq('branch', selected.branch)
-          .maybeSingle()
-        gid = g?.id ?? null
-      }
+      const gid = await resolveGroupId(selected.group_id, selected.class_name, selected.branch)
       // Membership link is the source of truth.
       if (gid) {
         await supabase.from('rider_groups').upsert({ rider_id: r.id, group_id: gid }, { onConflict: 'rider_id,group_id' })

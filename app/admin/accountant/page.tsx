@@ -149,21 +149,43 @@ export default function AccountantPage() {
   async function loadPayments() {
     const { data } = await supabase
       .from('payments')
-      .select('id, rider_id, rider_name, month, amount, status, riders(group_name, branch)')
+      .select('id, rider_id, rider_name, month, amount, status')
       .eq('month', month)
       .order('status')
       .order('rider_name')
 
+    const rows = data ?? []
+
+    // Resolve each rider's group(s) via the rider_groups junction table.
+    const riderIds = Array.from(new Set(rows.map(p => p.rider_id).filter(Boolean)))
+    const byRider: Record<string, { names: string[]; branches: string[] }> = {}
+    if (riderIds.length) {
+      const { data: linkRows } = await supabase
+        .from('rider_groups')
+        .select('rider_id, groups(name, branch)')
+        .in('rider_id', riderIds)
+      for (const row of linkRows ?? []) {
+        // The FK embed returns a single group object at runtime; normalise in
+        // case the client types/returns it as an array.
+        const raw = row.groups as unknown
+        const g = (Array.isArray(raw) ? raw[0] : raw) as { name: string | null; branch: string | null } | null | undefined
+        if (!g) continue
+        const e = (byRider[row.rider_id] ??= { names: [], branches: [] })
+        if (g.name && !e.names.includes(g.name)) e.names.push(g.name)
+        if (g.branch && !e.branches.includes(g.branch)) e.branches.push(g.branch)
+      }
+    }
+
     setPayments(
-      (data ?? []).map((p: any) => ({
+      rows.map(p => ({
         id:        p.id,
         riderId:   p.rider_id,
         riderName: p.rider_name,
         month:     p.month,
         amount:    p.amount,
         status:    p.status,
-        groupName: p.riders?.group_name ?? null,
-        branch:    p.riders?.branch ?? null,
+        groupName: byRider[p.rider_id]?.names.join(', ') || null,
+        branch:    byRider[p.rider_id]?.branches.join(' · ') || null,
       }))
     )
   }

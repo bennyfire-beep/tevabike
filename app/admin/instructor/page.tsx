@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
 import { useAdminAuth } from '@/lib/use-admin-auth'
 
 const CLASSES = [
@@ -15,6 +16,7 @@ type Session = {
   branch: string
   session_date: string
   duration_hours: number
+  group_id: string | null
 }
 type Rider = { id: string; full_name: string; phone: string | null; group_name: string | null; branch: string | null }
 type HistoryRow = { session: Session; presentCount: number; totalCount: number }
@@ -73,7 +75,7 @@ export default function InstructorPage() {
   const loadHistory = useCallback(async (adminRoleId: string) => {
     const { data: pastSessions } = await supabase
       .from('class_sessions')
-      .select('id, class_name, branch, session_date, duration_hours')
+      .select('id, class_name, branch, session_date, duration_hours, group_id')
       .eq('instructor_id', adminRoleId)
       .lt('session_date', today)
       .order('session_date', { ascending: false })
@@ -103,15 +105,30 @@ export default function InstructorPage() {
     setSearchQ('')
     setSearchRes([])
 
-    const { data: riderData } = await supabase
-      .from('riders')
-      .select('id, full_name, phone, group_name, branch')
-      .eq('group_name', session.class_name)
-      .eq('branch', session.branch)
-      .eq('is_regular', true)
-      .order('full_name')
-
-    const list = riderData ?? []
+    // Group membership comes from the rider_groups junction table.
+    const groupId = await resolveGroupId(session.group_id, session.class_name, session.branch)
+    let list: Rider[] = []
+    if (groupId) {
+      const ids = await groupRiderIds(groupId)
+      if (ids.length) {
+        const { data: riderData } = await supabase
+          .from('riders')
+          .select('id, full_name, phone, group_name, branch')
+          .in('id', ids)
+          .order('full_name')
+        list = riderData ?? []
+      }
+    } else {
+      // Legacy fallback when no matching group row exists.
+      const { data: riderData } = await supabase
+        .from('riders')
+        .select('id, full_name, phone, group_name, branch')
+        .eq('group_name', session.class_name)
+        .eq('branch', session.branch)
+        .eq('is_regular', true)
+        .order('full_name')
+      list = riderData ?? []
+    }
     setRiders(list)
 
     const { data: attData } = await supabase
@@ -130,7 +147,7 @@ export default function InstructorPage() {
     async function init() {
       const { data: todaySessions } = await supabase
         .from('class_sessions')
-        .select('id, class_name, branch, session_date, duration_hours')
+        .select('id, class_name, branch, session_date, duration_hours, group_id')
         .eq('instructor_id', user!.adminRoleId)
         .eq('session_date', today)
         .order('created_at')
@@ -156,7 +173,7 @@ export default function InstructorPage() {
         instructor_name: user.name,
         duration_hours: parseFloat(newHours) || 1.5,
       })
-      .select('id, class_name, branch, session_date, duration_hours')
+      .select('id, class_name, branch, session_date, duration_hours, group_id')
       .single()
 
     if (error) { alert('שגיאה: ' + error.message); setCreating(false); return }

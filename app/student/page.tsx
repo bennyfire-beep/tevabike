@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { riderGroupIds } from '@/lib/rider-groups'
 import { checkRateLimit, resetRateLimit } from '@/lib/auth-actions'
 
 // ─── Brand ────────────────────────────────────────────────────────────────────
@@ -227,6 +228,7 @@ export default function StudentPage() {
   const [phone, setPhone]                 = useState('')
   const [otp, setOtp]                     = useState('')
   const [rider, setRider]                 = useState<Rider | null>(null)
+  const [groupLabels, setGroupLabels]     = useState<string[]>([])
   const [stats, setStats]                 = useState<AttendanceStats | null>(null)
   const [privacyHidden, setPrivacyHidden] = useState(false)
   const [error, setError]                 = useState('')
@@ -279,25 +281,44 @@ export default function StudentPage() {
 
   // ── Load attendance stats ───────────────────────────────────────────────────
   async function loadStats(r: Rider) {
-    if (!r.group_name || !r.branch) {
-      setStats({ totalSessions: 0, attended: 0, pct: 0, streak: 0, heatmap: {} })
-      return
+    const empty: AttendanceStats = { totalSessions: 0, attended: 0, pct: 0, streak: 0, heatmap: {} }
+
+    // Resolve the rider's groups from rider_groups (falling back to the legacy
+    // denormalized column while assignments are still being migrated).
+    const groupIds = await riderGroupIds(r.id)
+    let groups: { name: string; branch: string }[] = []
+    if (groupIds.length) {
+      const { data: grps } = await supabase.from('groups').select('name, branch').in('id', groupIds)
+      groups = (grps ?? []).filter((g): g is { name: string; branch: string } => !!g.name && !!g.branch)
+    } else if (r.group_name && r.branch) {
+      groups = [{ name: r.group_name, branch: r.branch }]
     }
+    setGroupLabels(Array.from(new Set(groups.map(g => g.name))))
+
+    if (groups.length === 0) { setStats(empty); return }
 
     const yearStart = `${new Date().getFullYear()}-01-01`
     const today     = new Date().toISOString().split('T')[0]
 
-    const { data: sessions } = await supabase
+    const names    = Array.from(new Set(groups.map(g => g.name)))
+    const branches = Array.from(new Set(groups.map(g => g.branch)))
+    const pairSet  = new Set(groups.map(g => `${g.name}||${g.branch}`))
+
+    // Over-fetch by name/branch, then keep only sessions for the rider's exact
+    // group pairs (a name can repeat across branches).
+    const { data: sessionsRaw } = await supabase
       .from('class_sessions')
-      .select('id, session_date')
-      .eq('class_name', r.group_name)
-      .eq('branch', r.branch)
+      .select('id, session_date, class_name, branch')
+      .in('class_name', names)
+      .in('branch', branches)
       .gte('session_date', yearStart)
       .lte('session_date', today)
       .order('session_date', { ascending: false })
 
-    if (!sessions?.length) {
-      setStats({ totalSessions: 0, attended: 0, pct: 0, streak: 0, heatmap: {} })
+    const sessions = (sessionsRaw ?? []).filter(s => pairSet.has(`${s.class_name}||${s.branch}`))
+
+    if (!sessions.length) {
+      setStats(empty)
       return
     }
 
@@ -389,7 +410,7 @@ export default function StudentPage() {
 
   async function handleLogout() {
     await supabase.auth.signOut()
-    setScreen('phone'); setRider(null); setStats(null)
+    setScreen('phone'); setRider(null); setStats(null); setGroupLabels([])
     setPhone(''); setOtp(''); setError('')
   }
 
@@ -531,9 +552,9 @@ export default function StudentPage() {
             <div style={{ color: '#fff', fontWeight: 800, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {rider.full_name}
             </div>
-            {rider.group_name && (
+            {groupLabels.length > 0 && (
               <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11 }}>
-                {rider.group_name}{rider.branch ? ` · ${rider.branch}` : ''}
+                {groupLabels.join(' · ')}
               </div>
             )}
           </div>
@@ -610,7 +631,7 @@ export default function StudentPage() {
           <Card style={{ textAlign: 'center', padding: '32px 24px', color: '#7A8880' }}>
             <div style={{ fontSize: 36, marginBottom: 10 }}>📋</div>
             <div style={{ fontSize: 15 }}>
-              {rider.group_name
+              {groupLabels.length > 0
                 ? 'אין עדיין אימונים מתועדים השנה'
                 : 'לא הוקצה קבוצה — פנה למדריך שלך'}
             </div>
