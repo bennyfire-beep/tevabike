@@ -25,7 +25,7 @@ type Session = {
   end_time: string | null
 }
 type Rider       = { id: string; full_name: string; phone: string | null }
-type Instructor  = { id: string; name: string }
+type Instructor  = { id: string; name: string; active: boolean }
 type Group       = { id: string; name: string; branch: string; start_time: string | null; end_time: string | null }
 
 const fmtTime = (t: string | null) => (t ? t.slice(0, 5) : '')
@@ -73,8 +73,10 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (!user) return
-    supabase.from('admin_roles').select('id, name').eq('role', 'instructor').order('name')
-      .then(({ data }) => setInst(data ?? []))
+    // Load all instructors (active + inactive) so old sessions still resolve
+    // names; the selection dropdown filters to active only.
+    supabase.from('admin_roles').select('id, name, active').eq('role', 'instructor').order('name')
+      .then(({ data }) => setInst((data ?? []) as Instructor[]))
     supabase.from('groups').select('id, name, branch, start_time, end_time').eq('is_active', true).order('branch').order('name')
       .then(({ data }) => setGroups((data ?? []) as Group[]))
   }, [user])
@@ -285,7 +287,7 @@ export default function AttendancePage() {
               <label style={{ fontSize: 11, color: '#7a8f7d', display: 'block', marginBottom: 4 }}>מדריך</label>
               <select value={newInstructor} onChange={e => setNewInst(e.target.value)} style={inp}>
                 <option value="">ללא מדריך</option>
-                {instructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                {instructors.filter(i => i.active).map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>
             </div>
             <div>

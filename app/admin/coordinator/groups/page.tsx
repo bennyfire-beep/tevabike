@@ -32,7 +32,7 @@ type Group = {
   is_active: boolean
   max_riders: number
 }
-type Instructor = { id: string; name: string; branch: string | null }
+type Instructor = { id: string; name: string; branch: string | null; active: boolean }
 
 const BLANK: Omit<Group, 'id'> = {
   name: '', branch: '', level: 'כללי', days: null, type: 'adults',
@@ -73,7 +73,7 @@ export default function GroupsPage() {
     setLoading(true)
     const [{ data: grps }, { data: insts }, { data: memberships }] = await Promise.all([
       supabase.from('groups').select('*').order('branch').order('name'),
-      supabase.from('admin_roles').select('id, name, branch').eq('role', 'instructor').order('name'),
+      supabase.from('admin_roles').select('id, name, branch, active').eq('role', 'instructor').order('name'),
       supabase.from('rider_groups').select('group_id'),
     ])
     setGroups(grps ?? [])
@@ -355,8 +355,12 @@ export default function GroupsPage() {
               <div>
                 <label style={{ fontSize: 11, color: '#7a8f7d', display: 'block', marginBottom: 4 }}>מדריך</label>
                 <select value={form.instructor_id ?? ''} onChange={e => setForm(p => ({ ...p, instructor_id: e.target.value || null }))} style={inp}>
+                  {/* selection shows active instructors; keep a currently-assigned
+                      inactive instructor so editing doesn't silently clear it */}
                   <option value="">ללא מדריך</option>
-                  {instructors.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                  {instructors
+                    .filter(i => i.active || i.id === form.instructor_id)
+                    .map(i => <option key={i.id} value={i.id}>{i.name}{!i.active ? ' (מושבת)' : ''}</option>)}
                 </select>
               </div>
 

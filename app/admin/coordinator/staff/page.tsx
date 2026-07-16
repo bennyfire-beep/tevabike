@@ -31,6 +31,7 @@ type Staff = {
   birth_date: string | null
   id_number: string | null
   certificate_url: string | null
+  active: boolean
 }
 
 export default function StaffPage() {
@@ -51,18 +52,60 @@ export default function StaffPage() {
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
+  // ── quick "add instructor" (name only → admin_roles) ──
+  const [quickName, setQuickName]   = useState('')
+  const [quickAdding, setQuickAdding] = useState(false)
+  const [quickMsg, setQuickMsg]     = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  // per-row activate/deactivate in-flight guard
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+
   const loadStaff = useCallback(async () => {
+    // Show all staff (active + inactive) so deactivated instructors can be
+    // reactivated; active are listed first.
     const { data } = await supabase
       .from('admin_roles')
-      .select('id, name, role, branch, hourly_rate, birth_date, id_number, certificate_url')
+      .select('id, name, role, branch, hourly_rate, birth_date, id_number, certificate_url, active')
       .in('role', ['instructor', 'coordinator', 'accountant'])
+      .order('active', { ascending: false })
       .order('role')
       .order('name')
-    setStaff(data || [])
+    setStaff((data || []) as Staff[])
     setLoading(false)
   }, [])
 
   useEffect(() => { loadStaff() }, [loadStaff])
+
+  async function addInstructor() {
+    setQuickMsg(null)
+    const trimmed = quickName.trim()
+    if (!trimmed) { setQuickMsg({ type: 'err', text: 'יש להזין שם מדריך' }); return }
+    setQuickAdding(true)
+    const { error } = await supabase
+      .from('admin_roles')
+      .insert({ name: trimmed, role: 'instructor', active: true })
+    if (error) {
+      setQuickMsg({ type: 'err', text: `ההוספה נכשלה: ${error.message}` })
+      setQuickAdding(false)
+      return
+    }
+    setQuickMsg({ type: 'ok', text: `המדריך ${trimmed} נוסף כפעיל 🎉` })
+    setQuickName('')
+    await loadStaff()
+    setQuickAdding(false)
+  }
+
+  async function toggleActive(s: Staff) {
+    setTogglingId(s.id)
+    const next = !s.active
+    const { error } = await supabase.from('admin_roles').update({ active: next }).eq('id', s.id)
+    if (error) {
+      setMsg({ type: 'err', text: `עדכון הסטטוס נכשל: ${error.message}` })
+    } else {
+      setStaff(prev => prev.map(x => x.id === s.id ? { ...x, active: next } : x))
+    }
+    setTogglingId(null)
+  }
 
   function resetForm() {
     setName(''); setEmail(''); setPassword('')
@@ -230,6 +273,44 @@ export default function StaffPage() {
         }}>{submitting ? 'מוסיף...' : 'הוסף איש צוות'}</button>
       </div>
 
+      {/* ── Quick add instructor (name only) ── */}
+      <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 20, marginBottom: 28 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 6px', color: ACCENT }}>➕ הוספת מדריך מהירה</h2>
+        <p style={{ color: MUTED, fontSize: 12, margin: '0 0 14px' }}>
+          מוסיף מדריך פעיל לפי שם בלבד (ללא כניסה למערכת) — לשיבוץ ולדוחות שכר.
+        </p>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 240px' }}>
+            <label htmlFor="quick-instructor-name" style={label}>שם המדריך *</label>
+            <input
+              id="quick-instructor-name"
+              style={input}
+              value={quickName}
+              onChange={e => setQuickName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addInstructor() }}
+              placeholder="ישראל ישראלי"
+            />
+          </div>
+          <button
+            onClick={addInstructor}
+            disabled={quickAdding}
+            style={{
+              background: quickAdding ? '#5a6e3f' : ACCENT, color: '#0d0f0e', border: 'none', borderRadius: 8,
+              padding: '11px 22px', fontFamily: 'Heebo, Arial, sans-serif', fontSize: 14, fontWeight: 800,
+              cursor: quickAdding ? 'default' : 'pointer', whiteSpace: 'nowrap',
+            }}
+          >{quickAdding ? 'מוסיף...' : 'הוסף מדריך'}</button>
+        </div>
+        {quickMsg && (
+          <div role="status" style={{
+            padding: '10px 12px', borderRadius: 8, fontSize: 13, marginTop: 14,
+            background: quickMsg.type === 'ok' ? '#16331f' : '#3a1a1a',
+            color:      quickMsg.type === 'ok' ? '#7ee29a' : '#ff9b9b',
+            border: `1px solid ${quickMsg.type === 'ok' ? '#1f5132' : '#5a2626'}`,
+          }}>{quickMsg.text}</div>
+        )}
+      </div>
+
       {/* ── Existing staff ── */}
       <h2 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 14px' }}>הצוות הקיים</h2>
       {loading ? (
@@ -240,14 +321,20 @@ export default function StaffPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {staff.map(s => (
             <div key={s.id} style={{
-              background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 16px',
-              display: 'flex', alignItems: 'center', gap: 12,
+              background: CARD, border: `1px solid ${s.active ? BORDER : '#3a2626'}`, borderRadius: 10, padding: '12px 16px',
+              display: 'flex', alignItems: 'center', gap: 12, opacity: s.active ? 1 : 0.6,
             }}>
               <span style={{ fontSize: 14, fontWeight: 700, color: '#e8efe9' }}>{s.name}</span>
               <span style={{
                 background: ROLE_BADGE[s.role] || '#222', color: '#cfe7d8',
                 padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
               }}>{ROLE_LABEL[s.role] || s.role}</span>
+              {!s.active && (
+                <span style={{
+                  background: '#3a1a1a', color: '#ff9b9b', border: '1px solid #5a2626',
+                  padding: '2px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
+                }}>מושבת</span>
+              )}
               {s.branch && <span style={{ color: MUTED, fontSize: 12 }}>📍 {s.branch}</span>}
               {s.birth_date && <span style={{ color: MUTED, fontSize: 12 }}>🎂 {s.birth_date.split('-').reverse().join('/')}</span>}
               {s.id_number && <span style={{ color: MUTED, fontSize: 12 }}>🆔 {s.id_number}</span>}
@@ -256,7 +343,26 @@ export default function StaffPage() {
                    style={{ color: ACCENT, fontSize: 12, textDecoration: 'none' }}>📄 תעודה</a>
               )}
               {s.role === 'instructor' && s.hourly_rate != null && (
-                <span style={{ color: MUTED, fontSize: 12, marginRight: 'auto' }}>₪{s.hourly_rate}/שעה</span>
+                <span style={{ color: MUTED, fontSize: 12 }}>₪{s.hourly_rate}/שעה</span>
+              )}
+              {s.role === 'instructor' && (
+                <button
+                  onClick={() => toggleActive(s)}
+                  disabled={togglingId === s.id}
+                  aria-pressed={s.active}
+                  aria-label={`${s.active ? 'השבת' : 'הפעל'} את ${s.name}`}
+                  title={s.active ? 'השבתת מדריך' : 'הפעלת מדריך'}
+                  style={{
+                    marginRight: 'auto',
+                    background: 'transparent',
+                    border: `1px solid ${s.active ? '#5a2626' : ACCENT}`,
+                    color: s.active ? '#ff9b9b' : ACCENT,
+                    borderRadius: 8, padding: '6px 14px',
+                    fontFamily: 'Heebo, Arial, sans-serif', fontSize: 12, fontWeight: 700,
+                    cursor: togglingId === s.id ? 'default' : 'pointer',
+                    opacity: togglingId === s.id ? 0.6 : 1, whiteSpace: 'nowrap',
+                  }}
+                >{togglingId === s.id ? '...' : s.active ? 'השבת' : 'הפעל'}</button>
               )}
             </div>
           ))}
