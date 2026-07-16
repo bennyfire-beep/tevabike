@@ -105,11 +105,34 @@ export default function AttendancePage() {
     setAdding(false)
     setSearchQ('')
     setSearchRes([])
-    const [{ data: riderData }, { data: attData }] = await Promise.all([
-      supabase.from('riders').select('id, full_name, phone').eq('group_name', s.class_name).eq('branch', s.branch).eq('is_regular', true).order('full_name'),
-      supabase.from('attendance').select('rider_id, present').eq('session_id', s.id),
-    ])
-    const list = riderData ?? []
+
+    // Group membership now lives in rider_groups (keyed by group_id).
+    let list: Rider[] = []
+    if (s.group_id) {
+      const { data: linkRows } = await supabase
+        .from('rider_groups')
+        .select('rider_id')
+        .eq('group_id', s.group_id)
+      const ids = (linkRows ?? []).map(l => l.rider_id)
+      if (ids.length) {
+        const { data: riderData } = await supabase
+          .from('riders')
+          .select('id, full_name, phone')
+          .in('id', ids)
+          .order('full_name')
+        list = riderData ?? []
+      }
+    } else {
+      // Legacy sessions without a group_id: fall back to name/branch matching.
+      const { data: riderData } = await supabase
+        .from('riders')
+        .select('id, full_name, phone')
+        .eq('group_name', s.class_name).eq('branch', s.branch).eq('is_regular', true)
+        .order('full_name')
+      list = riderData ?? []
+    }
+
+    const { data: attData } = await supabase.from('attendance').select('rider_id, present').eq('session_id', s.id)
     setRiders(list)
     const map: Record<string, boolean> = {}
     for (const a of attData ?? []) map[a.rider_id] = a.present
@@ -174,25 +197,41 @@ export default function AttendancePage() {
     setSearchRes([])
     setAdding(false)
     if (makePermanent && selected) {
+      // Resolve the group id (from the session, or by name/branch for legacy sessions).
+      let gid = selected.group_id
+      if (!gid) {
+        const { data: g } = await supabase
+          .from('groups')
+          .select('id')
+          .eq('name', selected.class_name)
+          .eq('branch', selected.branch)
+          .maybeSingle()
+        gid = g?.id ?? null
+      }
+      // Membership link is the source of truth.
+      if (gid) {
+        await supabase.from('rider_groups').upsert({ rider_id: r.id, group_id: gid }, { onConflict: 'rider_id,group_id' })
+      }
+      // Keep legacy denormalized columns in sync for pages not yet migrated.
       const patch: Record<string, unknown> = {
         group_name: selected.class_name,
         branch:     selected.branch,
         is_regular: true,
       }
-      const { data: g } = await supabase
-        .from('groups')
-        .select('id')
-        .eq('name', selected.class_name)
-        .eq('branch', selected.branch)
-        .maybeSingle()
-      if (g?.id) patch.group_id = g.id
+      if (gid) patch.group_id = gid
       await supabase.from('riders').update(patch).eq('id', r.id)
     }
   }
 
   async function removeFromGroup(rider: Rider) {
-    if (!window.confirm(`להסיר את ${rider.full_name} מרשימת הקבועים של הקבוצה?\nהוא יישאר במערכת, אבל לא יופיע יותר אוטומטית באימוני קבוצה זו.`)) return
-    await supabase.from('riders').update({ is_regular: false }).eq('id', rider.id)
+    if (!selected) return
+    if (!window.confirm(`להסיר את ${rider.full_name} מהקבוצה?\nהוא יישאר במערכת, אבל לא יופיע יותר אוטומטית באימוני קבוצה זו.`)) return
+    if (selected.group_id) {
+      await supabase.from('rider_groups').delete().eq('rider_id', rider.id).eq('group_id', selected.group_id)
+    } else {
+      // Legacy session without a group_id: fall back to the old flag.
+      await supabase.from('riders').update({ is_regular: false }).eq('id', rider.id)
+    }
     setRiders(p => p.filter(x => x.id !== rider.id))
     setAtt(p => { const n = { ...p }; delete n[rider.id]; return n })
   }
