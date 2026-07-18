@@ -14,8 +14,14 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) return NextResponse.json({ error: 'Supabase env vars missing' }, { status: 500 })
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  // Require the service role: with the anon key we could still write attendance,
+  // but reading admin_roles for the pay multiplier / hourly rate would silently
+  // fail under RLS and understate pay. Fail loudly instead.
+  if (!url || !serviceKey) {
+    console.error('[instructor/save] SUPABASE_SERVICE_ROLE_KEY or URL not set — refusing to save with wrong pay. Configure it in the deployment environment.')
+    return NextResponse.json({ error: 'Server misconfigured: SUPABASE_SERVICE_ROLE_KEY missing' }, { status: 500 })
+  }
 
   let body: { session?: SaveSession; riders?: SaveRider[]; attendance?: Record<string, boolean> }
   try {
@@ -29,7 +35,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing session or riders' }, { status: 400 })
   }
 
-  const db = createClient(url, key)
+  const db = createClient(url, serviceKey)
   const res = await saveAttendanceAndPay(session, riders, attendance ?? {}, db)
   if (res.error) return NextResponse.json({ error: res.error }, { status: 500 })
 

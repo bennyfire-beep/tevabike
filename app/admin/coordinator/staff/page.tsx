@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { DEFAULT_HOURLY_RATE } from '@/lib/attendance'
 
 const ACCENT = '#b5e853'
 const CARD   = '#141716'
@@ -342,8 +343,10 @@ export default function StaffPage() {
                 <a href={s.certificate_url} target="_blank" rel="noopener noreferrer"
                    style={{ color: ACCENT, fontSize: 12, textDecoration: 'none' }}>📄 תעודה</a>
               )}
-              {s.role === 'instructor' && s.hourly_rate != null && (
-                <span style={{ color: MUTED, fontSize: 12 }}>₪{s.hourly_rate}/שעה</span>
+              {s.role === 'instructor' && (
+                <span style={{ color: MUTED, fontSize: 12 }}>
+                  ₪{s.hourly_rate ?? DEFAULT_HOURLY_RATE}/שעה{s.hourly_rate == null ? ' (ברירת מחדל)' : ''}
+                </span>
               )}
               {s.role === 'instructor' && (
                 <button

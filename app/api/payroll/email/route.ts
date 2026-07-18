@@ -9,10 +9,10 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-// Report recipients. A second recipient will be added later — just extend this.
-const RECIPIENTS = ['bennyfire@gmail.com']
+// Report recipients — extend this array to add more.
+const RECIPIENTS = ['bennyfire@gmail.com', 'shirkobi8@gmail.com']
 
-type Item = { date: string; label: string; isSpecial: boolean; present: number; pay: number }
+type Item = { date: string | null; label: string; isSpecial: boolean; isBase?: boolean; present: number | null; pay: number }
 type Group = { name: string; totalSessions: number; totalPresent: number; totalPay: number; items: Item[] }
 type Payload = {
   month: string
@@ -21,15 +21,21 @@ type Payload = {
   groups: Group[]
 }
 
-const fmtDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('he-IL')
+const fmtDate = (d: string | null) => (d ? new Date(d + 'T12:00:00').toLocaleDateString('he-IL') : '—')
+
+function tag(it: Item): string {
+  if (it.isBase) return ' <span style="background:#fef6da;color:#b8860b;border-radius:8px;padding:1px 6px;font-size:11px">💼 קבוע</span>'
+  if (it.isSpecial) return ' <span style="background:#f3e8ff;color:#a855f7;border-radius:8px;padding:1px 6px;font-size:11px">★ מיוחדת</span>'
+  return ''
+}
 
 function buildHtml(p: Payload): string {
   const groupBlocks = p.groups.map(g => {
     const rows = g.items.map(it => `
       <tr>
         <td style="padding:6px 10px;border-bottom:1px solid #eee;color:#666">${fmtDate(it.date)}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #eee">${it.label}${it.isSpecial ? ' <span style="background:#f3e8ff;color:#a855f7;border-radius:8px;padding:1px 6px;font-size:11px">★ מיוחדת</span>' : ''}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center">${it.present}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #eee">${it.label}${tag(it)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center">${it.present ?? '—'}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center;font-weight:700;color:#16A34A">₪${it.pay.toLocaleString()}</td>
       </tr>`).join('')
     return `
@@ -107,7 +113,8 @@ export async function POST(req: NextRequest) {
 
   if (!res.ok) {
     const detail = await res.text()
+    console.error('[payroll/email] Resend send failed:', detail || res.statusText)
     return NextResponse.json({ ok: false, error: detail || res.statusText }, { status: 502 })
   }
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, recipients: RECIPIENTS })
 }

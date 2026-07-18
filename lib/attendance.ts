@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 
+// Default hourly rate for instructors with no explicit admin_roles.hourly_rate.
+export const DEFAULT_HOURLY_RATE = 90
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared attendance-save + automatic pay calculation.
 //
@@ -77,8 +80,8 @@ export async function computePay(
 
 /**
  * Total pay for a special activity = duration_hours × Σ hourly_rate over its
- * instructors. Instructors with no hourly_rate set contribute 0 (shows as ₪0 in
- * the report, prompting the coordinator to fill the rate in).
+ * instructors. Instructors with no explicit hourly_rate fall back to
+ * DEFAULT_HOURLY_RATE (90).
  */
 export async function computeSpecialPay(
   durationHours: number,
@@ -90,7 +93,7 @@ export async function computeSpecialPay(
     .from('admin_roles')
     .select('id, hourly_rate')
     .in('id', instructorIds)
-  const sumRates = (data ?? []).reduce((s, r) => s + Number(r.hourly_rate ?? 0), 0)
+  const sumRates = (data ?? []).reduce((s, r) => s + Number(r.hourly_rate ?? DEFAULT_HOURLY_RATE), 0)
   const hours = Number(durationHours) || 0
   return Math.round(hours * sumRates * 100) / 100
 }

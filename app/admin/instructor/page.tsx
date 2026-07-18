@@ -89,6 +89,7 @@ export default function InstructorMobilePage() {
 
   const [instructors, setInstructors]   = useState<Instructor[]>([])
   const [loadingInst, setLoadingInst]   = useState(true)
+  const [listError, setListError]       = useState('')
   const [instructor, setInstructor]     = useState<Instructor | null>(null)
 
   const [sessions, setSessions]         = useState<Session[]>([])
@@ -106,9 +107,12 @@ export default function InstructorMobilePage() {
   // comes from a service-role API route rather than a direct client query.
   useEffect(() => {
     fetch('/api/instructor/list')
-      .then(r => r.json())
-      .then(d => setInstructors((d.instructors ?? []) as Instructor[]))
-      .catch(() => setInstructors([]))
+      .then(async r => ({ ok: r.ok, d: await r.json().catch(() => ({})) }))
+      .then(({ ok, d }) => {
+        setInstructors((d.instructors ?? []) as Instructor[])
+        if (!ok || d.error) setListError(d.error ? 'שגיאת שרת בטעינת המדריכים' : '')
+      })
+      .catch(() => { setInstructors([]); setListError('לא ניתן לטעון את רשימת המדריכים') })
       .finally(() => setLoadingInst(false))
   }, [])
 
@@ -269,7 +273,12 @@ export default function InstructorMobilePage() {
         {loadingInst ? (
           <p style={{ color: C.muted, textAlign: 'center', padding: 40, fontSize: 16 }}>טוען...</p>
         ) : instructors.length === 0 ? (
-          <p style={{ color: C.muted, textAlign: 'center', padding: 40, fontSize: 16 }}>לא נמצאו מדריכים פעילים</p>
+          <div style={{ textAlign: 'center', padding: 40 }}>
+            <p style={{ color: listError ? C.absent : C.muted, fontSize: 16, margin: 0 }}>
+              {listError || 'לא נמצאו מדריכים פעילים'}
+            </p>
+            {listError && <p style={{ color: C.muted, fontSize: 13, margin: '8px 0 0' }}>נסה לרענן את הדף, או פנה למנהל המערכת.</p>}
+          </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {instructors.map(inst => (
