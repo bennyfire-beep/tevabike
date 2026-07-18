@@ -41,6 +41,8 @@ type Session = {
   group_id: string | null
   start_time: string | null
   duration: number | null
+  type: 'regular' | 'special' | null
+  instructor_ids: string[] | null
 }
 type Rider = { id: string; full_name: string; phone: string | null }
 
@@ -116,10 +118,12 @@ export default function InstructorMobilePage() {
     setSession(null)
     setConfirmCount(null)
     setLoadingSess(true)
+    // Include regular sessions the instructor leads AND special activities where
+    // they are one of several instructors (instructor_ids array contains them).
     const { data } = await supabase
       .from('class_sessions')
-      .select('id, class_name, branch, session_date, instructor_id, group_id, start_time, duration')
-      .eq('instructor_id', inst.id)
+      .select('id, class_name, branch, session_date, instructor_id, group_id, start_time, duration, type, instructor_ids')
+      .or(`instructor_id.eq.${inst.id},instructor_ids.cs.{${inst.id}}`)
       .eq('session_date', today)
       .order('start_time', { nullsFirst: true })
     setSessions((data ?? []) as Session[])
@@ -133,6 +137,25 @@ export default function InstructorMobilePage() {
     setRiders([])
     setAttendance({})
     setLoadingRiders(true)
+
+    // Special activities aren't group-bound — their participants live in the
+    // attendance rows created when the activity was set up.
+    if (s.type === 'special') {
+      const { data: attData } = await supabase.from('attendance').select('rider_id, present').eq('session_id', s.id)
+      const ids = (attData ?? []).map(a => a.rider_id)
+      let plist: Rider[] = []
+      if (ids.length) {
+        const { data } = await supabase.from('riders').select('id, full_name, phone').in('id', ids).order('full_name')
+        plist = data ?? []
+      }
+      const map: Record<string, boolean> = {}
+      for (const a of attData ?? []) map[a.rider_id] = a.present
+      for (const r of plist) if (!(r.id in map)) map[r.id] = true
+      setRiders(plist)
+      setAttendance(map)
+      setLoadingRiders(false)
+      return
+    }
 
     const groupId = await resolveGroupId(s.group_id, s.class_name, s.branch)
     let list: Rider[] = []
@@ -184,6 +207,9 @@ export default function InstructorMobilePage() {
             instructor_id: session.instructor_id,
             group_id: session.group_id,
             session_date: session.session_date,
+            type: session.type,
+            duration: session.duration,
+            instructor_ids: session.instructor_ids,
           },
           riders: riders.map(r => ({ id: r.id, full_name: r.full_name })),
           attendance,

@@ -17,12 +17,19 @@ import { supabase } from './supabase'
 //     holds staff PII) off the public anon key while still applying the
 //     correct multiplier.
 //
-// Pay model:
+// Pay model — regular sessions (type 'regular'):
 //   • present_count = riders marked present for the session
 //   • base amount   = matching row in `pay_rates`
 //                     (present_count between min_riders and max_riders,
 //                      max_riders NULL = no upper cap)
 //   • instructor_pay = base amount × the session instructor's pay_multiplier
+//
+// Pay model — special activities / camps (type 'special'):
+//   • pay does NOT depend on attendance; it is duration_hours × hourly_rate.
+//   • a special activity can have several instructors (session.instructor_ids);
+//     each is paid duration × their own admin_roles.hourly_rate. The value we
+//     store in class_sessions.instructor_pay is the activity total (the sum
+//     across instructors); the payroll report splits it back per instructor.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface SaveSession {
@@ -30,6 +37,10 @@ export interface SaveSession {
   instructor_id: string | null
   group_id: string | null
   session_date: string
+  // Present for special activities; absent/'regular' behaves as before.
+  type?: 'regular' | 'special' | null
+  duration?: number | null
+  instructor_ids?: string[] | null
 }
 
 export interface SaveRider {
@@ -62,6 +73,26 @@ export async function computePay(
   const amount = match ? Number(match.amount) : 0
   const m = multiplier != null && !Number.isNaN(multiplier) ? multiplier : 1
   return Math.round(amount * m * 100) / 100
+}
+
+/**
+ * Total pay for a special activity = duration_hours × Σ hourly_rate over its
+ * instructors. Instructors with no hourly_rate set contribute 0 (shows as ₪0 in
+ * the report, prompting the coordinator to fill the rate in).
+ */
+export async function computeSpecialPay(
+  durationHours: number,
+  instructorIds: string[],
+  client: SupabaseClient = supabase,
+): Promise<number> {
+  if (!instructorIds.length) return 0
+  const { data } = await client
+    .from('admin_roles')
+    .select('id, hourly_rate')
+    .in('id', instructorIds)
+  const sumRates = (data ?? []).reduce((s, r) => s + Number(r.hourly_rate ?? 0), 0)
+  const hours = Number(durationHours) || 0
+  return Math.round(hours * sumRates * 100) / 100
 }
 
 /**
@@ -102,19 +133,28 @@ export async function saveAttendanceAndPay(
     .eq('status', 'present')
   const presentCount = count ?? 0
 
-  // 3. The session instructor's pay multiplier (defaults to 1.0).
-  let multiplier = 1
-  if (session.instructor_id) {
-    const { data: role } = await client
-      .from('admin_roles')
-      .select('pay_multiplier')
-      .eq('id', session.instructor_id)
-      .maybeSingle()
-    if (role?.pay_multiplier != null) multiplier = Number(role.pay_multiplier)
+  // 3 + 4. Compute pay depending on the session type, then store it.
+  let pay: number
+  if (session.type === 'special') {
+    // Special activity: pay is duration × hourly_rate, independent of attendance.
+    const instructorIds = (session.instructor_ids && session.instructor_ids.length)
+      ? session.instructor_ids
+      : (session.instructor_id ? [session.instructor_id] : [])
+    pay = await computeSpecialPay(session.duration ?? 0, instructorIds, client)
+  } else {
+    // Regular session: pay_rates bracket × the instructor's pay multiplier.
+    let multiplier = 1
+    if (session.instructor_id) {
+      const { data: role } = await client
+        .from('admin_roles')
+        .select('pay_multiplier')
+        .eq('id', session.instructor_id)
+        .maybeSingle()
+      if (role?.pay_multiplier != null) multiplier = Number(role.pay_multiplier)
+    }
+    pay = await computePay(presentCount, multiplier, client)
   }
 
-  // 4. Compute pay and store it on the session.
-  const pay = await computePay(presentCount, multiplier, client)
   const { error: sessErr } = await client
     .from('class_sessions')
     .update({ present_count: presentCount, instructor_pay: pay })

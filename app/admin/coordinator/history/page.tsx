@@ -22,6 +22,8 @@ type SessionRow = {
   session_date: string
   start_time: string | null
   end_time: string | null
+  type: 'regular' | 'special' | null
+  activity_name: string | null
   present: number
   total: number
   pct: number
@@ -61,7 +63,7 @@ export default function HistoryPage() {
     setOpenId(null)
     let q = supabase
       .from('class_sessions')
-      .select('id, class_name, branch, session_date, start_time, end_time')
+      .select('id, class_name, branch, session_date, start_time, end_time, type, activity_name')
       .order('session_date', { ascending: false })
     if (branch) q = q.eq('branch', branch)
     if (group)  q = q.eq('class_name', group)
@@ -153,7 +155,9 @@ export default function HistoryPage() {
                   style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', flexWrap: 'wrap' }}
                 >
                   <span style={{ fontWeight: 700, fontSize: 15 }}>{s.class_name}</span>
-                  <span style={{ background: bc + '22', color: bc, borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>{s.branch}</span>
+                  {s.type === 'special'
+                    ? <span style={{ background: '#c084fc22', color: '#c084fc', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>★ מיוחדת</span>
+                    : <span style={{ background: bc + '22', color: bc, borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>{s.branch}</span>}
                   <span style={{ color: '#e8efe9', fontSize: 13 }}>📅 {fmtDate(s.session_date)}</span>
                   {s.start_time && <span style={{ color: '#7a8f7d', fontSize: 12 }}>🕒 {fmtTime(s.start_time)}{s.end_time ? `–${fmtTime(s.end_time)}` : ''}</span>}
                   <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
