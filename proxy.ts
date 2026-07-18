@@ -11,6 +11,7 @@ const ADMIN_PUBLIC_PATHS = [
   '/admin/login',
   '/admin/forgot-password',
   '/admin/reset-password',   // receives ?code= from Supabase reset email
+  '/admin/instructor',       // instructor mobile page — no login yet (picks name per-visit)
 ]
 
 const ROLE_PREFIXES: Record<string, string> = {
