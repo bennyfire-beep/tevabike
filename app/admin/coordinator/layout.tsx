@@ -10,6 +10,7 @@ const NAV = [
   { href: '/admin/coordinator/students',   label: 'תלמידים',  exact: false },
   { href: '/admin/coordinator/attendance', label: 'נוכחות',   exact: false },
   { href: '/admin/coordinator/history',    label: 'היסטוריה', exact: false },
+  { href: '/admin/coordinator/payroll',    label: 'שכר',      exact: false },
   { href: '/admin/coordinator/staff',      label: 'צוות',     exact: false },
 ]
 

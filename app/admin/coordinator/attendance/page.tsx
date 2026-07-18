@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
+import { saveAttendanceAndPay } from '@/lib/attendance'
 import { useCoordinator } from '@/lib/coordinator-context'
 
 const BRANCH_COLOR: Record<string, string> = {
@@ -160,14 +161,11 @@ export default function AttendancePage() {
   async function saveAttendance() {
     if (!selected || riders.length === 0) return
     setSaving(true)
-    const records = riders.map(r => {
-      const present = attendance[r.id] ?? true
-      return { session_id: selected.id, rider_id: r.id, rider_name: r.full_name, present, status: present ? 'present' : 'absent', group_id: selected.group_id, date: selected.session_date }
-    })
-    const { error } = await supabase.from('attendance').upsert(records, { onConflict: 'session_id,rider_id' })
-    if (error) { alert(error.message); setSaving(false); return }
-    setSavedMsg('נוכחות נשמרה! ✓')
-    setTimeout(() => setSavedMsg(''), 3000)
+    // Shared save flow: upserts attendance and recomputes the instructor pay.
+    const res = await saveAttendanceAndPay(selected, riders, attendance)
+    if (res.error) { alert(res.error); setSaving(false); return }
+    setSavedMsg(`נוכחות נשמרה! ✓ ${res.presentCount} נוכחים · שכר ₪${res.pay.toLocaleString()}`)
+    setTimeout(() => setSavedMsg(''), 4000)
     setSaving(false)
   }
 
