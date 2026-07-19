@@ -12,23 +12,26 @@ type DayInfo = {
 
 const GROUPS = ['מיני גרביטי', 'גרביטי', 'ביריה', 'מטה אשר', 'אחר']
 
-const DAY_DETAILS: Record<string, { title: string; place: string; what: string; schedule: string[] }> = {
+const DAY_DETAILS: Record<string, { title: string; place: string; what: string; img: string; schedule: string[] }> = {
   yaad: {
     title: "יום א' · 16.8",
     place: 'יעד',
     what: 'רכיבת אנדורו + סשן אייר באג',
+    img: '/yaad.jpg',
     schedule: ['8:30 נפגשים במועדון טבע בייק', '8:45 תדריך ותחילת רכיבה', '13:30 ארוחת צהריים', '14:00 סיכום והביתה'],
   },
   yarden: {
     title: "יום ג' · 18.8",
     place: 'ירדן',
     what: 'קפיצות למים',
+    img: '/yarden.jpg',
     schedule: ['9:55 נפגשים בכפר בלום', '10:00 תדריך ותחילת רכיבה', '13:30 הפסקת צהריים', '16:00 קיפול והביתה'],
   },
   misgav: {
     title: "יום ה' · 20.8",
     place: 'משגב',
     what: 'סשן אייר באג',
+    img: '/misgav.jpg',
     schedule: ['8:30 נפגשים במועדון טבע בייק', '9:00 הקמה בשטח', '9:30 תדריך ותחילת קפיצות', '13:00 ארוחת צהריים', '14:00 קיפול והביתה'],
   },
 }
@@ -133,12 +136,16 @@ export default function CampPage() {
     <div dir="rtl" style={{ background: BG, minHeight: '100vh', color: TEXT, fontFamily: 'Heebo, Arial, sans-serif' }}>
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 20px 140px' }}>
 
-        <img src="/logo.png" alt="טבע בייק" style={{ height: 44, marginBottom: 24 }} />
+        <img
+          src="/camp-banner.jpg.jpg"
+          alt="ימי שיא — Gravity Camp, אוגוסט 2026. 16.8 הקפצות ביעד, 18.8 קפיצות לירדן, 20.8 אייר באג"
+          style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 14, marginBottom: 26 }}
+        />
 
-        <h1 style={{ fontSize: 34, fontWeight: 800, margin: '0 0 10px', lineHeight: 1.2 }}>
-          ימי שיא <span style={{ color: PINK }}>·</span> Gravity Camp
+        <h1 style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+          ימי שיא — Gravity Camp, אוגוסט 2026
         </h1>
-        <p style={{ color: MUTED, fontSize: 16, margin: '0 0 6px' }}>אוגוסט 2026</p>
+
         <p style={{ color: TEXT, fontSize: 15, lineHeight: 1.8, margin: '0 0 8px' }}>
           שלושה ימי רכיבה עם הקפצות, אימונים מקצועיים וקפיצות. 08:30–14:00, כולל ארוחת צהריים. 300 ₪ ליום.
         </p>
@@ -191,7 +198,13 @@ export default function CampPage() {
                     </span>
                   )}
                 </div>
-                <div style={{ color: PINK, fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{details.what}</div>
+                <div style={{ color: PINK, fontSize: 14, fontWeight: 600, marginBottom: 10 }}>{details.what}</div>
+                <img
+                  src={details.img}
+                  alt={details.place}
+                  loading="lazy"
+                  style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 10, display: 'block', marginBottom: 12, filter: full ? 'grayscale(1)' : 'none' }}
+                />
                 <div style={{ color: MUTED, fontSize: 13, lineHeight: 1.8 }}>
                   {details.schedule.map((s, i) => <div key={i}>{s}</div>)}
                 </div>
