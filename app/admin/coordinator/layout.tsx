@@ -1,9 +1,12 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { useAdminAuth } from '@/lib/use-admin-auth'
 import { CoordinatorCtx } from '@/lib/coordinator-context'
+import { supabase } from '@/lib/supabase'
 
+const LEADS_HREF = '/admin/coordinator/leads'
 const NAV = [
   { href: '/admin/coordinator',            label: 'לוח בקרה', exact: true  },
   { href: '/admin/coordinator/groups',     label: 'קבוצות',   exact: false },
@@ -11,12 +14,21 @@ const NAV = [
   { href: '/admin/coordinator/attendance', label: 'נוכחות',   exact: false },
   { href: '/admin/coordinator/history',    label: 'היסטוריה', exact: false },
   { href: '/admin/coordinator/payroll',    label: 'שכר',      exact: false },
+  { href: LEADS_HREF,                       label: 'מתעניינים', exact: false },
   { href: '/admin/coordinator/staff',      label: 'צוות',     exact: false },
 ]
 
 export default function CoordinatorLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAdminAuth('coordinator')
   const pathname = usePathname()
+  const [newLeads, setNewLeads] = useState(0)
+
+  // Count of unhandled leads for the nav badge (authenticated read via RLS).
+  useEffect(() => {
+    if (!user) return
+    supabase.from('leads').select('*', { count: 'exact', head: true }).eq('status', 'new')
+      .then(({ count }) => setNewLeads(count ?? 0))
+  }, [user, pathname])
 
   if (loading) return (
     <div style={{ background: '#0d0f0e', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7a8f7d', fontFamily: 'Heebo, Arial, sans-serif', direction: 'rtl' }}>
@@ -48,10 +60,17 @@ export default function CoordinatorLayout({ children }: { children: React.ReactN
                   textDecoration: 'none',
                   color: active ? '#b5e853' : '#7a8f7d',
                   borderBottom: `2px solid ${active ? '#b5e853' : 'transparent'}`,
-                  display: 'inline-block',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
                   transition: 'color .15s',
                 }}>
                   {label}
+                  {href === LEADS_HREF && newLeads > 0 && (
+                    <span aria-label={`${newLeads} פניות חדשות`} style={{ background: '#ec4899', color: '#fff', borderRadius: 10, minWidth: 18, height: 18, padding: '0 5px', fontSize: 11, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {newLeads}
+                    </span>
+                  )}
                 </Link>
               )
             })}
