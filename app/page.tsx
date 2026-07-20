@@ -618,12 +618,12 @@ export default function Home() {
 
       {/* ════════════════════════════ WHATSAPP BUTTON ════════════════════════════ */}
       <a
-        href="https://wa.me/9725XXXXXXXX"
+       href="https://wa.me/972525708084?text=%D7%94%D7%99%D7%99%2C%20%D7%9E%D7%A2%D7%95%D7%A0%D7%99%D7%99%D7%9F%20%D7%91%D7%A4%D7%A8%D7%98%D7%99%D7%9D"
         target="_blank"
         rel="noopener noreferrer"
         title="שלחו לנו הודעה בווצאפ"
         style={{
-          position: 'fixed', bottom: 24, left: 24, zIndex: 999,
+         position: 'fixed', bottom: 88, left: 24, zIndex: 999,
           width: 58, height: 58, borderRadius: '50%',
           background: '#25D366',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
