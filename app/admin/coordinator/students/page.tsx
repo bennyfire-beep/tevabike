@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
+import RiderForm, { RiderRecord } from '@/components/RiderForm'
 
 const BRANCH_COLOR: Record<string, string> = {
   'משגב':  '#b5e853',
@@ -13,6 +14,11 @@ const BRANCH_COLOR: Record<string, string> = {
 type Rider = {
   id: string
   full_name: string
+  parent_name?: string | null
+  email?: string | null
+  age?: number | null
+  bike_type?: string | null
+  notes?: string | null
   phone: string | null
   parent_phone: string | null
   group_name: string | null
@@ -57,6 +63,15 @@ export default function StudentsPage() {
   const [pickedGroupIds, setPickedGroupIds] = useState<string[]>([])
   const [saving, setSaving]           = useState(false)
   const [saveErr, setSaveErr]         = useState('')
+
+  // טופס חניך (יצירה / עריכה)
+  const [formRider, setFormRider]     = useState<RiderRecord | null | undefined>(undefined)
+  const [toast, setToast]             = useState('')
+
+  function reloadRiders() {
+    supabase.from('riders').select('*').order('full_name')
+      .then(({ data }) => setRiders(data ?? []))
+  }
 
   useEffect(() => {
     if (!user) return
@@ -182,10 +197,29 @@ export default function StudentsPage() {
     <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
 
       {/* ── Header ── */}
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: '0 0 3px', fontSize: 20, fontWeight: 800 }}>תלמידים</h2>
-        <p style={{ color: '#7a8f7d', fontSize: 13, margin: 0 }}>{riders.length} תלמידים רשומים · לחץ על שורה לשיוך קבוצות</p>
+      <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ margin: '0 0 3px', fontSize: 20, fontWeight: 800 }}>תלמידים</h2>
+          <p style={{ color: '#7a8f7d', fontSize: 13, margin: 0 }}>{riders.length} תלמידים רשומים · לחץ על שורה לשיוך קבוצות</p>
+        </div>
+        <button
+          onClick={() => setFormRider(null)}
+          style={{
+            marginRight: 'auto', background: '#b5e853', color: '#0d0f0e', border: 'none',
+            borderRadius: 10, padding: '11px 22px', fontSize: 14, fontWeight: 800,
+            fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer',
+          }}
+        >
+          ➕ חניך חדש
+        </button>
       </div>
+
+      {toast && (
+        <div style={{ background: '#1a2114', border: '1px solid #2f4020', color: '#b5e853',
+                      borderRadius: 10, padding: '11px 16px', marginBottom: 16, fontSize: 14 }}>
+          {toast}
+        </div>
+      )}
 
       {/* ── Filters ── */}
       <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, padding: '14px 16px', marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -242,7 +276,17 @@ export default function StudentsPage() {
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{r.full_name}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>
+                      {r.full_name}
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`עריכת פרטי ${r.full_name}`}
+                        onClick={e => { e.stopPropagation(); setFormRider(r as RiderRecord) }}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); setFormRider(r as RiderRecord) } }}
+                        style={{ marginRight: 8, color: '#7a8f7d', fontSize: 12, cursor: 'pointer' }}
+                      >✎ עריכה</span>
+                    </div>
                     {r.parent_phone && (
                       <div style={{ color: '#7a8f7d', fontSize: 11, marginTop: 2 }}>הורה: {r.parent_phone}</div>
                     )}
@@ -381,6 +425,20 @@ export default function StudentsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {formRider !== undefined && (
+        <RiderForm
+          rider={formRider}
+          groups={groups.map(g => ({ id: g.id, name: g.name, branch: g.branch }))}
+          onClose={() => setFormRider(undefined)}
+          onSaved={name => {
+            setFormRider(undefined)
+            setToast(`${name} נשמר בהצלחה`)
+            reloadRiders()
+            setTimeout(() => setToast(''), 4000)
+          }}
+        />
       )}
     </div>
   )
