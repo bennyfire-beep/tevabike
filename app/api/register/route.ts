@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const ADMIN_EMAIL = 'bennyfire@gmail.com'
+const ADMIN_EMAILS = ['bennyfire@gmail.com', 'talmatoki@gmail.com']
 const ADMIN_PHONE = '972525708084'
 const FROM = 'טבע בייק <info@mail.tevabike.com>'
 
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
   // ── מייל אליך ───────────────────────────────────────────────
   await sendEmail(
-    [ADMIN_EMAIL],
+    ADMIN_EMAILS,
     `הרשמה חדשה: ${fullName} — ${classType}`,
     `<div dir="rtl" style="font-family:Heebo,Arial,sans-serif">
        <h2 style="margin:0 0 12px">הרשמה חדשה מהאתר</h2>
