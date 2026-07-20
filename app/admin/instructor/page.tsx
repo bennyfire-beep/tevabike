@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import RiderForm from '@/components/RiderForm'
 import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -101,6 +102,8 @@ export default function InstructorMobilePage() {
   const [loadingRiders, setLoadingRiders] = useState(false)
   const [saving, setSaving]             = useState(false)
   const [confirmCount, setConfirmCount] = useState<number | null>(null)
+  const [showAddRider, setShowAddRider] = useState(false)
+  const [addedMsg, setAddedMsg]         = useState('')
 
   // ── Load the active instructors once ──────────────────────────────────────
   // admin_roles isn't anon-readable under RLS (it holds staff PII), so the list
@@ -357,6 +360,22 @@ export default function InstructorMobilePage() {
         </div>
       </div>
 
+      {addedMsg && (
+        <div style={{ background: `${C.present}1f`, border: `1px solid ${C.present}66`, color: C.present,
+                      borderRadius: 14, padding: '11px 16px', marginBottom: 14, fontSize: 15 }}>
+          {addedMsg}
+        </div>
+      )}
+
+      <button
+        onClick={() => setShowAddRider(true)}
+        style={{ width: '100%', minHeight: 52, marginBottom: 16, background: C.surface,
+                 border: `1px dashed ${C.border}`, color: C.purpleSoft, borderRadius: 16,
+                 fontFamily: FONT, fontWeight: 800, fontSize: 16, cursor: 'pointer' }}
+      >
+        ➕ חניך חדש
+      </button>
+
       {/* live present tally */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
         <span style={{ flex: 1, textAlign: 'center', background: `${C.present}1f`, border: `1px solid ${C.present}66`, color: C.present, borderRadius: 14, padding: '10px 0', fontSize: 17, fontWeight: 800 }}>✔ {presentCount} נוכחים</span>
@@ -411,6 +430,22 @@ export default function InstructorMobilePage() {
             {saving ? 'שומר...' : `💾 שמור נוכחות (${presentCount})`}
           </button>
         </div>
+      )}
+
+      {showAddRider && session && session.group_id && (
+        <RiderForm
+          rider={null}
+          allowDelete={false}
+          defaultGroupId={session.group_id}
+          groups={[{ id: session.group_id!, name: session.class_name, branch: session.branch }]}
+          onClose={() => setShowAddRider(false)}
+          onSaved={name => {
+            setShowAddRider(false)
+            setAddedMsg(`${name} נוסף/ה לקבוצה`)
+            openSession(session)
+            setTimeout(() => setAddedMsg(''), 5000)
+          }}
+        />
       )}
     </Shell>
   )
