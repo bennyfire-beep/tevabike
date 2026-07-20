@@ -108,7 +108,7 @@ export default function ContactWidget() {
         aria-label="צור קשר"
         aria-haspopup="dialog"
         style={{
-          position: 'fixed', bottom: 84, left: 24, zIndex: 9998,
+         position: 'fixed', bottom: 150, left: 24, zIndex: 9998,
           minWidth: 56, height: 56, borderRadius: 28, padding: '0 20px',
           display: 'flex', alignItems: 'center', gap: 8,
           background: `linear-gradient(135deg, ${PURPLE}, ${PINK})`, color: '#fff',
