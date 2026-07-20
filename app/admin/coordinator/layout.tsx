@@ -18,6 +18,7 @@ const NAV = [
   { href: '/admin/coordinator/staff',      label: 'צוות',     exact: false },
   { href: '/admin/coordinator/camp', label: 'ימי שיא', exact: false },
   { href: '/admin/coordinator/registrations', label: 'הרשמות', exact: false },
+  { href: '/admin/coordinator/reports', label: 'דוחות', exact: false },
 ]
 
 export default function CoordinatorLayout({ children }: { children: React.ReactNode }) {
