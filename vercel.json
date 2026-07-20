@@ -3,6 +3,10 @@
     {
       "path": "/api/salary/report?send=true",
       "schedule": "0 6 1 * *"
+    },
+    {
+      "path": "/api/cron/absence-alerts",
+      "schedule": "0 17 * * *"
     }
   ]
 }
