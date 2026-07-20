@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
-const ADMIN_EMAIL = 'bennyfire@gmail.com'
+const ADMIN_EMAILS = ['bennyfire@gmail.com', 'talmatoki@gmail.com']
 const FROM = 'טבע בייק <info@mail.tevabike.com>'
 
 const DAY_IDS = ['yaad', 'yarden', 'misgav'] as const
@@ -215,7 +215,7 @@ export async function POST(req: NextRequest) {
 
   // התראה לבני
   await sendEmail(
-    [ADMIN_EMAIL],
+    ADMIN_EMAILS,
     `הרשמה לימי שיא: ${riderFirstName} ${riderLastName} — ${daysCount} ימים`,
     `<div dir="rtl" style="font-family:Heebo,Arial,sans-serif">
       <h2>הרשמה חדשה לימי שיא</h2>
