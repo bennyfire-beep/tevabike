@@ -106,6 +106,7 @@ export default function Home() {
   const [tab, setTab]           = useState<'kids' | 'adults'>('kids')
   const [scrolled, setScrolled] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [sending, setSending] = useState(false)
   const [form, setForm] = useState({
     firstName: '', lastName: '', phone: '', email: '', branch: '', classType: ''
   })
@@ -116,13 +117,31 @@ export default function Home() {
     return () => window.removeEventListener('scroll', h)
   }, [])
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.firstName || !form.phone || !form.classType) {
       alert('אנא מלא שם, טלפון וחוג')
       return
     }
-    setSubmitted(true)
+    if (sending) return
+    setSending(true)
+    try {
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        alert(data?.error || 'ההרשמה לא נשלחה. נסו שוב או התקשרו 052-5708084')
+        setSending(false)
+        return
+      }
+      setSubmitted(true)
+    } catch {
+      alert('אין חיבור לשרת. נסו שוב או התקשרו 052-5708084')
+    }
+    setSending(false)
   }
 
   const upd = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }))
@@ -473,9 +492,10 @@ export default function Home() {
                 <button
                   type="submit"
                   className="btn-primary"
-                  style={{ width: '100%', textAlign: 'center', marginTop: 6, fontSize: 17, padding: '14px 0' }}
+                  disabled={sending}
+                  style={{ width: '100%', textAlign: 'center', marginTop: 6, fontSize: 17, padding: '14px 0', opacity: sending ? 0.6 : 1 }}
                 >
-                  שלח הרשמה ←
+                  {sending ? 'שולח...' : 'שלח הרשמה ←'}
                 </button>
               </form>
             )}
