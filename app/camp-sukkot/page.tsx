@@ -82,6 +82,11 @@ export default function CampPage() {
 
       {/* Schedule */}
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '20px 16px 40px' }}>
+        <img
+          src="/camp-sukkot.png"
+          alt="לוז המחנה"
+          style={{ width: '100%', height: 'auto', display: 'block', margin: '0 0 24px' }}
+        />
         <h2 style={{ color: M, fontSize: 26, fontWeight: 900, margin: '10px 0 14px' }}>טבלת פעילות</h2>
 
         <div style={{ overflowX: 'auto' }}>
