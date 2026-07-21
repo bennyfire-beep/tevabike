@@ -34,6 +34,9 @@ export default function CampPage() {
       {/* Header */}
       <div style={{ background: DARK, padding: '28px 20px', textAlign: 'center' }}>
         <img src="/logo.png" alt="Teva Bike" style={{ height: 46, marginBottom: 18 }} />
+        <div style={{ color: '#fff', fontSize: 18, fontWeight: 900, letterSpacing: 2, marginBottom: 6 }}>
+          מחנה סוכות
+        </div>
         <h1 style={{ color: M, fontSize: 34, fontWeight: 900, margin: '0 0 8px', lineHeight: 1.2 }}>
           מחנה רכיבה משמר העמק
         </h1>
