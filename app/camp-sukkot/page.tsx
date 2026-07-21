@@ -28,7 +28,7 @@ const rows: { label: string; cells: string[] }[] = [
   },
 ];
 
-export default function CampPage() {
+export default function SukkotCampPage() {
   return (
     <div dir="rtl" style={{ background: '#fff', minHeight: '100vh', fontFamily: 'Heebo, Arial, sans-serif' }}>
       {/* Header */}
