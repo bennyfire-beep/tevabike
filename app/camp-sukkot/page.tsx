@@ -104,19 +104,15 @@ export default function SukkotCampPage() {
     <div dir="rtl" style={{ background: BG, minHeight: '100vh', color: TEXT, fontFamily: 'Heebo, Arial, sans-serif' }}>
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 20px 140px' }}>
 
-        <div style={{ color: PINK, fontSize: 14, fontWeight: 800, letterSpacing: 2, marginBottom: 6 }}>מחנה סוכות</div>
-        <h1 style={{ fontSize: 30, fontWeight: 900, margin: '0 0 6px', lineHeight: 1.2 }}>
-          מחנה רכיבה משמר העמק
-        </h1>
-        <div style={{ color: LIME, fontSize: 20, fontWeight: 800, marginBottom: 20, direction: 'ltr', textAlign: 'right' }}>
-          27.09–01.10
-        </div>
-
         <img
-          src="/camp-sukkot.png"
-          alt="לוז מחנה סוכות משמר העמק"
+          src="/camp-sukkot-banner.png"
+          alt="מחנה סוכות — מחנה רכיבה משמר העמק, 27.09–01.10"
           style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 14, marginBottom: 26 }}
         />
+
+        <h1 style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+          מחנה סוכות — מחנה רכיבה משמר העמק
+        </h1>
 
         <p style={{ color: TEXT, fontSize: 15, lineHeight: 1.8, margin: '0 0 8px' }}>
           חמישה ימי רכיבה במשמר העמק — אנדורו, הקפצות, פאמפטרק ואייר באג. המחנה כולל ארוחות ולינה.
@@ -125,6 +121,13 @@ export default function SukkotCampPage() {
           מיועד לכיתות ו&apos; ומעלה · 2,900 ₪ למשתתף · מינימום 8 משתתפים לפתיחת המחנה.<br />
           רוכבים שאינם חברי טבע בייק — נדרש אישור בני או טל לפני ההרשמה.
         </p>
+
+        <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 12px' }}>לוז המחנה</h2>
+        <img
+          src="/camp-sukkot.png"
+          alt="לוז יומי של מחנה סוכות"
+          style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 14, marginBottom: 30 }}
+        />
 
         {info && (
           <div style={{
