@@ -49,6 +49,15 @@ export default function SukkotAdminPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [savingId, setSavingId] = useState<string | null>(null)
 
+  // שליחת הודעה לכל הנרשמים
+  const [composeOpen, setComposeOpen] = useState(false)
+  const [subject, setSubject] = useState('פרטים אחרונים לקראת המחנה')
+  const [message, setMessage] = useState('')
+  const [audience, setAudience] = useState<'all' | 'paid' | 'pending'>('all')
+  const [includePayButton, setIncludePayButton] = useState(false)
+  const [sendState, setSendState] = useState<'' | 'testing' | 'sending'>('')
+  const [sendResult, setSendResult] = useState('')
+
   const load = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
@@ -67,6 +76,44 @@ export default function SukkotAdminPage() {
     if (error) { alert(error.message); setSavingId(null); return }
     setRegs(prev => prev.map(r => r.id === reg.id ? { ...r, payment_status } : r))
     setSavingId(null)
+  }
+
+  async function broadcast(test: boolean) {
+    setSendResult('')
+    if (!subject.trim()) { setSendResult('חסרה כותרת') ; return }
+    if (message.trim().length < 5) { setSendResult('ההודעה קצרה מדי'); return }
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setSendResult('פג תוקף ההתחברות, התחבר מחדש'); return }
+
+    if (!test) {
+      const label = audience === 'all' ? 'כל הנרשמים' : audience === 'paid' ? 'מי ששילם' : 'מי שעדיין לא שילם'
+      if (!confirm(`לשלוח את ההודעה ל${label}? אי אפשר לבטל אחרי השליחה.`)) return
+    }
+
+    setSendState(test ? 'testing' : 'sending')
+    try {
+      const res = await fetch('/api/admin/sukkot-broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          subject, message, audience, includePayButton,
+          testTo: test ? (user?.email ?? '') : undefined,
+        }),
+      })
+      const d = await res.json()
+      if (!d.ok) { setSendResult(d.error || 'השליחה נכשלה'); setSendState(''); return }
+      if (test) {
+        setSendResult(`נשלח מייל בדיקה אליך (${user?.email ?? ''}). בדוק אותו לפני שליחה לכולם.`)
+      } else {
+        setSendResult(`ההודעה נשלחה ל-${d.sent} מתוך ${d.total} נמענים.` +
+          (d.failed?.length ? ` נכשלו: ${d.failed.join(', ')}` : ''))
+        setMessage('')
+      }
+    } catch {
+      setSendResult('אין חיבור לשרת')
+    }
+    setSendState('')
   }
 
   if (!user) return null
@@ -112,6 +159,11 @@ export default function SukkotAdminPage() {
     padding: '7px 14px', fontSize: 13, fontWeight: 600, textDecoration: 'none',
     fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer',
   }
+  const fieldStyle: React.CSSProperties = {
+    width: '100%', background: '#0d0f0e', border: '1px solid #252b27', borderRadius: 8,
+    color: '#e8efe9', fontFamily: 'Heebo, Arial, sans-serif', fontSize: 14,
+    padding: '10px 12px', outline: 'none', boxSizing: 'border-box',
+  }
   const th: React.CSSProperties = { textAlign: 'right', padding: '10px 12px', color: '#7a8f7d', fontSize: 12, fontWeight: 700, borderBottom: '1px solid #252b27', whiteSpace: 'nowrap' }
   const td: React.CSSProperties = { padding: '12px', borderBottom: '1px solid #1c211e', fontSize: 13, verticalAlign: 'top' }
 
@@ -138,6 +190,9 @@ export default function SukkotAdminPage() {
         </div>
         <div style={{ marginRight: 'auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={csv} style={btnStyle}>ייצוא לאקסל</button>
+          <button onClick={() => setComposeOpen(o => !o)} style={{ ...btnStyle, background: composeOpen ? '#2f4020' : '#1a2114' }}>
+            {composeOpen ? 'סגירת חלון ההודעה' : 'שליחת הודעה לנרשמים'}
+          </button>
           <a href={waLink('0505358071', summaryText)} target="_blank" rel="noopener noreferrer" style={btnStyle}>
             שליחת סיכום לטל
           </a>
@@ -150,6 +205,83 @@ export default function SukkotAdminPage() {
           </label>
         </div>
       </div>
+
+      {/* חלון שליחת הודעה */}
+      {composeOpen && (
+        <div style={{ background: '#141716', border: '1px solid #2f4020', borderRadius: 12, padding: 20, marginBottom: 24 }}>
+          <h3 style={{ margin: '0 0 4px', fontSize: 17, fontWeight: 800 }}>שליחת הודעה לנרשמים</h3>
+          <p style={{ color: '#7a8f7d', fontSize: 13, margin: '0 0 16px' }}>
+            ההודעה נשלחת במייל, כל הורה מקבל עותק אישי עם שמו. שלח לעצמך בדיקה לפני.
+          </p>
+
+          <div style={{ display: 'grid', gap: 12, marginBottom: 14 }}>
+            <div>
+              <label style={{ display: 'block', color: '#7a8f7d', fontSize: 12, marginBottom: 5, fontWeight: 600 }}>כותרת</label>
+              <input value={subject} onChange={e => setSubject(e.target.value)} style={fieldStyle} />
+            </div>
+            <div>
+              <label style={{ display: 'block', color: '#7a8f7d', fontSize: 12, marginBottom: 5, fontWeight: 600 }}>תוכן ההודעה</label>
+              <textarea
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                rows={8}
+                placeholder={'שורה ריקה בין פסקאות.\n\nלמשל: אנחנו סוגרים פרטים אחרונים לקראת המחנה...'}
+                style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.7 }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#7a8f7d', fontSize: 12 }}>
+              נמענים
+              <select value={audience} onChange={e => setAudience(e.target.value as 'all' | 'paid' | 'pending')} style={selStyle}>
+                <option value="all">כל הנרשמים ({active.length})</option>
+                <option value="paid">רק מי ששילם ({paid.length})</option>
+                <option value="pending">רק מי שלא שילם ({active.length - paid.length})</option>
+              </select>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#e8efe9', fontSize: 13, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={includePayButton}
+                onChange={e => setIncludePayButton(e.target.checked)}
+                style={{ width: 17, height: 17, accentColor: '#b5e853', cursor: 'pointer' }}
+              />
+              להוסיף כפתור תשלום
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => broadcast(true)}
+              disabled={sendState !== ''}
+              style={{ ...btnStyle, opacity: sendState ? 0.5 : 1 }}
+            >
+              {sendState === 'testing' ? 'שולח...' : 'שליחת בדיקה אליי'}
+            </button>
+            <button
+              onClick={() => broadcast(false)}
+              disabled={sendState !== ''}
+              style={{
+                background: '#b5e853', color: '#0d0f0e', border: 'none', borderRadius: 8,
+                padding: '8px 22px', fontSize: 13, fontWeight: 800, cursor: sendState ? 'default' : 'pointer',
+                fontFamily: 'Heebo, Arial, sans-serif', opacity: sendState ? 0.5 : 1,
+              }}
+            >
+              {sendState === 'sending' ? 'שולח...' : 'שליחה לכולם'}
+            </button>
+          </div>
+
+          {sendResult && (
+            <div style={{
+              marginTop: 14, borderRadius: 8, padding: '10px 14px', fontSize: 13, lineHeight: 1.7,
+              background: '#1a2114', border: '1px solid #2f4020', color: '#b5e853',
+            }}>
+              {sendResult}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* כרטיסי סיכום */}
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', marginBottom: 24 }}>
