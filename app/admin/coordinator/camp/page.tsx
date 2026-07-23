@@ -19,6 +19,7 @@ type Reg = {
   days_count: number
   total_amount: number
   payment_status: string
+  payment_link: string | null
 }
 
 const DAY_LABEL: Record<string, string> = { yaad: 'יעד 16.8', yarden: 'ירדן 18.8', misgav: 'משגב 20.8' }
@@ -48,6 +49,16 @@ export default function CampAdminPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [savingId, setSavingId] = useState<string | null>(null)
 
+  // שליחת הודעה לנרשמים
+  const [composeOpen, setComposeOpen] = useState(false)
+  const [subject, setSubject] = useState('פרטים אחרונים לקראת יום השיא')
+  const [message, setMessage] = useState('')
+  const [audience, setAudience] = useState<'all' | 'paid' | 'pending'>('all')
+  const [mailDay, setMailDay] = useState<'all' | string>('all')
+  const [includePayButton, setIncludePayButton] = useState(false)
+  const [sendState, setSendState] = useState<'' | 'testing' | 'sending'>('')
+  const [sendResult, setSendResult] = useState('')
+
   const load = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
@@ -68,6 +79,45 @@ export default function CampAdminPage() {
     setSavingId(null)
   }
 
+  async function broadcast(test: boolean) {
+    setSendResult('')
+    if (!subject.trim()) { setSendResult('חסרה כותרת'); return }
+    if (message.trim().length < 5) { setSendResult('ההודעה קצרה מדי'); return }
+
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setSendResult('פג תוקף ההתחברות, התחבר מחדש'); return }
+
+    if (!test) {
+      const who = audience === 'all' ? 'כל הנרשמים' : audience === 'paid' ? 'מי ששילם' : 'מי שעדיין לא שילם'
+      const when = mailDay === 'all' ? 'בכל הימים' : `ביום ${DAY_LABEL[mailDay] ?? mailDay}`
+      if (!confirm(`לשלוח את ההודעה ל${who} ${when}? אי אפשר לבטל אחרי השליחה.`)) return
+    }
+
+    setSendState(test ? 'testing' : 'sending')
+    try {
+      const res = await fetch('/api/admin/peak-broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          subject, message, audience, day: mailDay, includePayButton,
+          testTo: test ? (user?.email ?? '') : undefined,
+        }),
+      })
+      const d = await res.json()
+      if (!d.ok) { setSendResult(d.error || 'השליחה נכשלה'); setSendState(''); return }
+      if (test) {
+        setSendResult(`נשלח מייל בדיקה אליך (${user?.email ?? ''}). בדוק אותו לפני שליחה לכולם.`)
+      } else {
+        setSendResult(`ההודעה נשלחה ל-${d.sent} מתוך ${d.total} נמענים.` +
+          (d.failed?.length ? ` נכשלו: ${d.failed.join(', ')}` : ''))
+        setMessage('')
+      }
+    } catch {
+      setSendResult('אין חיבור לשרת')
+    }
+    setSendState('')
+  }
+
   if (!user) return null
 
   const active = regs.filter(r => r.payment_status !== 'cancelled')
@@ -77,6 +127,11 @@ export default function CampAdminPage() {
     (dayFilter === 'all' || r.days?.includes(dayFilter)) &&
     (statusFilter === 'all' || r.payment_status === statusFilter),
   )
+
+  // כמה נמענים בקהל שנבחר בחלון ההודעה
+  const mailPool = active.filter(r => mailDay === 'all' || r.days?.includes(mailDay))
+  const mailPaid = mailPool.filter(r => r.payment_status === 'paid').length
+  const mailPending = mailPool.filter(r => r.payment_status === 'pending').length
 
   const revenue = active.filter(r => r.payment_status === 'paid').reduce((s, r) => s + r.total_amount, 0)
   const pending = active.filter(r => r.payment_status === 'pending').reduce((s, r) => s + r.total_amount, 0)
@@ -95,6 +150,16 @@ export default function CampAdminPage() {
     background: '#0d0f0e', border: '1px solid #252b27', borderRadius: 8, color: '#e8efe9',
     fontFamily: 'Heebo, Arial, sans-serif', fontSize: 13, padding: '7px 12px', outline: 'none',
   }
+  const btnStyle: React.CSSProperties = {
+    background: '#1a2114', color: '#b5e853', border: '1px solid #2f4020', borderRadius: 8,
+    padding: '7px 14px', fontSize: 13, fontWeight: 600, textDecoration: 'none',
+    fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer',
+  }
+  const fieldStyle: React.CSSProperties = {
+    width: '100%', background: '#0d0f0e', border: '1px solid #252b27', borderRadius: 8,
+    color: '#e8efe9', fontFamily: 'Heebo, Arial, sans-serif', fontSize: 14,
+    padding: '10px 12px', outline: 'none', boxSizing: 'border-box',
+  }
   const th: React.CSSProperties = { textAlign: 'right', padding: '10px 12px', color: '#7a8f7d', fontSize: 12, fontWeight: 700, borderBottom: '1px solid #252b27', whiteSpace: 'nowrap' }
   const td: React.CSSProperties = { padding: '12px', borderBottom: '1px solid #1c211e', fontSize: 13, verticalAlign: 'top' }
 
@@ -109,8 +174,10 @@ export default function CampAdminPage() {
           </p>
         </div>
         <div style={{ marginRight: 'auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <a href={waLink('0505358071', summaryText)} target="_blank" rel="noopener noreferrer"
-            style={{ background: '#1a2114', color: '#b5e853', border: '1px solid #2f4020', borderRadius: 8, padding: '7px 14px', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
+          <button onClick={() => setComposeOpen(o => !o)} style={{ ...btnStyle, background: composeOpen ? '#2f4020' : '#1a2114' }}>
+            {composeOpen ? 'סגירת חלון ההודעה' : 'שליחת הודעה לנרשמים'}
+          </button>
+          <a href={waLink('0505358071', summaryText)} target="_blank" rel="noopener noreferrer" style={btnStyle}>
             שליחת סיכום לטל
           </a>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#7a8f7d', fontSize: 12 }}>
@@ -129,6 +196,86 @@ export default function CampAdminPage() {
           </label>
         </div>
       </div>
+
+      {/* חלון שליחת הודעה */}
+      {composeOpen && (
+        <div style={{ background: '#141716', border: '1px solid #2f4020', borderRadius: 12, padding: 20, marginBottom: 24 }}>
+          <h3 style={{ margin: '0 0 4px', fontSize: 17, fontWeight: 800 }}>שליחת הודעה לנרשמים</h3>
+          <p style={{ color: '#7a8f7d', fontSize: 13, margin: '0 0 16px' }}>
+            ההודעה נשלחת במייל, כל הורה מקבל עותק אישי עם שמו. אפשר לשלוח רק לנרשמי יום מסוים. שלח לעצמך בדיקה לפני.
+          </p>
+
+          <div style={{ display: 'grid', gap: 12, marginBottom: 14 }}>
+            <div>
+              <label style={{ display: 'block', color: '#7a8f7d', fontSize: 12, marginBottom: 5, fontWeight: 600 }}>כותרת</label>
+              <input value={subject} onChange={e => setSubject(e.target.value)} style={fieldStyle} />
+            </div>
+            <div>
+              <label style={{ display: 'block', color: '#7a8f7d', fontSize: 12, marginBottom: 5, fontWeight: 600 }}>תוכן ההודעה</label>
+              <textarea
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                rows={8}
+                placeholder={'שורה ריקה בין פסקאות.\n\nלמשל: אנחנו סוגרים פרטים אחרונים לקראת יום השיא...'}
+                style={{ ...fieldStyle, resize: 'vertical', lineHeight: 1.7 }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#7a8f7d', fontSize: 12 }}>
+              יום
+              <select aria-label="שליחה לנרשמי יום" value={mailDay} onChange={e => setMailDay(e.target.value)} style={selStyle}>
+                <option value="all">כל הימים</option>
+                {DAY_IDS.map(d => <option key={d} value={d}>{DAY_LABEL[d]} ({countFor(d)})</option>)}
+              </select>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#7a8f7d', fontSize: 12 }}>
+              נמענים
+              <select aria-label="קהל יעד" value={audience} onChange={e => setAudience(e.target.value as 'all' | 'paid' | 'pending')} style={selStyle}>
+                <option value="all">כל הנרשמים ({mailPool.length})</option>
+                <option value="paid">רק מי ששילם ({mailPaid})</option>
+                <option value="pending">רק מי שלא שילם ({mailPending})</option>
+              </select>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#e8efe9', fontSize: 13, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={includePayButton}
+                onChange={e => setIncludePayButton(e.target.checked)}
+                style={{ width: 17, height: 17, accentColor: '#b5e853', cursor: 'pointer' }}
+              />
+              להוסיף כפתור תשלום
+            </label>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button onClick={() => broadcast(true)} disabled={sendState !== ''} style={{ ...btnStyle, opacity: sendState ? 0.5 : 1 }}>
+              {sendState === 'testing' ? 'שולח...' : 'שליחת בדיקה אליי'}
+            </button>
+            <button
+              onClick={() => broadcast(false)}
+              disabled={sendState !== ''}
+              style={{
+                background: '#b5e853', color: '#0d0f0e', border: 'none', borderRadius: 8,
+                padding: '8px 22px', fontSize: 13, fontWeight: 800, cursor: sendState ? 'default' : 'pointer',
+                fontFamily: 'Heebo, Arial, sans-serif', opacity: sendState ? 0.5 : 1,
+              }}
+            >
+              {sendState === 'sending' ? 'שולח...' : 'שליחה לכולם'}
+            </button>
+          </div>
+
+          {sendResult && (
+            <div style={{
+              marginTop: 14, borderRadius: 8, padding: '10px 14px', fontSize: 13, lineHeight: 1.7,
+              background: '#1a2114', border: '1px solid #2f4020', color: '#b5e853',
+            }}>
+              {sendResult}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* כרטיסי סיכום */}
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', marginBottom: 24 }}>
