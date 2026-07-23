@@ -146,6 +146,34 @@ export default function CampAdminPage() {
     `שולם: ${revenue} ₪ · ממתין: ${pending} ₪`,
   ].join('\n')
 
+  // ייצוא לאקסל — מייצא בדיוק את מה שמוצג לפי הסינון (יום + סטטוס תשלום)
+  const csv = () => {
+    const head = ['נרשם', 'רוכב', 'קבוצה', 'טלפון רוכב', 'הורה', 'טלפון הורה', 'מייל', 'ישוב', 'בריאות', 'ימים', 'מס\' ימים', 'סכום', 'תשלום']
+    const rows = filtered.map(r => [
+      fmtDate(r.created_at),
+      `${r.rider_first_name} ${r.rider_last_name}`,
+      r.group_name ?? '',
+      r.child_phone ?? '',
+      r.parent_name,
+      r.parent_phone,
+      r.parent_email,
+      r.city ?? '',
+      r.health_notes ?? '',
+      (r.days ?? []).map(d => DAY_LABEL[d] ?? d).join(' + '),
+      String(r.days_count ?? (r.days ?? []).length),
+      String(r.total_amount),
+      STATUS_LABEL[r.payment_status] ?? r.payment_status,
+    ])
+    const body = [head, ...rows].map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const url = URL.createObjectURL(new Blob(['\uFEFF' + body], { type: 'text/csv;charset=utf-8' }))
+    const dayPart = dayFilter === 'all' ? 'כל-הימים' : (DAY_LABEL[dayFilter] ?? dayFilter).replace(/\s/g, '-')
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `ימי-שיא-${dayPart}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const selStyle: React.CSSProperties = {
     background: '#0d0f0e', border: '1px solid #252b27', borderRadius: 8, color: '#e8efe9',
     fontFamily: 'Heebo, Arial, sans-serif', fontSize: 13, padding: '7px 12px', outline: 'none',
@@ -174,6 +202,9 @@ export default function CampAdminPage() {
           </p>
         </div>
         <div style={{ marginRight: 'auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button onClick={csv} disabled={filtered.length === 0} style={{ ...btnStyle, opacity: filtered.length === 0 ? 0.45 : 1 }}>
+            ייצוא לאקסל{dayFilter === 'all' ? '' : ` · ${DAY_LABEL[dayFilter]}`} ({filtered.length})
+          </button>
           <button onClick={() => setComposeOpen(o => !o)} style={{ ...btnStyle, background: composeOpen ? '#2f4020' : '#1a2114' }}>
             {composeOpen ? 'סגירת חלון ההודעה' : 'שליחת הודעה לנרשמים'}
           </button>
