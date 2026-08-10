@@ -1,162 +1,297 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
-import { useCoordinator } from '@/lib/coordinator-context'
 
-type Reg = {
+import { useEffect, useState } from 'react'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+const BRANCHES = [
+  { value: 'משגב', label: 'משגב' },
+  { value: 'מצובה', label: 'מצובה' },
+  { value: 'ביריה', label: 'ביריה' },
+  { value: 'אמירים', label: 'אמירים / פרוד' },
+  { value: 'אחר', label: 'אחר' },
+]
+
+const branchLabel = (v?: string | null) => BRANCHES.find((b) => b.value === v)?.label || v || ''
+
+type Registration = {
   id: string
   created_at: string
+  child_name: string | null
+  child_age: number | null
   full_name: string
   phone: string
   email: string | null
   branch: string | null
+  city: string | null
   class_type: string | null
-  registration_type: string | null
-  child_name: string | null
-  child_age: number | null
   notes: string | null
   status: string
+  group_name: string | null
+  arbox_sent_at: string | null
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  pending: 'חדש',
-  contacted: 'יצרנו קשר',
-  joined: 'הצטרף',
-  closed: 'לא רלוונטי',
-}
-const STATUS_COLOR: Record<string, { bg: string; fg: string }> = {
-  pending:   { bg: '#3a2f14', fg: '#fbbf24' },
-  contacted: { bg: '#1a2637', fg: '#81d4fa' },
-  joined:    { bg: '#1a2114', fg: '#b5e853' },
-  closed:    { bg: '#2a2a2a', fg: '#8a8a8a' },
-}
-
-const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleString('he-IL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })
-
-const waLink = (phone: string, text: string) => {
-  const clean = phone.replace(/\D/g, '').replace(/^0/, '972')
-  return `https://wa.me/${clean}?text=${encodeURIComponent(text)}`
+type Group = {
+  id: string
+  name: string
+  branch: string
+  level: string | null
+  days: string | null
+  arbox_link: string | null
+  is_active: boolean
 }
 
 export default function RegistrationsPage() {
-  const user = useCoordinator()
-  const [regs, setRegs] = useState<Reg[]>([])
+  const [regs, setRegs] = useState<Registration[]>([])
+  const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [savingId, setSavingId] = useState<string | null>(null)
+  const [tab, setTab] = useState<'pending' | 'approved'>('pending')
+  const [picked, setPicked] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState<string | null>(null)
+  const [msg, setMsg] = useState('')
+  const [showAdd, setShowAdd] = useState(false)
 
-  const load = useCallback(async () => {
+  async function load() {
     setLoading(true)
-    const { data } = await supabase
-      .from('registrations')
-      .select('*')
-      .order('created_at', { ascending: false })
-    setRegs((data ?? []) as Reg[])
+    const [r, g] = await Promise.all([
+      supabase.from('registrations').select('*').order('created_at', { ascending: false }),
+      supabase.from('groups').select('*').eq('is_active', true).order('branch'),
+    ])
+    setRegs((r.data as Registration[]) || [])
+    setGroups((g.data as Group[]) || [])
     setLoading(false)
+  }
+
+  useEffect(() => {
+    load()
   }, [])
 
-  useEffect(() => { if (user) load() }, [user, load])
+  async function approve(reg: Registration) {
+    const groupId = picked[reg.id]
+    if (!groupId) {
+      setMsg('בחר קבוצה לפני האישור')
+      return
+    }
+    const group = groups.find((g) => g.id === groupId)
+    if (group && !group.arbox_link) {
+      if (!confirm(`לקבוצה "${group.name}" אין קישור Arbox. לאשר בלי לשלוח קישור תשלום?`)) return
+    }
 
-  async function changeStatus(reg: Reg, status: string) {
-    setSavingId(reg.id)
-    const { error } = await supabase.from('registrations').update({ status }).eq('id', reg.id)
-    if (error) { alert(error.message); setSavingId(null); return }
-    setRegs(prev => prev.map(r => r.id === reg.id ? { ...r, status } : r))
-    setSavingId(null)
+    setBusy(reg.id)
+    setMsg('')
+    try {
+      const res = await fetch('/api/registrations/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registration_id: reg.id, group_id: groupId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'האישור נכשל')
+
+      setMsg(
+        data.email_sent
+          ? `${reg.child_name} שובץ ל${data.group_name} · הזמנת Arbox נשלחה למייל`
+          : `${reg.child_name} שובץ ל${data.group_name} · לא נשלח מייל (אין אימייל או אין קישור Arbox)`
+      )
+
+      if (data.whatsapp_url) window.open(data.whatsapp_url, '_blank')
+      await load()
+    } catch (e: any) {
+      setMsg(e.message)
+    } finally {
+      setBusy(null)
+    }
   }
 
-  if (!user) return null
-
-  const filtered = regs.filter(r => statusFilter === 'all' || r.status === statusFilter)
-  const newCount = regs.filter(r => r.status === 'pending').length
-
-  const selStyle: React.CSSProperties = {
-    background: '#0d0f0e', border: '1px solid #252b27', borderRadius: 8, color: '#e8efe9',
-    fontFamily: 'Heebo, Arial, sans-serif', fontSize: 13, padding: '7px 12px', outline: 'none',
+  async function reject(reg: Registration) {
+    if (!confirm(`לסמן את ההרשמה של ${reg.child_name} כסגורה?`)) return
+    await supabase.from('registrations').update({ status: 'closed' }).eq('id', reg.id)
+    await load()
   }
-  const th: React.CSSProperties = { textAlign: 'right', padding: '10px 12px', color: '#7a8f7d', fontSize: 12, fontWeight: 700, borderBottom: '1px solid #252b27', whiteSpace: 'nowrap' }
-  const td: React.CSSProperties = { padding: '12px', borderBottom: '1px solid #1c211e', fontSize: 13, verticalAlign: 'top' }
+
+  const shown = regs.filter((r) => (tab === 'pending' ? r.status === 'pending' : r.status !== 'pending'))
+
+  // מי שבחר "אחר" – מציגים את כל הקבוצות, והיישוב עוזר להחליט
+  function groupsFor(reg: Registration) {
+    const known = reg.branch && groups.some((g) => g.branch === reg.branch)
+    return known ? groups.filter((g) => g.branch === reg.branch) : groups
+  }
 
   return (
-    <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
+    <div dir="rtl" className="min-h-screen bg-stone-950 text-stone-100 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <header className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">הרשמות</h1>
+            <p className="text-stone-400 text-sm">שיבוץ לקבוצה ושליחת הזמנה ל-Arbox</p>
+          </div>
+          <button
+            onClick={() => setShowAdd(!showAdd)}
+            className="bg-lime-400 text-stone-950 font-semibold px-4 py-2 rounded-lg text-sm"
+          >
+            {showAdd ? 'סגור' : '➕ נרשם חדש'}
+          </button>
+        </header>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <div>
-          <h2 style={{ margin: '0 0 3px', fontSize: 20, fontWeight: 800 }}>הרשמות מהאתר</h2>
-          <p style={{ color: '#7a8f7d', fontSize: 13, margin: 0 }}>
-            {loading ? 'טוען...' : `${filtered.length} הרשמות${newCount ? ` · ${newCount} חדשות` : ''}`}
-          </p>
+        {showAdd && <ManualAdd onDone={() => { setShowAdd(false); load() }} />}
+
+        <div className="flex gap-2 mb-5">
+          {(['pending', 'approved'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 rounded-lg text-sm ${
+                tab === t ? 'bg-lime-400 text-stone-950 font-semibold' : 'bg-stone-900 text-stone-400'
+              }`}
+            >
+              {t === 'pending'
+                ? `ממתינים (${regs.filter((r) => r.status === 'pending').length})`
+                : `טופלו (${regs.filter((r) => r.status !== 'pending').length})`}
+            </button>
+          ))}
         </div>
-        <label style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 6, color: '#7a8f7d', fontSize: 12 }}>
-          סטטוס
-          <select aria-label="סינון לפי סטטוס" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={selStyle}>
-            <option value="all">הכל</option>
-            {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-        </label>
-      </div>
 
-      <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 820 }}>
-          <thead>
-            <tr>
-              <th style={th}>נרשם</th>
-              <th style={th}>חוג / סניף</th>
-              <th style={th}>ילד</th>
-              <th style={th}>הערות</th>
-              <th style={th}>סטטוס</th>
-              <th style={th}>נרשם ב</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(r => {
-              const color = STATUS_COLOR[r.status] ?? STATUS_COLOR.pending
-              return (
-                <tr key={r.id} style={{ opacity: savingId === r.id ? 0.5 : 1 }}>
-                  <td style={td}>
-                    <div style={{ fontWeight: 700 }}>{r.full_name}</div>
-                    <a href={waLink(r.phone, `היי ${r.full_name}, זה בני מטבע בייק לגבי ההרשמה שלך`)}
-                      target="_blank" rel="noopener noreferrer"
-                      style={{ color: '#b5e853', fontSize: 12, textDecoration: 'none' }}>
-                      {r.phone}
-                    </a>
-                    {r.email && <div style={{ color: '#7a8f7d', fontSize: 11 }}>{r.email}</div>}
-                  </td>
-                  <td style={td}>
-                    <div>{r.class_type || '—'}</div>
-                    <div style={{ color: '#7a8f7d', fontSize: 12 }}>{r.branch || '—'}</div>
-                  </td>
-                  <td style={td}>
-                    {r.child_name
-                      ? <>{r.child_name}{r.child_age ? <span style={{ color: '#7a8f7d' }}> · {r.child_age}</span> : null}</>
-                      : <span style={{ color: '#7a8f7d' }}>—</span>}
-                  </td>
-                  <td style={{ ...td, maxWidth: 220, color: r.notes ? '#e8efe9' : '#7a8f7d' }}>{r.notes || '—'}</td>
-                  <td style={td}>
+        {msg && (
+          <div className="bg-lime-950 border border-lime-800 text-lime-200 rounded-lg p-3 text-sm mb-4">{msg}</div>
+        )}
+
+        {loading ? (
+          <p className="text-stone-500">טוען…</p>
+        ) : shown.length === 0 ? (
+          <div className="border border-dashed border-stone-800 rounded-xl p-10 text-center text-stone-500">
+            {tab === 'pending' ? 'אין הרשמות שממתינות לשיבוץ.' : 'עוד לא אושרו הרשמות.'}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {shown.map((reg) => (
+              <div key={reg.id} className="bg-stone-900/60 border border-stone-800 rounded-xl p-4">
+                <div className="flex justify-between items-start gap-3">
+                  <div>
+                    <h3 className="font-bold text-lg">
+                      {reg.child_name}{' '}
+                      {reg.child_age ? <span className="text-stone-500 text-sm font-normal">· גיל {reg.child_age}</span> : null}
+                    </h3>
+                    <p className="text-sm text-stone-400 mt-0.5">
+                      {reg.full_name} · <a href={`tel:${reg.phone}`} className="text-lime-400">{reg.phone}</a>
+                      {reg.email ? ` · ${reg.email}` : ''}
+                    </p>
+                    <p className="text-sm text-stone-500 mt-0.5">
+                      {reg.city && <span className="text-stone-300">📍 {reg.city}</span>}
+                      {reg.city && ' · '}
+                      {branchLabel(reg.branch)}
+                      {reg.class_type ? ` · ${reg.class_type}` : ''}
+                    </p>
+                    {reg.notes && <p className="text-sm text-amber-300/80 mt-2">📝 {reg.notes}</p>}
+                  </div>
+                  <span className="text-xs text-stone-600 whitespace-nowrap">
+                    {new Date(reg.created_at).toLocaleDateString('he-IL')}
+                  </span>
+                </div>
+
+                {reg.status === 'pending' ? (
+                  <div className="flex flex-col sm:flex-row gap-2 mt-4">
                     <select
-                      aria-label="סטטוס הרשמה"
-                      value={r.status}
-                      onChange={e => changeStatus(r, e.target.value)}
-                      style={{ ...selStyle, background: color.bg, color: color.fg, border: 'none', fontWeight: 700 }}
+                      value={picked[reg.id] || ''}
+                      onChange={(e) => setPicked({ ...picked, [reg.id]: e.target.value })}
+                      className="flex-1 bg-stone-950 border border-stone-700 rounded-lg px-3 py-2.5 text-sm"
                     >
-                      {Object.entries(STATUS_LABEL).map(([k, v]) =>
-                        <option key={k} value={k} style={{ background: '#0d0f0e', color: '#e8efe9' }}>{v}</option>)}
+                      <option value="">בחר קבוצה…</option>
+                      {groupsFor(reg).map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name} · {branchLabel(g.branch)}
+                          {g.days ? ` · ${g.days}` : ''}
+                          {g.arbox_link ? '' : ' (אין קישור Arbox)'}
+                        </option>
+                      ))}
                     </select>
-                  </td>
-                  <td style={{ ...td, color: '#7a8f7d', whiteSpace: 'nowrap' }}>{fmtDate(r.created_at)}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-
-        {!loading && filtered.length === 0 && (
-          <div style={{ padding: 40, textAlign: 'center', color: '#7a8f7d', fontSize: 14 }}>
-            אין הרשמות שמתאימות לסינון.
+                    <button
+                      onClick={() => approve(reg)}
+                      disabled={busy === reg.id}
+                      className="bg-lime-400 text-stone-950 font-semibold px-5 py-2.5 rounded-lg text-sm disabled:opacity-50"
+                    >
+                      {busy === reg.id ? 'מאשר…' : 'אשר ושלח הזמנה'}
+                    </button>
+                    <button
+                      onClick={() => reject(reg)}
+                      className="border border-stone-700 text-stone-400 px-4 py-2.5 rounded-lg text-sm"
+                    >
+                      סגור
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-3 pt-3 border-t border-stone-800 text-sm text-stone-400">
+                    {reg.status === 'approved' ? (
+                      <>
+                        ✅ שובץ ל<span className="text-stone-200">{reg.group_name}</span>
+                        {reg.arbox_sent_at && ' · הזמנת Arbox נשלחה'}
+                      </>
+                    ) : (
+                      <>סגור</>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function ManualAdd({ onDone }: { onDone: () => void }) {
+  const [f, setF] = useState({
+    child_name: '',
+    child_age: '',
+    full_name: '',
+    phone: '',
+    email: '',
+    branch: 'משגב',
+    city: '',
+    notes: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }))
+
+  async function save() {
+    if (!f.child_name || !f.full_name || !f.phone) return alert('שם רוכב, שם הורה וטלפון הם חובה')
+    setSaving(true)
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(f),
+    })
+    setSaving(false)
+    if (!res.ok) return alert('השמירה נכשלה')
+    onDone()
+  }
+
+  const cls = 'bg-stone-950 border border-stone-700 rounded-lg px-3 py-2.5 text-sm w-full'
+
+  return (
+    <div className="bg-stone-900/60 border border-lime-900 rounded-xl p-4 mb-5 space-y-3">
+      <h2 className="text-lime-400 font-semibold text-sm">הוספת נרשם ידנית</h2>
+      <div className="grid grid-cols-2 gap-3">
+        <input className={cls} placeholder="שם הרוכב *" value={f.child_name} onChange={(e) => set('child_name', e.target.value)} />
+        <input className={cls} type="number" placeholder="גיל" value={f.child_age} onChange={(e) => set('child_age', e.target.value)} />
+        <input className={cls} placeholder="שם ההורה *" value={f.full_name} onChange={(e) => set('full_name', e.target.value)} />
+        <input className={cls} type="tel" placeholder="טלפון *" value={f.phone} onChange={(e) => set('phone', e.target.value)} />
+        <input className={cls} type="email" placeholder="אימייל" value={f.email} onChange={(e) => set('email', e.target.value)} />
+        <input className={cls} placeholder="יישוב" value={f.city} onChange={(e) => set('city', e.target.value)} />
+      </div>
+      <select className={cls} value={f.branch} onChange={(e) => set('branch', e.target.value)}>
+        {BRANCHES.map((b) => (
+          <option key={b.value} value={b.value}>{b.label}</option>
+        ))}
+      </select>
+      <input className={cls} placeholder="הערות" value={f.notes} onChange={(e) => set('notes', e.target.value)} />
+      <button onClick={save} disabled={saving} className="bg-lime-400 text-stone-950 font-semibold px-5 py-2.5 rounded-lg text-sm disabled:opacity-50">
+        {saving ? 'שומר…' : 'שמור נרשם'}
+      </button>
     </div>
   )
 }
