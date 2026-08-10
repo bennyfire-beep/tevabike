@@ -105,11 +105,6 @@ function FormSelect({ label, value, onChange, options }: {
 export default function Home() {
   const [tab, setTab]           = useState<'kids' | 'adults'>('kids')
   const [scrolled, setScrolled] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [form, setForm] = useState({
-    firstName: '', lastName: '', phone: '', email: '', branch: '', classType: ''
-  })
 
   useEffect(() => {
     const h = () => setScrolled(window.scrollY > 60)
@@ -117,34 +112,7 @@ export default function Home() {
     return () => window.removeEventListener('scroll', h)
   }, [])
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!form.firstName || !form.phone || !form.classType) {
-      alert('אנא מלא שם, טלפון וחוג')
-      return
-    }
-    if (sending) return
-    setSending(true)
-    try {
-      const res = await fetch('/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        alert(data?.error || 'ההרשמה לא נשלחה. נסו שוב או התקשרו 052-5708084')
-        setSending(false)
-        return
-      }
-      setSubmitted(true)
-    } catch {
-      alert('אין חיבור לשרת. נסו שוב או התקשרו 052-5708084')
-    }
-    setSending(false)
-  }
 
-  const upd = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }))
 
   return (
     <main style={{ fontFamily: 'inherit', background: '#fff', color: DARK, overflowX: 'hidden' }}>
@@ -416,90 +384,6 @@ export default function Home() {
                 <p style={{ color: 'rgba(255,255,255,0.52)', fontSize: 14, lineHeight: 1.75, margin: 0 }}>{f.body}</p>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════ REGISTRATION ════════════════════════════ */}
-      <section id="register" style={{ background: OFF_WHITE, padding: '88px 24px' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 44 }}>
-            <span style={{ background: `${PINK}18`, color: PINK, borderRadius: 20, padding: '5px 18px', fontSize: 12, fontWeight: 700, letterSpacing: '0.05em' }}>
-              הרשמה לחוג
-            </span>
-            <h2 style={{ fontSize: 'clamp(1.9rem, 3.5vw, 2.5rem)', fontWeight: 900, color: DARK, margin: '14px 0 8px', letterSpacing: '-0.02em' }}>
-              מצטרפים לטבע בייק?
-            </h2>
-            <p style={{ color: '#7A8880', fontSize: 15, margin: 0 }}>
-              מלאו את הטופס ונחזור אליכם תוך 24 שעות עם קישור לתשלום
-            </p>
-          </div>
-
-          <div style={{ background: '#fff', borderRadius: 20, padding: '40px 36px', boxShadow: '0 10px 48px rgba(0,0,0,0.09)', border: '1px solid #EAE6E1' }}>
-            {submitted ? (
-              <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                <div style={{ width: 80, height: 80, borderRadius: '50%', background: `${PINK}14`, margin: '0 auto 22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 38 }}>
-                  ✅
-                </div>
-                <h3 style={{ fontSize: 22, fontWeight: 900, color: DARK, margin: '0 0 10px' }}>ההרשמה התקבלה!</h3>
-                <p style={{ color: '#7A8880', fontSize: 15, margin: 0 }}>
-                  נשלח אליך קישור לתשלום בהוראת קבע תוך 24 שעות
-                </p>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <FormInput label="שם פרטי *"  placeholder="ישראל"     value={form.firstName} onChange={upd('firstName')} />
-                  <FormInput label="שם משפחה"   placeholder="ישראלי"    value={form.lastName}  onChange={upd('lastName')} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <FormInput label="טלפון *" type="tel"   placeholder="05X-XXXXXXX"     value={form.phone} onChange={upd('phone')} />
-                  <FormInput label="אימייל"  type="email" placeholder="name@example.com" value={form.email} onChange={upd('email')} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <FormSelect
-                    label="סניף"
-                    value={form.branch}
-                    onChange={upd('branch')}
-                    options={[
-                      { value: '', label: 'בחר סניף...' },
-                      { value: 'משגב',  label: 'משגב'  },
-                      { value: 'מצובה', label: 'מצובה' },
-                      { value: 'ביריה', label: 'ביריה' },
-                    ]}
-                  />
-                  <FormSelect
-                    label="חוג *"
-                    value={form.classType}
-                    onChange={upd('classType')}
-                    options={[
-                      { value: '', label: 'בחר חוג...' },
-                      { value: 'גרביטי מתחילים',  label: 'גרביטי מתחילים'  },
-                      { value: 'גרביטי מתקדמים', label: 'גרביטי מתקדמים' },
-                      { value: 'גרביטי פרו',      label: 'גרביטי פרו'      },
-                      { value: 'רכיבה טכנית',     label: 'רכיבה טכנית'     },
-                      { value: 'כושר ואושר',      label: 'כושר ואושר'      },
-                      { value: 'רכיבה לנשים',     label: 'רכיבה לנשים'     },
-                      { value: 'טכני חשמלי',      label: 'טכני חשמלי'      },
-                      { value: 'נשים טכני',        label: 'נשים טכני'        },
-                    ]}
-                  />
-                </div>
-
-                <p style={{ color: '#9ca3af', fontSize: 12, margin: '2px 0 2px' }}>
-                  בלחיצה על שלח מאשר/ת קריאת תנאי ההשתתפות. קישור לתשלום יישלח תוך 24 שעות.
-                </p>
-
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={sending}
-                  style={{ width: '100%', textAlign: 'center', marginTop: 6, fontSize: 17, padding: '14px 0', opacity: sending ? 0.6 : 1 }}
-                >
-                  {sending ? 'שולח...' : 'שלח הרשמה ←'}
-                </button>
-              </form>
-            )}
           </div>
         </div>
       </section>
