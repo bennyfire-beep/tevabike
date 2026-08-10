@@ -1,121 +1,139 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const ADMIN_EMAILS = ['bennyfire@gmail.com', 'talmatoki@gmail.com']
-const ADMIN_PHONE = '972525708084'
-const FROM = 'טבע בייק <info@mail.tevabike.com>'
+export const dynamic = 'force-dynamic'
 
-type RegisterData = {
-  firstName: string; lastName: string; phone: string
-  email?: string; branch?: string; classType: string
-  registrationType?: 'child' | 'adult'
-  childName?: string; childAge?: string; notes?: string
-}
-
-async function sendEmail(to: string[], subject: string, html: string) {
-  const key = process.env.RESEND_API_KEY
-  if (!key) { console.error('[register] RESEND_API_KEY missing'); return }
+export async function POST(req: Request) {
   try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM, to, subject, html }),
-    })
-    if (!res.ok) console.error('[register] resend failed:', res.status, await res.text())
-  } catch (err) {
-    console.error('[register] resend error:', err)
-  }
-}
+    const { registration_id, group_id } = await req.json()
+    if (!registration_id || !group_id) {
+      return NextResponse.json({ error: 'חסר מזהה הרשמה או קבוצה' }, { status: 400 })
+    }
 
-export async function POST(request: NextRequest) {
-  let body: RegisterData
-  try { body = await request.json() }
-  catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }) }
-
-  const firstName = (body.firstName ?? '').trim()
-  const lastName  = (body.lastName ?? '').trim()
-  const phone     = (body.phone ?? '').trim()
-  const classType = (body.classType ?? '').trim()
-  const email     = (body.email ?? '').trim()
-
-  if (!firstName || !phone || !classType)
-    return NextResponse.json({ error: 'חסרים שדות חובה' }, { status: 400 })
-
-  const fullName = `${firstName} ${lastName}`.trim()
-
-  // ── שמירה במסד ──────────────────────────────────────────────
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  let saved = false
-  if (supabaseUrl && serviceKey) {
-    const supabase = createClient(supabaseUrl, serviceKey)
-    const { error } = await supabase.from('registrations').insert({
-      full_name: fullName,
-      phone,
-      email: email || null,
-      branch: body.branch || null,
-      class_type: classType,
-      registration_type: body.registrationType || null,
-      child_name: body.childName || null,
-      child_age: body.childAge ? parseInt(body.childAge) : null,
-      notes: body.notes || null,
-      status: 'pending',
-    })
-    if (error) console.error('[register] DB insert failed:', error.message)
-    else saved = true
-  } else {
-    console.error('[register] Supabase env missing')
-  }
-
-  const rows = [
-    ['שם', fullName],
-    ['טלפון', phone],
-    ['אימייל', email || '—'],
-    ['חוג', classType],
-    ['סניף', body.branch || '—'],
-    ['שם הילד', body.childName || '—'],
-    ['גיל', body.childAge || '—'],
-    ['הערות', body.notes || '—'],
-  ].map(([k, v]) => `<p style="margin:4px 0"><b>${k}:</b> ${v}</p>`).join('')
-
-  // ── מייל אליך ───────────────────────────────────────────────
-  await sendEmail(
-    ADMIN_EMAILS,
-    `הרשמה חדשה: ${fullName} — ${classType}`,
-    `<div dir="rtl" style="font-family:Heebo,Arial,sans-serif">
-       <h2 style="margin:0 0 12px">הרשמה חדשה מהאתר</h2>
-       ${rows}
-       ${saved ? '' : '<p style="color:#b00"><b>שים לב:</b> ההרשמה לא נשמרה במסד הנתונים. שמור את הפרטים ידנית.</p>'}
-       <p style="margin-top:16px">
-         <a href="https://www.tevabike.com/admin/coordinator/registrations">לעמוד ההרשמות</a>
-       </p>
-     </div>`,
-  )
-
-  // ── מייל אישור לנרשם ────────────────────────────────────────
-  if (email) {
-    await sendEmail(
-      [email],
-      'קיבלנו את ההרשמה שלך — טבע בייק',
-      `<div dir="rtl" style="font-family:Heebo,Arial,sans-serif;color:#1a1a1a;max-width:560px">
-         <h2 style="margin:0 0 6px">תודה, ${firstName} 🚵</h2>
-         <p style="margin:0 0 18px;color:#555">קיבלנו את פנייתך ונחזור אליך בקרוב לתיאום.</p>
-         <div style="background:#f6f6f4;border-radius:10px;padding:14px">${rows}</div>
-         <p style="margin-top:20px;color:#666;font-size:13px">
-           רוצה לזרז? אפשר לכתוב לנו ישירות בוואטסאפ: 052-5708084
-         </p>
-       </div>`,
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
+
+    // 1. משיכת ההרשמה והקבוצה
+    const { data: reg, error: regErr } = await supabase
+      .from('registrations').select('*').eq('id', registration_id).single()
+    if (regErr || !reg) return NextResponse.json({ error: 'ההרשמה לא נמצאה' }, { status: 404 })
+
+    const { data: group, error: grpErr } = await supabase
+      .from('groups').select('*').eq('id', group_id).single()
+    if (grpErr || !group) return NextResponse.json({ error: 'הקבוצה לא נמצאה' }, { status: 404 })
+
+    // 2. ילדים או מבוגרים – נקבע לפי סוג הקבוצה, לא לפי הטופס
+    const isKids = group.type !== 'adults'
+    const riderName = isKids ? reg.child_name || reg.full_name : reg.full_name
+
+    const { data: rider, error: riderErr } = await supabase
+      .from('riders')
+      .insert({
+        full_name: riderName,
+        // אצל ילדים ההורה הוא איש הקשר; אצל מבוגרים הרוכב הוא איש הקשר
+        parent_name: isKids ? reg.full_name : null,
+        parent_phone: isKids ? reg.phone : null,
+        phone: isKids ? null : reg.phone,
+        email: reg.email,
+        age: reg.child_age,
+        branch: group.branch,
+        group_id: group.id,
+        group_name: group.name,
+        is_child: isKids,
+        is_regular: true,
+        active: true,
+        notes: reg.city ? `יישוב: ${reg.city}${reg.notes ? ` · ${reg.notes}` : ''}` : reg.notes,
+      })
+      .select()
+      .single()
+    if (riderErr) {
+      console.error('rider insert failed:', riderErr)
+      return NextResponse.json({ error: 'יצירת הרוכב נכשלה' }, { status: 500 })
+    }
+
+    // 3. שיוך לקבוצה – זה מה שמכניס אותו למסכי הנוכחות
+    await supabase.from('rider_groups').insert({ rider_id: rider.id, group_id: group.id })
+
+    // 4. שליחת קישור Arbox במייל
+    const arboxLink = group.arbox_link || process.env.ARBOX_DEFAULT_LINK || null
+    let emailSent = false
+
+    if (arboxLink && reg.email && process.env.RESEND_API_KEY) {
+      const greeting = isKids ? `היי ${reg.full_name},` : `היי ${reg.full_name},`
+      const line = isKids
+        ? `שיבצנו את ${riderName} לקבוצת <b>${group.name}</b> בסניף ${group.branch}${group.days ? `, אימונים ב${group.days}` : ''}.`
+        : `שיבצנו אותך לקבוצת <b>${group.name}</b> בסניף ${group.branch}${group.days ? `, אימונים ב${group.days}` : ''}.`
+      const subject = isKids
+        ? `${riderName} שובץ לקבוצת ${group.name} – השלמת הרשמה`
+        : `שובצת לקבוצת ${group.name} – השלמת הרשמה`
+
+      const html = `
+        <div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.7;color:#1c1917">
+          <h2 style="color:#3f6212">ברוכים הבאים לטבע בייק 🚵</h2>
+          <p>${greeting}</p>
+          <p>${line}</p>
+          <p>להשלמת ההרשמה יש להסדיר את התשלום בקישור הבא. בסיום התשלום יישלחו במייל נפרד שם משתמש וסיסמה לאפליקציית טבע בייק, שבה אפשר לראות את לוח האימונים ולעדכן פרטים.</p>
+          <p style="margin:28px 0">
+            <a href="${arboxLink}" style="background:#65a30d;color:#fff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:bold">
+              להסדרת התשלום והצטרפות לאפליקציה
+            </a>
+          </p>
+          <p style="color:#78716c;font-size:14px">שאלות? פשוט השיבו למייל הזה או התקשרו.</p>
+          <p style="color:#78716c;font-size:14px">נתראה על השבילים,<br/>בני – טבע בייק</p>
+        </div>`
+
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'טבע בייק <info@mail.tevabike.com>',
+          to: [reg.email],
+          subject,
+          html,
+        }),
+      })
+      emailSent = r.ok
+      if (!r.ok) console.error('resend failed:', await r.text())
+    }
+
+    // 5. עדכון ההרשמה
+    await supabase
+      .from('registrations')
+      .update({
+        status: 'approved',
+        group_id: group.id,
+        group_name: group.name,
+        rider_id: rider.id,
+        approved_at: new Date().toISOString(),
+        arbox_link: arboxLink,
+        arbox_sent_at: emailSent ? new Date().toISOString() : null,
+      })
+      .eq('id', registration_id)
+
+    // 6. גיבוי בוואטסאפ
+    const phone = String(reg.phone).replace(/\D/g, '').replace(/^0/, '972')
+    const body = isKids
+      ? `היי ${reg.full_name}, ${riderName} שובץ לקבוצת ${group.name} בסניף ${group.branch} 🚵`
+      : `היי ${reg.full_name}, שובצת לקבוצת ${group.name} בסניף ${group.branch} 🚵`
+    const text = encodeURIComponent(
+      body + (arboxLink ? `\nלהסדרת התשלום והצטרפות לאפליקציה: ${arboxLink}` : '')
+    )
+
+    return NextResponse.json({
+      ok: true,
+      group_name: group.name,
+      rider_id: rider.id,
+      is_kids: isKids,
+      email_sent: emailSent,
+      whatsapp_url: `https://wa.me/${phone}?text=${text}`,
+    })
+  } catch (e) {
+    console.error(e)
+    return NextResponse.json({ error: 'שגיאת שרת' }, { status: 500 })
   }
-
-  const waText = encodeURIComponent(
-    `הרשמה חדשה לטבע בייק!\nשם: ${fullName}\nטלפון: ${phone}\nחוג: ${classType}${body.branch ? ` | ${body.branch}` : ''}`,
-  )
-
-  return NextResponse.json({
-    success: true,
-    saved,
-    whatsappUrl: `https://wa.me/${ADMIN_PHONE}?text=${waText}`,
-  })
 }
