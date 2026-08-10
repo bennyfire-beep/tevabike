@@ -170,7 +170,7 @@ export default function Home() {
             <a href="/camp" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>ימי שיא</a>
             <a href="/camp-sukkot" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מחנה סוכות</a>
             <a href="#why" className="nav-link">למה אנחנו</a>
-            <a href="#register" className="btn-primary" style={{ padding: '8px 22px', fontSize: 14, borderRadius: 8 }}>
+            <a href="/register" className="btn-primary" style={{ padding: '8px 22px', fontSize: 14, borderRadius: 8 }}>
               הרשמה
             </a>
           </div>
@@ -234,7 +234,7 @@ export default function Home() {
 
           {/* CTAs */}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <a href="#register" className="btn-primary">הירשמו עכשיו</a>
+            <a href="/register" className="btn-primary">הירשמו עכשיו</a>
             <a href="#classes" className="btn-outline">גלה את החוגים</a>
           </div>
         </div>
@@ -338,7 +338,7 @@ export default function Home() {
                   </div>
 
                   <a
-                    href="#register"
+                    href="/register"
                     style={{
                       display: 'block', textAlign: 'center', padding: '9px 0', borderRadius: 8,
                       background: `${PINK}12`, color: PINK, fontSize: 13, fontWeight: 700,
@@ -369,7 +369,7 @@ export default function Home() {
                   <span>📅</span> <span>{c.day}</span>
                 </div>
                 <a
-                  href="#register"
+                  href="/register"
                   style={{
                     display: 'block', textAlign: 'center', padding: '9px 0', borderRadius: 8,
                     background: `${PINK}12`, color: PINK, fontSize: 13, fontWeight: 700,
@@ -572,7 +572,7 @@ export default function Home() {
       { label: 'מחנה סוכות', href: '/camp-sukkot' },
       { label: 'ימי שיא',  href: '/camp'     },
                 { label: 'חוגים',    href: '#classes'  },
-                { label: 'הרשמה',   href: '#register' },
+                { label: 'הרשמה',   href: '/register' },
                 { label: 'למה אנחנו', href: '#why'    },
                 { label: 'ניהול',    href: '/admin'    },
               ].map(l => (
