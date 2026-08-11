@@ -20,7 +20,7 @@ type InstructorRow = {
   sessions:    number
   hoursDetail: HoursDetail[]
   workdays:     number
-  travelMode:   'none' | 'pass' | 'car'
+  travelMode:   'none' | 'pass' | 'car' | 'company'
   travelKm:     number
   travelAmount: number
 }
@@ -138,6 +138,9 @@ function printPayslip(row: InstructorRow, ym: string) {
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
+// ₪1 לכל ק"מ בהחזר נסיעות ברכב פרטי
+const KM_RATE = 1
+
 export default function SalaryPage() {
   const { user, loading, logout } = useAdminAuth()
   const router = useRouter()
@@ -187,7 +190,7 @@ export default function SalaryPage() {
         sessions:    detail.length,
         hoursDetail: detail.map(h => ({ date: h.session_date, class_name: h.class_name, branch: h.branch, hours: Number(h.duration ?? 0) })),
         workdays,
-        travelMode:   (tr?.mode as 'none' | 'pass' | 'car') ?? 'none',
+        travelMode:   (tr?.mode as 'none' | 'pass' | 'car' | 'company') ?? 'none',
         travelKm:     Number(tr?.km ?? 0),
         travelAmount: Number(tr?.amount ?? 0),
       }
@@ -214,7 +217,7 @@ export default function SalaryPage() {
     setSavingRate(false)
   }
 
-  async function updateTravel(adminRoleId: string, mode: 'none' | 'pass' | 'car', km: number, amount: number) {
+  async function updateTravel(adminRoleId: string, mode: 'none' | 'pass' | 'car' | 'company', km: number, amount: number) {
     setRows(prev => prev.map(r => r.adminRoleId === adminRoleId ? { ...r, travelMode: mode, travelKm: km, travelAmount: amount } : r))
     await supabase.from('instructor_travel').upsert(
       { instructor_id: adminRoleId, month, mode, km, amount },
@@ -380,12 +383,12 @@ export default function SalaryPage() {
                 {/* Travel reimbursement strip */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '8px 20px', borderBottom: '1px solid #1a1e1c', background: '#10130f' }}>
                   <span style={{ color: '#7a8f7d', fontSize: 12, fontWeight: 600 }}>🚌 החזר נסיעות:</span>
-                  {([['none', 'ללא'], ['pass', 'חופשי חודשי'], ['car', 'רכב']] as const).map(([m, lbl]) => (
+                  {([['none', 'ללא'], ['pass', 'רב קו'], ['car', 'החזר ק"מ'], ['company', 'רכב חברה']] as const).map(([m, lbl]) => (
                     <button
                       key={m}
                       onClick={() => {
                         const km = m === 'car' ? row.travelKm : 0
-                        const amount = m === 'pass' ? 7 * row.workdays : m === 'car' ? row.travelKm * 1 : 0
+                        const amount = m === 'pass' ? 7 * row.workdays : m === 'car' ? row.travelKm * KM_RATE : 0
                         updateTravel(row.adminRoleId, m, km, amount)
                       }}
                       style={{ background: row.travelMode === m ? '#b5e853' : '#1a1e1c', color: row.travelMode === m ? '#0d0f0e' : '#7a8f7d', border: 'none', borderRadius: 14, padding: '3px 12px', fontFamily: 'Heebo, Arial, sans-serif', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
@@ -393,6 +396,9 @@ export default function SalaryPage() {
                   ))}
                   {row.travelMode === 'pass' && (
                     <span style={{ color: '#7a8f7d', fontSize: 11 }}>הצעה: 7₪ × {row.workdays} ימים</span>
+                  )}
+                  {row.travelMode === 'company' && (
+                    <span style={{ color: '#7a8f7d', fontSize: 11 }}>רכב חברה — ללא החזר</span>
                   )}
                   {row.travelMode === 'car' && (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
