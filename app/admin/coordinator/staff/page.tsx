@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useCoordinator } from '@/lib/coordinator-context'
 import { DEFAULT_HOURLY_RATE } from '@/lib/attendance'
 
 const ACCENT = '#b5e853'
@@ -61,17 +62,27 @@ export default function StaffPage() {
   // per-row activate/deactivate in-flight guard
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
+  // רק בני ושיר רואים תעריפים
+  const me = useCoordinator()
+  const canSeeSalary = !!me?.email && ['bennyfire@gmail.com','shirkobi8@gmail.com'].includes(me.email.toLowerCase())
+
   const loadStaff = useCallback(async () => {
     // Show all staff (active + inactive) so deactivated instructors can be
     // reactivated; active are listed first.
-    const { data } = await supabase
-      .from('admin_roles')
-      .select('id, name, role, branch, hourly_rate, birth_date, id_number, certificate_url, active')
-      .in('role', ['instructor', 'coordinator', 'accountant'])
-      .order('active', { ascending: false })
-      .order('role')
-      .order('name')
-    setStaff((data || []) as Staff[])
+    const [{ data }, { data: pay }] = await Promise.all([
+      supabase
+        .from('admin_roles')
+        .select('id, name, role, branch, birth_date, id_number, certificate_url, active')
+        .in('role', ['instructor', 'coordinator', 'accountant'])
+        .order('active', { ascending: false })
+        .order('role')
+        .order('name'),
+      // מוגן ב-RLS: מחזיר שורות רק לבני ולשיר
+      supabase.from('staff_pay').select('admin_role_id, hourly_rate'),
+    ])
+    const rateOf: Record<string, number | null> = {}
+    for (const p of (pay ?? []) as any[]) rateOf[p.admin_role_id] = p.hourly_rate
+    setStaff(((data || []) as any[]).map(r => ({ ...r, hourly_rate: rateOf[r.id] ?? null })) as Staff[])
     setLoading(false)
   }, [])
 
@@ -343,7 +354,7 @@ export default function StaffPage() {
                 <a href={s.certificate_url} target="_blank" rel="noopener noreferrer"
                    style={{ color: ACCENT, fontSize: 12, textDecoration: 'none' }}>📄 תעודה</a>
               )}
-              {s.role === 'instructor' && (
+              {s.role === 'instructor' && canSeeSalary && (
                 <span style={{ color: MUTED, fontSize: 12 }}>
                   ₪{s.hourly_rate ?? DEFAULT_HOURLY_RATE}/שעה{s.hourly_rate == null ? ' (ברירת מחדל)' : ''}
                 </span>
