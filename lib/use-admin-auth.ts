@@ -29,7 +29,7 @@ export function useAdminAuth(requiredRole?: AdminRole) {
 
       const { data: rd, error } = await supabase
         .from('admin_roles')
-        .select('id, role, name, branch, hourly_rate')
+        .select('id, role, name, branch')
         .eq('user_id', supaUser.id)
         .single()
 
@@ -52,7 +52,7 @@ export function useAdminAuth(requiredRole?: AdminRole) {
           name: rd.name,
           branch: rd.branch ?? undefined,
           adminRoleId: rd.id,
-          hourlyRate: rd.hourly_rate ?? 60,
+          hourlyRate: 60, // התעריף האמיתי מגיע מ-staff_pay, מוגן ב-RLS
         })
         setLoading(false)
       }
