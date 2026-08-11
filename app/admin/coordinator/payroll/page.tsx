@@ -67,8 +67,12 @@ const ymLabel = (ym: string) =>
     .toLocaleDateString('he-IL', { month: 'long', year: 'numeric' })
 const round2 = (n: number) => Math.round(n * 100) / 100
 
+// רק בני ושיר רואים שכר. תואם ל-is_salary_admin() בבסיס הנתונים.
+const SALARY_ADMINS = ['bennyfire@gmail.com', 'shirkobi8@gmail.com']
+
 export default function PayrollPage() {
   const user = useCoordinator()
+  const canSeeSalary = !!user?.email && SALARY_ADMINS.includes(user.email.toLowerCase())
   const [month, setMonth]       = useState(currentYm)
   const [groups, setGroups]     = useState<PersonGroup[]>([])
   const [loading, setLoading]   = useState(true)
@@ -84,10 +88,19 @@ export default function PayrollPage() {
     const last   = new Date(y, m, 0).toISOString().split('T')[0]
 
     // Staff: names, hourly rates (default 90) and monthly base for every role.
-    const { data: roles } = await supabase
-      .from('admin_roles')
-      .select('id, name, hourly_rate, monthly_base, role')
-    const roleRows = (roles ?? []) as Role[]
+    const [{ data: roles }, { data: pay }] = await Promise.all([
+      supabase.from('admin_roles').select('id, name, role'),
+      supabase.from('staff_pay').select('admin_role_id, hourly_rate, monthly_base'),
+    ])
+    const payOf: Record<string, { hourly_rate: number | null; monthly_base: number | null }> = {}
+    for (const p of (pay ?? []) as any[]) payOf[p.admin_role_id] = p
+
+    const roleRows = ((roles ?? []) as any[]).map(r => ({
+      ...r,
+      hourly_rate:  payOf[r.id]?.hourly_rate  ?? null,
+      monthly_base: payOf[r.id]?.monthly_base ?? null,
+    })) as Role[]
+
     const nameOf: Record<string, string> = {}
     const rateOf: Record<string, number> = {}
     for (const r of roleRows) {
@@ -211,6 +224,16 @@ export default function PayrollPage() {
 
   const cell: React.CSSProperties = { padding: '14px 16px', fontSize: 14 }
   const disabledEmail = emailing || loading || groups.length === 0
+  if (user && !canSeeSalary) {
+    return (
+      <div dir="rtl" style={{ padding: 60, textAlign: 'center', color: '#a8a29e' }}>
+        <div style={{ fontSize: 44, marginBottom: 12 }}>🔒</div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#e7e5e4' }}>אין הרשאה</h1>
+        <p style={{ marginTop: 8 }}>דוח השכר זמין להנהלה בלבד.</p>
+      </div>
+    )
+  }
+
 
   return (
     <div style={{ padding: 24, maxWidth: 1000, margin: '0 auto' }}>
