@@ -2,12 +2,40 @@
 
 import { useState } from 'react'
 
+const MATNAS_URL = 'https://www.matnasmatteasher.org.il/%D7%9E%D7%97%D7%9C%D7%A7%D7%AA-%D7%A1%D7%A4%D7%95%D7%A8%D7%98/'
+
+// המבצע יורד אוטומטית ב-1 בספטמבר 2026
+const PROMO_ENDS = new Date('2026-09-01T00:00:00+03:00')
+const promoActive = () => new Date() < PROMO_ENDS
+
 const BRANCHES = [
-  { value: 'משגב', label: 'משגב' },
-  { value: 'מצובה', label: 'מצובה' },
-  { value: 'ביריה', label: 'ביריה' },
-  { value: 'אמירים', label: 'אמירים / פרוד' },
-  { value: 'אחר', label: 'אחר' },
+  { value: 'משגב', label: 'משגב', day: 'ראשון 15:30–17:00' },
+  { value: 'ביריה', label: 'ביריה', day: 'שני 15:45–17:15' },
+  { value: 'מטה אשר', label: 'מטה אשר', day: 'שלישי', external: true },
+  { value: 'פרוד-אמירים', label: 'פרוד-אמירים', day: 'רביעי 15:45–17:00' },
+  { value: 'אחר', label: 'אחר', day: '' },
+]
+
+const PLANS = [
+  {
+    value: 'center',
+    title: 'אימון שבועי במרכז',
+    price: 300,
+    desc: 'אימון קבוע אחד בשבוע בסניף שלכם',
+  },
+  {
+    value: 'yomoadon',
+    title: 'יומועדון בלבד',
+    price: 360,
+    desc: 'שישי 08:00–10:00, מסלול אחר בכל שבוע ברחבי הצפון',
+  },
+  {
+    value: 'combined',
+    title: 'משולב — מרכז + יומועדון',
+    price: 640,
+    desc: 'האימון השבועי בסניף וגם היומועדון בשישי',
+    best: true,
+  },
 ]
 
 export default function RegisterPage() {
@@ -18,6 +46,7 @@ export default function RegisterPage() {
     branch: '',
     city: '',
     class_type: '',
+    membership_plan: '',
     full_name: '',
     phone: '',
     email: '',
@@ -29,6 +58,8 @@ export default function RegisterPage() {
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
   const isKids = type === 'kids'
+  const isMatteAsher = form.branch === 'מטה אשר'
+  const promo = promoActive()
 
   async function submit() {
     setError('')
@@ -39,9 +70,13 @@ export default function RegisterPage() {
     if (missing) {
       setError(
         isKids
-          ? 'חסרים שדות חובה: שם הרוכב, יישוב, סניף, שם ההורה וטלפון'
+          ? 'חסרים שדות חובה: שם הילד, יישוב, סניף, שם ההורה וטלפון'
           : 'חסרים שדות חובה: שם מלא, יישוב, סניף וטלפון'
       )
+      return
+    }
+    if (isKids && !form.membership_plan) {
+      setError('בחרו מסלול הרשמה')
       return
     }
 
@@ -50,7 +85,11 @@ export default function RegisterPage() {
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, registration_type: type }),
+        body: JSON.stringify({
+          ...form,
+          registration_type: type,
+          promo_code: promo ? 'BOOST5' : null,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'שגיאה בשליחה')
@@ -82,14 +121,19 @@ export default function RegisterPage() {
   return (
     <div dir="rtl" className="min-h-screen bg-stone-950 text-stone-100 py-10 px-4">
       <div className="max-w-lg mx-auto">
-        <header className="mb-8">
+        <header className="mb-6">
           <p className="text-lime-400 text-sm tracking-widest mb-2">טבע בייק · שנת פעילות</p>
           <h1 className="text-3xl font-bold">הרשמה לקבוצות</h1>
-          <p className="text-stone-400 mt-2 text-sm leading-relaxed">
-            ממלאים את הפרטים, אנחנו משבצים לקבוצה מתאימה,
-            ואז שולחים קישור לתשלום ולאפליקציה.
-          </p>
         </header>
+
+        {promo && (
+          <div className="bg-gradient-to-l from-fuchsia-900/60 to-purple-900/40 border border-fuchsia-600 rounded-xl p-4 mb-6">
+            <p className="font-bold text-fuchsia-200">⚡ בוסט הרשמה — 5% הנחה</p>
+            <p className="text-sm text-fuchsia-100/80 mt-1">
+              לחברים קיימים ולמצטרפים חדשים. ההנחה תקפה להרשמות עד 31.8 ותחושב בקישור התשלום.
+            </p>
+          </div>
+        )}
 
         {/* בחירת סוג הרשמה */}
         <div className="grid grid-cols-2 gap-3 mb-6">
@@ -97,31 +141,23 @@ export default function RegisterPage() {
             type="button"
             onClick={() => setType('kids')}
             className={`p-5 rounded-xl border text-right transition ${
-              type === 'kids'
-                ? 'bg-lime-400 text-stone-950 border-lime-400'
-                : 'bg-stone-900 border-stone-700 hover:border-stone-500'
+              type === 'kids' ? 'bg-lime-400 text-stone-950 border-lime-400' : 'bg-stone-900 border-stone-700 hover:border-stone-500'
             }`}
           >
             <div className="text-2xl mb-1">🧒</div>
             <div className="font-bold">ילדים ונוער</div>
-            <div className={`text-xs mt-0.5 ${type === 'kids' ? 'text-stone-800' : 'text-stone-500'}`}>
-              הורה רושם את הילד
-            </div>
+            <div className={`text-xs mt-0.5 ${type === 'kids' ? 'text-stone-800' : 'text-stone-500'}`}>הורה רושם את הילד</div>
           </button>
           <button
             type="button"
             onClick={() => setType('adults')}
             className={`p-5 rounded-xl border text-right transition ${
-              type === 'adults'
-                ? 'bg-lime-400 text-stone-950 border-lime-400'
-                : 'bg-stone-900 border-stone-700 hover:border-stone-500'
+              type === 'adults' ? 'bg-lime-400 text-stone-950 border-lime-400' : 'bg-stone-900 border-stone-700 hover:border-stone-500'
             }`}
           >
             <div className="text-2xl mb-1">🚴</div>
             <div className="font-bold">מבוגרים</div>
-            <div className={`text-xs mt-0.5 ${type === 'adults' ? 'text-stone-800' : 'text-stone-500'}`}>
-              רושם את עצמי
-            </div>
+            <div className={`text-xs mt-0.5 ${type === 'adults' ? 'text-stone-800' : 'text-stone-500'}`}>רושם את עצמי</div>
           </button>
         </div>
 
@@ -129,29 +165,12 @@ export default function RegisterPage() {
           <p className="text-center text-stone-500 text-sm">בחרו סוג הרשמה כדי להמשיך</p>
         ) : (
           <div className="space-y-5">
-            {isKids ? (
-              <Section title="הרוכב">
-                <Field label="שם מלא של הילד/ה *" value={form.child_name} onChange={(v) => set('child_name', v)} />
-                <Field label="גיל" type="number" value={form.child_age} onChange={(v) => set('child_age', v)} />
-                <Field
-                  label="יישוב מגורים *"
-                  value={form.city}
-                  onChange={(v) => set('city', v)}
-                  placeholder="למשל: שכניה, נהריה, צפת"
-                />
-              </Section>
-            ) : (
-              <Section title="הפרטים שלך">
-                <Field label="שם מלא *" value={form.full_name} onChange={(v) => set('full_name', v)} />
-                <Field label="גיל" type="number" value={form.child_age} onChange={(v) => set('child_age', v)} />
-                <Field
-                  label="יישוב מגורים *"
-                  value={form.city}
-                  onChange={(v) => set('city', v)}
-                  placeholder="למשל: שכניה, נהריה, צפת"
-                />
-              </Section>
-            )}
+            <Section title={isKids ? 'הרוכב' : 'הפרטים שלך'}>
+              {isKids && <Field label="שם מלא של הילד/ה *" value={form.child_name} onChange={(v) => set('child_name', v)} />}
+              {!isKids && <Field label="שם מלא *" value={form.full_name} onChange={(v) => set('full_name', v)} />}
+              <Field label="גיל" type="number" value={form.child_age} onChange={(v) => set('child_age', v)} />
+              <Field label="יישוב מגורים *" value={form.city} onChange={(v) => set('city', v)} placeholder="למשל: שכניה, נהריה, צפת" />
+            </Section>
 
             <Section title="הסניף">
               <div>
@@ -162,68 +181,119 @@ export default function RegisterPage() {
                       key={b.value}
                       type="button"
                       onClick={() => set('branch', b.value)}
-                      className={`py-3 rounded-lg border text-sm transition ${
+                      className={`py-3 px-2 rounded-lg border text-sm transition ${
                         form.branch === b.value
                           ? 'bg-lime-400 text-stone-950 border-lime-400 font-semibold'
                           : 'bg-stone-900 border-stone-700 text-stone-300 hover:border-stone-500'
                       }`}
                     >
-                      {b.label}
+                      <div>{b.label}</div>
+                      {b.day && (
+                        <div className={`text-[11px] mt-0.5 ${form.branch === b.value ? 'text-stone-700' : 'text-stone-500'}`}>
+                          {b.day}
+                        </div>
+                      )}
                     </button>
                   ))}
                 </div>
-                {form.branch === 'אחר' && (
-                  <p className="text-xs text-stone-500 mt-2">לפי היישוב שמילאתם נציע את הקבוצה הקרובה ביותר.</p>
-                )}
               </div>
-
-              <Field
-                label="ניסיון קודם ברכיבה"
-                value={form.class_type}
-                onChange={(v) => set('class_type', v)}
-                placeholder="מתחיל / רכב שנה / מתקדם"
-              />
             </Section>
 
-            {isKids && (
-              <Section title="ההורה">
-                <Field label="שם ההורה *" value={form.full_name} onChange={(v) => set('full_name', v)} />
-                <Field label="טלפון ההורה *" type="tel" value={form.phone} onChange={(v) => set('phone', v)} />
-                <Field label="אימייל" type="email" value={form.email} onChange={(v) => set('email', v)} />
-              </Section>
+            {/* מטה אשר – מעבר ישיר לאתר המתנ"ס */}
+            {isMatteAsher ? (
+              <a
+                href={MATNAS_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="block text-center bg-lime-400 text-stone-950 font-bold py-4 rounded-xl text-lg"
+              >
+                להרשמה במטה אשר ←
+              </a>
+            ) : (
+              <>
+                {isKids && (
+                  <Section title="מסלול הרשמה">
+                    <div className="space-y-2">
+                      {PLANS.map((p) => {
+                        const selected = form.membership_plan === p.value
+                        return (
+                          <button
+                            key={p.value}
+                            type="button"
+                            onClick={() => set('membership_plan', p.value)}
+                            className={`w-full text-right p-4 rounded-lg border transition ${
+                              selected
+                                ? 'bg-lime-400 text-stone-950 border-lime-400'
+                                : 'bg-stone-950 border-stone-700 hover:border-stone-500'
+                            }`}
+                          >
+                            <div className="flex justify-between items-start gap-3">
+                              <div>
+                                <div className="font-bold flex items-center gap-2">
+                                  {p.title}
+                                  {p.best && (
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${selected ? 'bg-stone-900 text-lime-300' : 'bg-lime-400 text-stone-950'}`}>
+                                      הכי משתלם
+                                    </span>
+                                  )}
+                                </div>
+                                <div className={`text-xs mt-1 ${selected ? 'text-stone-700' : 'text-stone-400'}`}>{p.desc}</div>
+                              </div>
+                              <div className="text-left whitespace-nowrap">
+                                <div className="font-bold text-lg">₪{p.price}</div>
+                                <div className={`text-[11px] ${selected ? 'text-stone-700' : 'text-stone-500'}`}>לחודש</div>
+                              </div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <p className="text-xs text-stone-500 leading-relaxed">
+                      יומועדון הוא אימון מועדוני משותף לכל רוכבי טבע בייק, בכל יום שישי 08:00–10:00,
+                      במסלול אחר בכל שבוע ברחבי הצפון. פתוח לרוכבי מיני גרביטי וגרביטי פרו.
+                    </p>
+                  </Section>
+                )}
+
+                <Section title="ניסיון">
+                  <Field
+                    label="ניסיון קודם ברכיבה"
+                    value={form.class_type}
+                    onChange={(v) => set('class_type', v)}
+                    placeholder="מתחיל / רכב שנה / מתקדם"
+                  />
+                </Section>
+
+                <Section title={isKids ? 'ההורה' : 'יצירת קשר'}>
+                  {isKids && <Field label="שם ההורה *" value={form.full_name} onChange={(v) => set('full_name', v)} />}
+                  <Field label="טלפון *" type="tel" value={form.phone} onChange={(v) => set('phone', v)} />
+                  <Field label="אימייל" type="email" value={form.email} onChange={(v) => set('email', v)} />
+                </Section>
+
+                <Section title="הערות">
+                  <Field
+                    label="בריאות, אלרגיות או כל דבר שכדאי שנדע"
+                    value={form.notes}
+                    onChange={(v) => set('notes', v)}
+                    textarea
+                  />
+                </Section>
+
+                {error && <div className="bg-red-950 border border-red-800 text-red-200 rounded-lg p-3 text-sm">{error}</div>}
+
+                <button
+                  onClick={submit}
+                  disabled={sending}
+                  className="w-full bg-lime-400 text-stone-950 font-bold py-4 rounded-xl text-lg disabled:opacity-50 hover:bg-lime-300 transition"
+                >
+                  {sending ? 'שולח…' : 'שליחת הרשמה'}
+                </button>
+
+                <p className="text-xs text-stone-500 text-center">
+                  שליחת הטופס אינה מהווה תשלום. קישור התשלום יישלח לאחר שיבוץ לקבוצה.
+                </p>
+              </>
             )}
-
-            {!isKids && (
-              <Section title="יצירת קשר">
-                <Field label="טלפון *" type="tel" value={form.phone} onChange={(v) => set('phone', v)} />
-                <Field label="אימייל" type="email" value={form.email} onChange={(v) => set('email', v)} />
-              </Section>
-            )}
-
-            <Section title="הערות">
-              <Field
-                label="בריאות, אלרגיות או כל דבר שכדאי שנדע"
-                value={form.notes}
-                onChange={(v) => set('notes', v)}
-                textarea
-              />
-            </Section>
-
-            {error && (
-              <div className="bg-red-950 border border-red-800 text-red-200 rounded-lg p-3 text-sm">{error}</div>
-            )}
-
-            <button
-              onClick={submit}
-              disabled={sending}
-              className="w-full bg-lime-400 text-stone-950 font-bold py-4 rounded-xl text-lg disabled:opacity-50 hover:bg-lime-300 transition"
-            >
-              {sending ? 'שולח…' : 'שליחת הרשמה'}
-            </button>
-
-            <p className="text-xs text-stone-500 text-center">
-              שליחת הטופס אינה מהווה תשלום. קישור התשלום יישלח לאחר שיבוץ לקבוצה.
-            </p>
           </div>
         )}
       </div>
