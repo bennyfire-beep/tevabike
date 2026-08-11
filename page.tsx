@@ -11,12 +11,14 @@ const OFF_WHITE = '#F5F2EE'
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 const KIDS_CLASSES = [
-  { level: 'גרביטי מתחילים', branch: 'משגב',  days: "א' + ג'",  age: '6-10', icon: '🌱' },
-  { level: 'גרביטי מתחילים', branch: 'מצובה', days: "ב' + ד'",  age: '6-10', icon: '🌱' },
-  { level: 'גרביטי מתחילים', branch: 'ביריה', days: "א' + ה'",  age: '6-10', icon: '🌱' },
-  { level: 'גרביטי מתקדמים', branch: 'משגב',  days: "ב' + ד'",  age: '10-14', icon: '🔥' },
-  { level: 'גרביטי מתקדמים', branch: 'מצובה', days: "א' + ג'",  age: '10-14', icon: '🔥' },
-  { level: 'גרביטי פרו',     branch: 'משגב',  days: "ג' + ו'",  age: '12+',   icon: '⚡' },
+  { level: 'גרביטי מתחילים',    branch: 'משגב', days: "יום א' 15:30–17:00", age: '6-10',  icon: '🌱' },
+  { level: 'מיני גרביטי',       branch: 'משגב', days: "יום א' 15:30–17:00", age: '8-12',  icon: '🚵' },
+  { level: 'גרביטי פרו',        branch: 'משגב', days: "יום א' 15:30–17:00", age: '12-18', icon: '⚡' },
+  { level: 'מיני גרביטי',       branch: 'ביריה', days: "יום ב' 16:00–17:15", age: '8-12',  icon: '🚵' },
+  { level: 'גרביטי',            branch: 'ביריה', days: "יום ב' 16:00–17:15", age: '12-18', icon: '🔥' },
+  { level: 'גילון',             branch: 'גילון', days: "יום ג' 15:30–17:15", age: '8-12',  icon: '🌟' },
+  { level: 'אמירים-פרוד',       branch: 'אמירים-פרוד', days: "יום ד' 15:45–17:00", age: '8-12', icon: '🏔️' },
+  { level: 'יומועדון טבע בייק', branch: 'מיקום משתנה בצפון', days: 'יום שישי 8:00–10:00', age: '8-18', icon: '🎉' },
 ]
 
 const ADULTS_CLASSES = [
@@ -28,15 +30,20 @@ const ADULTS_CLASSES = [
 ]
 
 const LEVEL_COLORS: Record<string, [string, string]> = {
-  'גרביטי מתחילים': [`${PINK}1A`, PINK],
-  'גרביטי מתקדמים': ['#8B22D41A', '#8B22D4'],
-  'גרביטי פרו':     ['#1F3D2A',   '#4cdb7a'],
+  'גרביטי מתחילים':    [`${PINK}1A`, PINK],
+  'מיני גרביטי':       ['#22B5D41A', '#22B5D4'],
+  'גרביטי פרו':        ['#1F3D2A',   '#4cdb7a'],
+  'גרביטי':            ['#8B22D41A', '#8B22D4'],
+  'גילון':             ['#22B5D41A', '#22B5D4'],
+  'אמירים-פרוד':       ['#8B22D41A', '#8B22D4'],
+  'יומועדון טבע בייק': [`${PINK}1A`, PINK],
 }
 
 const BRANCH_COLOR: Record<string, string> = {
-  'משגב':  PINK,
-  'מצובה': '#22B5D4',
-  'ביריה': '#4cdb7a',
+  'משגב':        PINK,
+  'ביריה':       '#4cdb7a',
+  'גילון':       '#22B5D4',
+  'אמירים-פרוד': '#8B22D4',
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -198,7 +205,7 @@ export default function Home() {
 
           {/* Location chips */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 38, flexWrap: 'wrap' }}>
-            {(['משגב', 'מצובה', 'ביריה'] as const).map(b => (
+            {(['משגב', 'ביריה', 'גילון', 'אמירים-פרוד'] as const).map(b => (
               <span key={b} style={{
                 background: 'rgba(255,255,255,0.1)',
                 border: `1px solid rgba(255,255,255,0.22)`,
@@ -230,7 +237,7 @@ export default function Home() {
         <div style={{ maxWidth: 960, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
           {[
             { num: '150+', label: 'תלמידים פעילים', icon: '🚵' },
-            { num: '3',    label: 'סניפים בגליל',   icon: '📍' },
+            { num: '4',    label: 'סניפים בגליל',   icon: '📍' },
             { num: '8',    label: 'סוגי חוגים',     icon: '🏆' },
             { num: '5+',   label: 'שנות ניסיון',    icon: '⭐' },
           ].map((s, i) => (
@@ -311,9 +318,11 @@ export default function Home() {
                     <div style={{ display: 'flex', gap: 6, color: '#7A8880', fontSize: 13 }}>
                       <span>📅</span> <span>{c.days}</span>
                     </div>
-                    <div style={{ display: 'flex', gap: 6, color: '#7A8880', fontSize: 13 }}>
-                      <span>👦</span> <span>גיל {c.age}</span>
-                    </div>
+                    {c.age && (
+                      <div style={{ display: 'flex', gap: 6, color: '#7A8880', fontSize: 13 }}>
+                        <span>👦</span> <span>גיל {c.age}</span>
+                      </div>
+                    )}
                   </div>
 
                   <a
@@ -381,7 +390,7 @@ export default function Home() {
               { icon: '🏆', title: 'מדריכים מוסמכים', body: 'כל המדריכים מוסמכים בטכניקת גרביטי ובעלי ניסיון רב עם ילדים ומבוגרים' },
               { icon: '🛡️', title: 'בטיחות קודמת לכל', body: 'ציוד בטיחות מתקדם, מסלולים מותאמים לגיל ורמה, ותמיד בנוכחות מדריך' },
               { icon: '📊', title: 'מעקב התקדמות', body: 'דוחות נוכחות בזמן אמת ותקשורת שקופה עם ההורים על התפתחות הילד' },
-              { icon: '🌿', title: '3 סניפים בגליל', body: 'משגב, מצובה וביריה — חוגים קרוב לבית ברחבי הגליל המערבי' },
+              { icon: '🌿', title: '4 סניפים בגליל', body: 'משגב, ביריה, גילון ואמירים-פרוד — חוגים קרוב לבית ברחבי הגליל המערבי' },
             ].map(f => (
               <div
                 key={f.title}
@@ -442,9 +451,10 @@ export default function Home() {
                     onChange={upd('branch')}
                     options={[
                       { value: '', label: 'בחר סניף...' },
-                      { value: 'משגב',  label: 'משגב'  },
-                      { value: 'מצובה', label: 'מצובה' },
-                      { value: 'ביריה', label: 'ביריה' },
+                      { value: 'משגב',        label: 'משגב'        },
+                      { value: 'ביריה',       label: 'ביריה'       },
+                      { value: 'גילון',       label: 'גילון'       },
+                      { value: 'אמירים-פרוד', label: 'אמירים-פרוד' },
                     ]}
                   />
                   <FormSelect
@@ -453,14 +463,18 @@ export default function Home() {
                     onChange={upd('classType')}
                     options={[
                       { value: '', label: 'בחר חוג...' },
-                      { value: 'גרביטי מתחילים',  label: 'גרביטי מתחילים'  },
-                      { value: 'גרביטי מתקדמים', label: 'גרביטי מתקדמים' },
-                      { value: 'גרביטי פרו',      label: 'גרביטי פרו'      },
-                      { value: 'רכיבה טכנית',     label: 'רכיבה טכנית'     },
-                      { value: 'כושר ואושר',      label: 'כושר ואושר'      },
-                      { value: 'רכיבה לנשים',     label: 'רכיבה לנשים'     },
-                      { value: 'טכני חשמלי',      label: 'טכני חשמלי'      },
-                      { value: 'נשים טכני',        label: 'נשים טכני'        },
+                      { value: 'גרביטי מתחילים',    label: 'גרביטי מתחילים'    },
+                      { value: 'מיני גרביטי',       label: 'מיני גרביטי'       },
+                      { value: 'גרביטי פרו',        label: 'גרביטי פרו'        },
+                      { value: 'גרביטי',            label: 'גרביטי (ביריה)'    },
+                      { value: 'גילון',             label: 'גילון'             },
+                      { value: 'אמירים-פרוד',       label: 'אמירים-פרוד'       },
+                      { value: 'יומועדון טבע בייק', label: 'יומועדון טבע בייק' },
+                      { value: 'רכיבה טכנית',       label: 'רכיבה טכנית'       },
+                      { value: 'כושר ואושר',        label: 'כושר ואושר'        },
+                      { value: 'רכיבה לנשים',       label: 'רכיבה לנשים'       },
+                      { value: 'טכני חשמלי',        label: 'טכני חשמלי'        },
+                      { value: 'נשים טכני',          label: 'נשים טכני'          },
                     ]}
                   />
                 </div>
@@ -568,7 +582,7 @@ export default function Home() {
             {/* Branches */}
             <div>
               <h4 style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 18px', letterSpacing: '0.05em' }}>סניפים</h4>
-              {(['משגב', 'מצובה', 'ביריה'] as const).map(b => (
+              {(['משגב', 'ביריה', 'גילון', 'אמירים-פרוד'] as const).map(b => (
                 <div key={b} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: BRANCH_COLOR[b], flexShrink: 0, boxShadow: `0 0 6px ${BRANCH_COLOR[b]}` }} />
                   <span style={{ fontSize: 14 }}>{b}</span>
