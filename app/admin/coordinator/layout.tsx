@@ -7,13 +7,16 @@ import { CoordinatorCtx } from '@/lib/coordinator-context'
 import { supabase } from '@/lib/supabase'
 
 const LEADS_HREF = '/admin/coordinator/leads'
+
+// רק בני ושיר רואים שכר. תואם ל-is_salary_admin() בבסיס הנתונים.
+const SALARY_ADMINS = ['bennyfire@gmail.com', 'shirkobi8@gmail.com']
 const NAV = [
   { href: '/admin/coordinator',            label: 'לוח בקרה', exact: true  },
   { href: '/admin/coordinator/groups',     label: 'קבוצות',   exact: false },
   { href: '/admin/coordinator/students',   label: 'תלמידים',  exact: false },
   { href: '/admin/coordinator/attendance', label: 'נוכחות',   exact: false },
   { href: '/admin/coordinator/history',    label: 'היסטוריה', exact: false },
-  { href: '/admin/coordinator/payroll',    label: 'שכר',      exact: false },
+  { href: '/admin/coordinator/payroll',    label: 'שכר',      exact: false, salaryOnly: true },
   { href: LEADS_HREF,                       label: 'מתעניינים', exact: false },
   { href: '/admin/coordinator/staff',      label: 'צוות',     exact: false },
   { href: '/admin/coordinator/camp', label: 'ימי שיא', exact: false },
@@ -41,6 +44,9 @@ export default function CoordinatorLayout({ children }: { children: React.ReactN
   )
   if (!user) return null
 
+  const canSeeSalary = !!user.email && SALARY_ADMINS.includes(user.email.toLowerCase())
+  const navItems = NAV.filter(n => !(n as any).salaryOnly || canSeeSalary)
+
   return (
     <CoordinatorCtx.Provider value={user}>
       <div dir="rtl" style={{ fontFamily: 'Heebo, Arial, sans-serif', background: '#0d0f0e', minHeight: '100vh', color: '#e8efe9' }}>
@@ -54,7 +60,7 @@ export default function CoordinatorLayout({ children }: { children: React.ReactN
             <span style={{ color: '#e8efe9', fontSize: 14, fontWeight: 700 }}>{user.name}</span>
           </div>
           <nav style={{ display: 'flex', gap: 2 }}>
-            {NAV.map(({ href, label, exact }) => {
+            {navItems.map(({ href, label, exact }) => {
               const active = exact ? pathname === href : pathname.startsWith(href)
               return (
                 <Link key={href} href={href} style={{
