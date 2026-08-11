@@ -8,7 +8,6 @@ export async function POST(req: Request) {
     const body = await req.json()
     const isKids = body.registration_type === 'kids'
 
-    // אצל ילדים חייבים גם שם הילד; אצל מבוגרים הרוכב הוא הנרשם עצמו
     if (!body.full_name || !body.phone || !body.branch || (isKids && !body.child_name)) {
       return NextResponse.json({ error: 'חסרים שדות חובה' }, { status: 400 })
     }
@@ -26,6 +25,8 @@ export async function POST(req: Request) {
       city: body.city || null,
       class_type: body.class_type || null,
       registration_type: body.registration_type === 'adults' ? 'annual_adults' : 'annual_kids',
+      membership_plan: body.membership_plan || null,
+      promo_code: body.promo_code || null,
       child_name: body.child_name || null,
       child_age: body.child_age ? parseInt(body.child_age, 10) : null,
       notes: body.notes || null,
