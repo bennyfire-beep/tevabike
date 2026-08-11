@@ -11,32 +11,39 @@ const OFF_WHITE = '#F5F2EE'
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 const KIDS_CLASSES = [
-  { level: 'גרביטי מתחילים', branch: 'משגב',  days: "א' + ה'",  age: '6-10', icon: '🌱' },
-  { level: 'גרביטי מתחילים', branch: 'מצובה', days: "ג'",  age: '6-10', icon: '🌱' },
-  { level: 'גרביטי מתחילים', branch: 'ביריה', days: "א' + ה'",  age: '6-10', icon: '🌱' },
-  { level: 'גרביטי מתקדמים', branch: 'משגב',  days: "א' + ה'",  age: '10-14', icon: '🔥' },
-  { level: 'גרביטי מתקדמים', branch: 'מצובה', days: "ג'",  age: '10-14', icon: '🔥' },
-  { level: 'גרביטי פרו',     branch: 'משגב',  days: "א' + ה'",  age: '12+',   icon: '⚡' },
+  { level: 'מיני גרביטי',    branch: 'משגב',        days: "א' 15:30–17:00", age: '6-10',  icon: '🌱' },
+  { level: 'גרביטי מתחילים', branch: 'משגב',        days: "א' 15:30–17:00", age: '6-10',  icon: '🌱' },
+  { level: 'גרביטי פרו',     branch: 'משגב',        days: "א' 15:30–17:00", age: '12+',   icon: '⚡' },
+  { level: 'מיני גרביטי',    branch: 'ביריה',       days: "ב' 15:45–17:15", age: '6-10',  icon: '🌱' },
+  { level: 'גרביטי מתקדמים', branch: 'ביריה',       days: "ב' 15:45–17:15", age: '10-14', icon: '🔥' },
+  { level: 'מיני גרביטי',    branch: 'מטה אשר',     days: "ג'",             age: '6-10',  icon: '🌱' },
+  { level: 'גרביטי מתקדמים', branch: 'מטה אשר',     days: "ג'",             age: '10-14', icon: '🔥' },
+  { level: 'גרביטי מתקדמים', branch: 'פרוד-אמירים', days: "ד' 15:45–17:00", age: '10-14', icon: '🔥' },
+  { level: 'יומועדון',       branch: 'כל הסניפים',  days: "ו' 08:00–10:00", age: '8+',    icon: '🏔️' },
 ]
 
 const ADULTS_CLASSES = [
-  { level: 'רכיבה טכנית',  day: "יום א'", icon: '🏔️', desc: 'שיפור טכניקת רכיבה בשטח' },
+  { level: 'טכני מבוגרים', day: "יום א'", icon: '🏔️', desc: 'שיפור טכניקת רכיבה בשטח' },
   { level: 'כושר ואושר',   day: "יום ב'", icon: '💪', desc: 'אימון כושר על הפדלים' },
-  { level: 'רכיבה לנשים',  day: "יום ג'", icon: '✨', desc: 'קבוצת נשים בסביבה תומכת' },
+  { level: 'נשים כושר',    day: "יום ג'", icon: '✨', desc: 'קבוצת נשים בסביבה תומכת' },
   { level: 'טכני חשמלי',   day: "יום ד'", icon: '⚡', desc: 'טכניקה על אופניים חשמליים' },
   { level: 'נשים טכני',    day: "יום ה'", icon: '🌟', desc: 'טכניקה מתקדמת לנשים' },
 ]
 
 const LEVEL_COLORS: Record<string, [string, string]> = {
+  'מיני גרביטי':    [`${PINK}1A`, PINK],
   'גרביטי מתחילים': [`${PINK}1A`, PINK],
   'גרביטי מתקדמים': ['#8B22D41A', '#8B22D4'],
   'גרביטי פרו':     ['#1F3D2A',   '#4cdb7a'],
+  'יומועדון':       ['#3B0764',   '#e879f9'],
 }
 
 const BRANCH_COLOR: Record<string, string> = {
-  'משגב':  PINK,
-  'מצובה': '#22B5D4',
-  'ביריה': '#4cdb7a',
+  'משגב':        PINK,
+  'ביריה':       '#4cdb7a',
+  'מטה אשר':     '#22B5D4',
+  'פרוד-אמירים': '#f59e0b',
+  'כל הסניפים':  '#e879f9',
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -137,6 +144,7 @@ export default function Home() {
             <a href="#classes" className="nav-link">חוגים</a>
             <a href="/camp" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>ימי שיא</a>
             <a href="/camp-sukkot" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מחנה סוכות</a>
+            <a href="/yomoadon" className="nav-link" style={{ color: '#e879f9', fontWeight: 700 }}>יומועדון</a>
             <a href="#why" className="nav-link">למה אנחנו</a>
             <a href="/register" className="btn-primary" style={{ padding: '8px 22px', fontSize: 14, borderRadius: 8 }}>
               הרשמה
@@ -182,12 +190,12 @@ export default function Home() {
           </h1>
 
           <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: 'clamp(.95rem, 2.2vw, 1.2rem)', margin: '0 0 28px', lineHeight: 1.65 }}>
-            חוגי גרביטי, טכניקה וכושר לילדים ומבוגרים — בגליל המערבי
+            חוגי גרביטי, טכניקה וכושר לילדים ומבוגרים — ברחבי הגליל
           </p>
 
           {/* Location chips */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 38, flexWrap: 'wrap' }}>
-            {(['משגב', 'מצובה', 'ביריה'] as const).map(b => (
+            {(['משגב', 'ביריה', 'מטה אשר', 'פרוד-אמירים'] as const).map(b => (
               <span key={b} style={{
                 background: 'rgba(255,255,255,0.1)',
                 border: `1px solid rgba(255,255,255,0.22)`,
@@ -370,7 +378,7 @@ export default function Home() {
               { icon: '🏆', title: 'מדריכים מוסמכים', body: 'כל המדריכים מוסמכים בטכניקת גרביטי ובעלי ניסיון רב עם ילדים ומבוגרים' },
               { icon: '🛡️', title: 'בטיחות קודמת לכל', body: 'ציוד בטיחות מתקדם, מסלולים מותאמים לגיל ורמה, ותמיד בנוכחות מדריך' },
               { icon: '📊', title: 'מעקב התקדמות', body: 'דוחות נוכחות בזמן אמת ותקשורת שקופה עם ההורים על התפתחות הילד' },
-              { icon: '🌿', title: '3 סניפים בגליל', body: 'משגב, מצובה וביריה — חוגים קרוב לבית ברחבי הגליל המערבי' },
+              { icon: '🌿', title: '4 סניפים בגליל', body: 'משגב, ביריה, מטה אשר ופרוד-אמירים — חוגים קרוב לבית ברחבי הגליל' },
             ].map(f => (
               <div
                 key={f.title}
@@ -456,6 +464,7 @@ export default function Home() {
       { label: 'מחנה סוכות', href: '/camp-sukkot' },
       { label: 'ימי שיא',  href: '/camp'     },
                 { label: 'חוגים',    href: '#classes'  },
+                { label: 'יומועדון', href: '/yomoadon' },
                 { label: 'הרשמה',   href: '/register' },
                 { label: 'למה אנחנו', href: '#why'    },
                 { label: 'ניהול',    href: '/admin'    },
@@ -476,7 +485,7 @@ export default function Home() {
             {/* Branches */}
             <div>
               <h4 style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 18px', letterSpacing: '0.05em' }}>סניפים</h4>
-              {(['משגב', 'מצובה', 'ביריה'] as const).map(b => (
+              {(['משגב', 'ביריה', 'מטה אשר', 'פרוד-אמירים'] as const).map(b => (
                 <div key={b} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: BRANCH_COLOR[b], flexShrink: 0, boxShadow: `0 0 6px ${BRANCH_COLOR[b]}` }} />
                   <span style={{ fontSize: 14 }}>{b}</span>
