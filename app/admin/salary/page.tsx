@@ -164,16 +164,17 @@ export default function SalaryPage() {
 
     const { first, last } = firstLastDay(month)
 
-    const [{ data: instructors }, { data: sessionRows }, { data: travelRows }] = await Promise.all([
-      supabase.from('admin_roles').select('id, name, branch, hourly_rate').eq('role', 'instructor').order('name'),
+    const [{ data: instructors }, { data: sessionRows }, { data: travelRows }, { data: payRows }] = await Promise.all([
+      supabase.from('admin_roles').select('id, name, branch').eq('role', 'instructor').order('name'),
       supabase.from('class_sessions').select('instructor_id, session_date, class_name, branch, duration').not('instructor_id', 'is', null).gte('session_date', first).lte('session_date', last).order('session_date'),
       supabase.from('instructor_travel').select('instructor_id, mode, km, amount').eq('month', month),
+      supabase.from('staff_pay').select('admin_role_id, hourly_rate'),
     ])
 
     const compiled: InstructorRow[] = (instructors ?? []).map(inst => {
       const detail = (sessionRows ?? []).filter(h => h.instructor_id === inst.id)
       const totalHours  = detail.reduce((s, h) => s + Number(h.duration ?? 0), 0)
-      const hourlyRate  = inst.hourly_rate ?? 60
+      const hourlyRate  = Number((payRows ?? []).find(p => p.admin_role_id === inst.id)?.hourly_rate ?? 60)
       const workdays    = new Set(detail.map(h => h.session_date)).size
       const tr          = (travelRows ?? []).find(t => t.instructor_id === inst.id)
       return {
@@ -202,7 +203,10 @@ export default function SalaryPage() {
     const rate = parseFloat(rateInput)
     if (isNaN(rate) || rate <= 0) return
     setSavingRate(true)
-    const { error } = await supabase.from('admin_roles').update({ hourly_rate: rate }).eq('id', adminRoleId)
+    const { error } = await supabase
+      .from('staff_pay')
+      .upsert({ admin_role_id: adminRoleId, hourly_rate: rate, updated_at: new Date().toISOString() },
+              { onConflict: 'admin_role_id' })
     if (!error) {
       setRows(prev => prev.map(r => r.adminRoleId === adminRoleId ? { ...r, hourlyRate: rate, totalSalary: Math.round(r.totalHours * rate) } : r))
       setEditingRate(null)
