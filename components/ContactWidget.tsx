@@ -1,144 +1,61 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { LEAD_INTERESTS, LEAD_BRANCHES } from '@/lib/leads'
+// Shared constants for the public leads funnel — imported by both the public
+// contact form (client) and the leads API route (server), so the allowed
+// interest values can never drift between them.
 
-// Public leads intake.
-//
-// The public contact form posts here and we insert with the SERVICE ROLE, so
-// the anon key never touches the leads table directly and no admin data is ever
-// exposed to anon. RLS still allows anon INSERT as defence-in-depth, but reads
-// require authentication. We require the service role and fail loudly if it's
-// missing (rather than silently degrading).
-//
-// Campaign tracking: the form forwards utm_source / utm_medium / utm_campaign
-// from the landing URL so paid leads can be told apart from organic ones.
-// `source` is the coarse channel used for grouping in the coordinator view.
+export const LEAD_INTERESTS = [
+  'חוג רכיבה — ילדים או מבוגרים',
+  'סדנת רכיבה טכנית',
+  'חוג טיולים',
+  'אופניים ומרצ\'נדייז',
+] as const
 
-export const dynamic = 'force-dynamic'
+export type LeadInterest = (typeof LEAD_INTERESTS)[number]
 
-// This endpoint is public and unauthenticated, so cap every free-text field.
-const MAX_NAME = 100
-const MAX_PHONE = 30
-const MAX_MESSAGE = 1000
-const MAX_UTM = 120
-
-/** Trim, cap length, and return null for empty — used for optional fields. */
-function clean(v: unknown, max: number): string | null {
-  if (typeof v !== 'string') return null
-  const s = v.trim().slice(0, max)
-  return s.length ? s : null
+// Distinct colour per interest area (used for the badges on the admin page).
+export const INTEREST_COLOR: Record<string, string> = {
+  'חוג רכיבה — ילדים או מבוגרים': '#a855f7', // purple
+  'סדנת רכיבה טכנית':            '#ec4899', // pink
+  'חוג טיולים':                  '#4cdb7a', // green
+  'אופניים ומרצ\'נדייז':          '#81d4fa', // blue
 }
 
-/** Fire-and-forget email alert. Never blocks or fails the lead insert. */
-async function notify(lead: {
-  full_name: string
-  phone: string
-  interest: string
-  branch: string | null
-  message: string | null
-  source: string
-  utm_campaign: string | null
-}) {
-  const key = process.env.RESEND_API_KEY
-  if (!key) return // not configured — skip silently
+// Training centres the lead can pick from in the contact form.
+// Kept here (not inline in the form) so the server can validate against the
+// exact same list the client renders.
+export const LEAD_BRANCHES = [
+  'משגב',
+  'ביריה',
+  'מטה אשר',
+  'פרוד־עמירים',
+  'חיפה והסביבה',
+  'עדיין לא בטוח/ה',
+] as const
 
-  const rows = [
-    ['שם', lead.full_name],
-    ['טלפון', lead.phone],
-    ['תחום עניין', lead.interest],
-    ['סניף', lead.branch ?? '—'],
-    ['מקור', lead.source],
-    ['קמפיין', lead.utm_campaign ?? '—'],
-    ['הודעה', lead.message ?? '—'],
-  ]
-    .map(([k, v]) => `<tr><td style="padding:6px 12px;font-weight:700">${k}</td><td style="padding:6px 12px">${v}</td></tr>`)
-    .join('')
+export type LeadBranch = (typeof LEAD_BRANCHES)[number]
 
-  try {
-    await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: 'Teva Bike <leads@mail.tevabike.com>',
-        to: ['bennyfire@gmail.com'],
-        subject: `ליד חדש — ${lead.full_name} (${lead.source})`,
-        html: `<div dir="rtl" style="font-family:Arial,sans-serif">
-          <h2 style="margin:0 0 12px">🚵 ליד חדש מהאתר</h2>
-          <table style="border-collapse:collapse;font-size:15px">${rows}</table>
-          <p style="margin-top:16px">
-            <a href="https://wa.me/972${lead.phone.replace(/\D/g, '').replace(/^0/, '')}"
-               style="background:#25D366;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">
-              פתיחת וואטסאפ
-            </a>
-          </p>
-        </div>`,
-      }),
-    })
-  } catch (e) {
-    console.error('[leads] notification failed (lead was still saved):', e)
-  }
+export const LEAD_STATUSES = [
+  { value: 'new',         label: 'חדש' },
+  { value: 'in_progress', label: 'בטיפול' },
+  { value: 'closed',      label: 'נסגר' },
+] as const
+
+export type LeadStatus = (typeof LEAD_STATUSES)[number]['value']
+
+export const STATUS_LABEL: Record<string, string> = Object.fromEntries(
+  LEAD_STATUSES.map(s => [s.value, s.label]),
+)
+export const STATUS_COLOR: Record<string, string> = {
+  new:         '#ff8f6b',
+  in_progress: '#f0b90b',
+  closed:      '#7a8f7d',
 }
 
-export async function POST(req: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !serviceKey) {
-    console.error('[leads] SUPABASE_SERVICE_ROLE_KEY or URL not set — cannot save lead. Configure it in the deployment environment.')
-    return NextResponse.json({ ok: false, error: 'Server misconfigured' }, { status: 500 })
-  }
-
-  let body: Record<string, unknown>
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 })
-  }
-
-  const full_name = (typeof body.full_name === 'string' ? body.full_name : '').trim().slice(0, MAX_NAME)
-  const phone     = (typeof body.phone === 'string' ? body.phone : '').trim().slice(0, MAX_PHONE)
-  const interest  = (typeof body.interest === 'string' ? body.interest : '').trim()
-  const message   = clean(body.message, MAX_MESSAGE)
-
-  if (!full_name || !phone || !interest) {
-    return NextResponse.json({ ok: false, error: 'חסרים שדות חובה' }, { status: 400 })
-  }
-  if (!(LEAD_INTERESTS as readonly string[]).includes(interest)) {
-    return NextResponse.json({ ok: false, error: 'תחום עניין לא תקין' }, { status: 400 })
-  }
-
-  // Optional — silently dropped if it isn't one of ours, rather than rejecting
-  // the whole lead over a tracking field.
-  const rawBranch = clean(body.branch, 60)
-  const branch = rawBranch && (LEAD_BRANCHES as readonly string[]).includes(rawBranch) ? rawBranch : null
-
-  const utm_source   = clean(body.utm_source, MAX_UTM)
-  const utm_medium   = clean(body.utm_medium, MAX_UTM)
-  const utm_campaign = clean(body.utm_campaign, MAX_UTM)
-
-  // Coarse channel: the ad platform's utm_source when present, else organic.
-  const source = (utm_source ?? 'website').toLowerCase()
-
-  const db = createClient(url, serviceKey)
-  const { error } = await db.from('leads').insert({
-    full_name,
-    phone,
-    interest,
-    message,
-    branch,
-    source,
-    utm_source,
-    utm_medium,
-    utm_campaign,
-    // status defaults to 'new' in the DB
-  })
-
-  if (error) {
-    console.error('[leads] insert failed:', error.message)
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
-  }
-
-  // Alert is best-effort — the lead is already safely stored either way.
-  await notify({ full_name, phone, interest, branch, message, source, utm_campaign })
-
-  return NextResponse.json({ ok: true })
+// Human labels for the `source` column. Anything not listed here is shown
+// as-is (it will be whatever utm_source the ad platform sent).
+export const SOURCE_LABEL: Record<string, string> = {
+  website:   'אתר (אורגני)',
+  instagram: 'אינסטגרם — ממומן',
+  facebook:  'פייסבוק — ממומן',
+  google:    'גוגל — ממומן',
+  whatsapp:  'וואטסאפ',
 }
