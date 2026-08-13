@@ -2,13 +2,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
-import { INTEREST_COLOR, LEAD_INTERESTS, LEAD_STATUSES, STATUS_COLOR } from '@/lib/leads'
+import { INTEREST_COLOR, LEAD_INTERESTS, LEAD_STATUSES, STATUS_COLOR, SOURCE_LABEL } from '@/lib/leads'
 
 type Lead = {
   id: string
   full_name: string
   phone: string
   interest: string
+  branch: string | null
+  source: string | null
+  utm_campaign: string | null
   message: string | null
   status: string
   handled_by: string | null
@@ -30,7 +33,7 @@ export default function LeadsPage() {
     setLoading(true)
     const { data } = await supabase
       .from('leads')
-      .select('id, full_name, phone, interest, message, status, handled_by, created_at')
+      .select('id, full_name, phone, interest, branch, source, utm_campaign, message, status, handled_by, created_at')
       .order('created_at', { ascending: false })
     setLeads((data ?? []) as Lead[])
     setLoading(false)
@@ -93,7 +96,7 @@ export default function LeadsPage() {
 
       {/* Table */}
       <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 130px 190px 1fr 120px 110px', gap: 8, padding: '11px 16px', borderBottom: '1px solid #252b27', fontSize: 11, color: '#7a8f7d', fontWeight: 700 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '115px 1fr 125px 175px 110px 120px 1fr 115px 105px', gap: 8, padding: '11px 16px', borderBottom: '1px solid #252b27', fontSize: 11, color: '#7a8f7d', fontWeight: 700 }}>
           <span>תאריך</span><span>שם</span><span>טלפון</span><span>תחום עניין</span><span>הודעה</span><span>סטטוס</span><span>טופל ע"י</span>
         </div>
 
@@ -108,12 +111,22 @@ export default function LeadsPage() {
           filtered.map((l, i) => {
             const ic = INTEREST_COLOR[l.interest] ?? '#7a8f7d'
             return (
-              <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 130px 190px 1fr 120px 110px', gap: 8, padding: '13px 16px', borderBottom: i < filtered.length - 1 ? '1px solid #1a1e1c' : 'none', alignItems: 'center', fontSize: 13 }}>
+              <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '115px 1fr 125px 175px 110px 120px 1fr 115px 105px', gap: 8, padding: '13px 16px', borderBottom: i < filtered.length - 1 ? '1px solid #1a1e1c' : 'none', alignItems: 'center', fontSize: 13 }}>
                 <span style={{ color: '#7a8f7d', fontSize: 12 }}>{fmtDateTime(l.created_at)}</span>
                 <span style={{ fontWeight: 700 }}>{l.full_name}</span>
                 <a href={`tel:${l.phone}`} dir="ltr" style={{ color: '#81d4fa', textDecoration: 'none', textAlign: 'right' }}>{l.phone}</a>
                 <span>
                   <span style={{ background: ic + '22', color: ic, border: `1px solid ${ic}44`, borderRadius: 10, padding: '2px 9px', fontSize: 11, fontWeight: 600 }}>{l.interest}</span>
+                </span>
+                <span style={{ color: l.branch ? '#cdd6cf' : '#4a544c', fontSize: 12 }}>{l.branch || '—'}</span>
+                <span title={l.utm_campaign || undefined} style={{ fontSize: 11 }}>
+                  {l.source && l.source !== 'website' ? (
+                    <span style={{ background: '#f0b90b22', color: '#f0b90b', border: '1px solid #f0b90b44', borderRadius: 10, padding: '2px 8px', fontWeight: 700 }}>
+                      {SOURCE_LABEL[l.source] ?? l.source}
+                    </span>
+                  ) : (
+                    <span style={{ color: '#4a544c' }}>{SOURCE_LABEL['website']}</span>
+                  )}
                 </span>
                 <span style={{ color: l.message ? '#cdd6cf' : '#4a544c' }}>{l.message || '—'}</span>
                 <span>
