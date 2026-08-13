@@ -17,6 +17,14 @@ export async function POST(req: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
+    // Campaign attribution — optional, capped, and never allowed to block a
+    // registration. `source` is the coarse channel used for grouping.
+    const utm = (v: unknown) =>
+      typeof v === 'string' && v.trim() ? v.trim().slice(0, 120) : null
+    const utm_source   = utm(body.utm_source)
+    const utm_medium   = utm(body.utm_medium)
+    const utm_campaign = utm(body.utm_campaign)
+
     const { error } = await supabase.from('registrations').insert({
       full_name: body.full_name,
       phone: body.phone,
@@ -31,6 +39,10 @@ export async function POST(req: Request) {
       child_age: body.child_age ? parseInt(body.child_age, 10) : null,
       notes: body.notes || null,
       status: 'pending',
+      source: (utm_source ?? 'website').toLowerCase(),
+      utm_source,
+      utm_medium,
+      utm_campaign,
     })
 
     if (error) {
