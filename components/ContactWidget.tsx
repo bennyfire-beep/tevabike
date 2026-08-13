@@ -1,218 +1,144 @@
-'use client'
-import { useState, useEffect, useRef, useCallback, useId } from 'react'
-import { usePathname } from 'next/navigation'
-import { LEAD_INTERESTS } from '@/lib/leads'
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { LEAD_INTERESTS, LEAD_BRANCHES } from '@/lib/leads'
 
-// Public "צור קשר" floating button + modal lead form.
-// Bottom-left, stacked ABOVE the accessibility link that lives in the root
-// layout (so the two don't overlap). Hidden on /admin. Submits to the
-// service-role /api/leads route. Accessible: labelled dialog, focus trap,
-// Esc/backdrop close, keyboard nav, AA-contrast colours.
+// Public leads intake.
+//
+// The public contact form posts here and we insert with the SERVICE ROLE, so
+// the anon key never touches the leads table directly and no admin data is ever
+// exposed to anon. RLS still allows anon INSERT as defence-in-depth, but reads
+// require authentication. We require the service role and fail loudly if it's
+// missing (rather than silently degrading).
+//
+// Campaign tracking: the form forwards utm_source / utm_medium / utm_campaign
+// from the landing URL so paid leads can be told apart from organic ones.
+// `source` is the coarse channel used for grouping in the coordinator view.
 
-const PURPLE = '#7c3aed'   // violet-600 — AA contrast with white text
-const PINK   = '#db2777'   // pink-600
-const INK    = '#1a1230'
+export const dynamic = 'force-dynamic'
 
-export default function ContactWidget() {
-  const pathname = usePathname()
-  const isAdmin = pathname?.startsWith('/admin') ?? false
+// This endpoint is public and unauthenticated, so cap every free-text field.
+const MAX_NAME = 100
+const MAX_PHONE = 30
+const MAX_MESSAGE = 1000
+const MAX_UTM = 120
 
-  const [mounted, setMounted]     = useState(false)
-  const [open, setOpen]           = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [done, setDone]           = useState(false)
-  const [error, setError]         = useState('')
+/** Trim, cap length, and return null for empty — used for optional fields. */
+function clean(v: unknown, max: number): string | null {
+  if (typeof v !== 'string') return null
+  const s = v.trim().slice(0, max)
+  return s.length ? s : null
+}
 
-  const [fullName, setFullName] = useState('')
-  const [phone, setPhone]       = useState('')
-  const [interest, setInterest] = useState('')
-  const [message, setMessage]   = useState('')
+/** Fire-and-forget email alert. Never blocks or fails the lead insert. */
+async function notify(lead: {
+  full_name: string
+  phone: string
+  interest: string
+  branch: string | null
+  message: string | null
+  source: string
+  utm_campaign: string | null
+}) {
+  const key = process.env.RESEND_API_KEY
+  if (!key) return // not configured — skip silently
 
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const dialogRef  = useRef<HTMLDivElement>(null)
-  const firstFieldRef = useRef<HTMLInputElement>(null)
-  const titleId = useId()
+  const rows = [
+    ['שם', lead.full_name],
+    ['טלפון', lead.phone],
+    ['תחום עניין', lead.interest],
+    ['סניף', lead.branch ?? '—'],
+    ['מקור', lead.source],
+    ['קמפיין', lead.utm_campaign ?? '—'],
+    ['הודעה', lead.message ?? '—'],
+  ]
+    .map(([k, v]) => `<tr><td style="padding:6px 12px;font-weight:700">${k}</td><td style="padding:6px 12px">${v}</td></tr>`)
+    .join('')
 
-  useEffect(() => { setMounted(true) }, [])
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'Teva Bike <leads@mail.tevabike.com>',
+        to: ['bennyfire@gmail.com'],
+        subject: `ליד חדש — ${lead.full_name} (${lead.source})`,
+        html: `<div dir="rtl" style="font-family:Arial,sans-serif">
+          <h2 style="margin:0 0 12px">🚵 ליד חדש מהאתר</h2>
+          <table style="border-collapse:collapse;font-size:15px">${rows}</table>
+          <p style="margin-top:16px">
+            <a href="https://wa.me/972${lead.phone.replace(/\D/g, '').replace(/^0/, '')}"
+               style="background:#25D366;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">
+              פתיחת וואטסאפ
+            </a>
+          </p>
+        </div>`,
+      }),
+    })
+  } catch (e) {
+    console.error('[leads] notification failed (lead was still saved):', e)
+  }
+}
 
-  const close = useCallback(() => {
-    setOpen(false)
-    triggerRef.current?.focus()
-  }, [])
-
-  // Focus first field on open; focus trap + Esc while open.
-  useEffect(() => {
-    if (!open) return
-    firstFieldRef.current?.focus()
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.preventDefault(); close(); return }
-      if (e.key === 'Tab' && dialogRef.current) {
-        const f = Array.from(
-          dialogRef.current.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex="0"]',
-          ),
-        ).filter(el => el.offsetParent !== null)
-        if (!f.length) return
-        const first = f[0], last = f[f.length - 1]
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open, close])
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-    if (!fullName.trim() || !phone.trim() || !interest) {
-      setError('נא למלא שם, טלפון ותחום עניין')
-      return
-    }
-    setSubmitting(true)
-    try {
-      const r = await fetch('/api/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full_name: fullName, phone, interest, message }),
-      })
-      const d = await r.json().catch(() => ({}))
-      if (r.ok && d.ok) {
-        setDone(true)
-        setFullName(''); setPhone(''); setInterest(''); setMessage('')
-      } else {
-        setError(d.error || 'אירעה שגיאה, נסו שוב')
-      }
-    } catch {
-      setError('בעיית רשת, נסו שוב')
-    } finally {
-      setSubmitting(false)
-    }
+export async function POST(req: NextRequest) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !serviceKey) {
+    console.error('[leads] SUPABASE_SERVICE_ROLE_KEY or URL not set — cannot save lead. Configure it in the deployment environment.')
+    return NextResponse.json({ ok: false, error: 'Server misconfigured' }, { status: 500 })
   }
 
-  if (isAdmin || !mounted) return null
-
-  const field: React.CSSProperties = {
-    width: '100%', boxSizing: 'border-box', padding: '11px 12px', fontSize: 16,
-    borderRadius: 10, border: '1.5px solid #d1c9e0', background: '#fff', color: INK,
-    fontFamily: 'Heebo, Arial, sans-serif',
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ ok: false, error: 'Invalid JSON body' }, { status: 400 })
   }
-  const labelStyle: React.CSSProperties = { display: 'block', fontSize: 14, fontWeight: 700, color: INK, marginBottom: 6 }
 
-  return (
-    <>
-      {/* Floating trigger — bottom-left, above the accessibility link */}
-      <button
-        ref={triggerRef}
-        onClick={() => { setOpen(true); setDone(false); setError('') }}
-        aria-label="צור קשר"
-        aria-haspopup="dialog"
-        style={{
-         position: 'fixed', bottom: 150, left: 24, zIndex: 9998,
-          minWidth: 56, height: 56, borderRadius: 28, padding: '0 20px',
-          display: 'flex', alignItems: 'center', gap: 8,
-          background: `linear-gradient(135deg, ${PURPLE}, ${PINK})`, color: '#fff',
-          border: '3px solid #fff', boxShadow: '0 4px 18px rgba(124,58,237,0.5)',
-          fontFamily: 'Heebo, Arial, sans-serif', fontSize: 16, fontWeight: 800, cursor: 'pointer',
-        }}
-      >
-        <span aria-hidden="true" style={{ fontSize: 20 }}>✉️</span>
-        <span>צור קשר</span>
-      </button>
+  const full_name = (typeof body.full_name === 'string' ? body.full_name : '').trim().slice(0, MAX_NAME)
+  const phone     = (typeof body.phone === 'string' ? body.phone : '').trim().slice(0, MAX_PHONE)
+  const interest  = (typeof body.interest === 'string' ? body.interest : '').trim()
+  const message   = clean(body.message, MAX_MESSAGE)
 
-      {open && (
-        <div
-          role="presentation"
-          onMouseDown={e => { if (e.target === e.currentTarget) close() }}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 10000, direction: 'rtl',
-            background: 'rgba(20,10,35,0.55)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', padding: 16,
-            fontFamily: 'Heebo, Arial, sans-serif',
-          }}
-        >
-          <div
-            ref={dialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            style={{
-              width: '100%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto',
-              background: '#fff', borderRadius: 18, boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
-            }}
-          >
-            {/* Header */}
-            <div style={{ background: `linear-gradient(135deg, ${PURPLE}, ${PINK})`, color: '#fff', padding: '18px 20px', borderRadius: '18px 18px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h2 id={titleId} style={{ margin: 0, fontSize: 20, fontWeight: 900 }}>🚵 צרו איתנו קשר</h2>
-              <button
-                onClick={close}
-                aria-label="סגירת החלון"
-                style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: 10, fontSize: 20, cursor: 'pointer', lineHeight: 1 }}
-              >✕</button>
-            </div>
+  if (!full_name || !phone || !interest) {
+    return NextResponse.json({ ok: false, error: 'חסרים שדות חובה' }, { status: 400 })
+  }
+  if (!(LEAD_INTERESTS as readonly string[]).includes(interest)) {
+    return NextResponse.json({ ok: false, error: 'תחום עניין לא תקין' }, { status: 400 })
+  }
 
-            {done ? (
-              <div style={{ padding: '40px 24px', textAlign: 'center' }}>
-                <div style={{ fontSize: 56, marginBottom: 12 }} aria-hidden="true">🎉</div>
-                <p role="status" style={{ fontSize: 20, fontWeight: 800, color: INK, margin: '0 0 24px' }}>תודה! נחזור אליך בקרוב 🚵</p>
-                <button
-                  onClick={close}
-                  style={{ minHeight: 48, padding: '0 28px', background: PURPLE, color: '#fff', border: 'none', borderRadius: 12, fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 800, fontSize: 16, cursor: 'pointer' }}
-                >סגירה</button>
-              </div>
-            ) : (
-              <form onSubmit={submit} style={{ padding: '20px 20px 24px' }}>
-                <div style={{ marginBottom: 16 }}>
-                  <label htmlFor="cw-name" style={labelStyle}>שם מלא <span style={{ color: PINK }}>*</span></label>
-                  <input id="cw-name" ref={firstFieldRef} value={fullName} onChange={e => setFullName(e.target.value)} required aria-required="true" autoComplete="name" style={field} />
-                </div>
+  // Optional — silently dropped if it isn't one of ours, rather than rejecting
+  // the whole lead over a tracking field.
+  const rawBranch = clean(body.branch, 60)
+  const branch = rawBranch && (LEAD_BRANCHES as readonly string[]).includes(rawBranch) ? rawBranch : null
 
-                <div style={{ marginBottom: 16 }}>
-                  <label htmlFor="cw-phone" style={labelStyle}>טלפון <span style={{ color: PINK }}>*</span></label>
-                  <input id="cw-phone" type="tel" dir="ltr" value={phone} onChange={e => setPhone(e.target.value)} required aria-required="true" autoComplete="tel" style={{ ...field, textAlign: 'right' }} />
-                </div>
+  const utm_source   = clean(body.utm_source, MAX_UTM)
+  const utm_medium   = clean(body.utm_medium, MAX_UTM)
+  const utm_campaign = clean(body.utm_campaign, MAX_UTM)
 
-                <fieldset style={{ border: 'none', padding: 0, margin: '0 0 16px' }}>
-                  <legend style={{ ...labelStyle, marginBottom: 10, padding: 0 }}>תחום עניין <span style={{ color: PINK }}>*</span></legend>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {LEAD_INTERESTS.map(opt => {
-                      const selected = interest === opt
-                      return (
-                        <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 12px', borderRadius: 10, cursor: 'pointer', border: `1.5px solid ${selected ? PURPLE : '#d1c9e0'}`, background: selected ? '#f5f0ff' : '#fff' }}>
-                          <input
-                            type="radio" name="cw-interest" value={opt}
-                            checked={selected} onChange={() => setInterest(opt)}
-                            required aria-required="true"
-                            style={{ width: 20, height: 20, accentColor: PURPLE, flexShrink: 0 }}
-                          />
-                          <span style={{ fontSize: 15, fontWeight: selected ? 700 : 500, color: INK }}>{opt}</span>
-                        </label>
-                      )
-                    })}
-                  </div>
-                </fieldset>
+  // Coarse channel: the ad platform's utm_source when present, else organic.
+  const source = (utm_source ?? 'website').toLowerCase()
 
-                <div style={{ marginBottom: 16 }}>
-                  <label htmlFor="cw-msg" style={labelStyle}>הודעה <span style={{ color: '#8a7fa5', fontWeight: 500 }}>(לא חובה)</span></label>
-                  <textarea id="cw-msg" value={message} onChange={e => setMessage(e.target.value)} rows={3} style={{ ...field, resize: 'vertical' }} />
-                </div>
+  const db = createClient(url, serviceKey)
+  const { error } = await db.from('leads').insert({
+    full_name,
+    phone,
+    interest,
+    message,
+    branch,
+    source,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    // status defaults to 'new' in the DB
+  })
 
-                {error && (
-                  <p role="alert" style={{ margin: '0 0 14px', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontWeight: 600 }}>{error}</p>
-                )}
+  if (error) {
+    console.error('[leads] insert failed:', error.message)
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  }
 
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  style={{ width: '100%', minHeight: 52, background: submitting ? '#b6a7c9' : `linear-gradient(135deg, ${PURPLE}, ${PINK})`, color: '#fff', border: 'none', borderRadius: 12, fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 900, fontSize: 17, cursor: submitting ? 'default' : 'pointer' }}
-                >
-                  {submitting ? 'שולח...' : 'שליחה'}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-    </>
-  )
+  // Alert is best-effort — the lead is already safely stored either way.
+  await notify({ full_name, phone, interest, branch, message, source, utm_campaign })
+
+  return NextResponse.json({ ok: true })
 }
