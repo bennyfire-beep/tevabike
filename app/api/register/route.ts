@@ -3,6 +3,75 @@ import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * Fire-and-forget email alert on a new registration.
+ * Never blocks or fails the registration itself — if the mail fails, the row
+ * is already safely stored and the coordinator dashboard still shows it.
+ */
+async function notifyRegistration(r: {
+  full_name: string
+  phone: string
+  branch: string
+  registration_type: string
+  child_name: string | null
+  child_age: string | null
+  city: string | null
+  membership_plan: string | null
+  promo_code: string | null
+  source: string
+  utm_campaign: string | null
+}) {
+  const key = process.env.RESEND_API_KEY
+  if (!key) return // not configured — skip silently
+
+  const isKids = r.registration_type === 'annual_kids'
+  const rows: [string, string][] = [
+    ['סוג', isKids ? 'ילדים' : 'מבוגרים'],
+    ...(isKids ? ([['שם הרוכב', `${r.child_name ?? '—'}${r.child_age ? ` (גיל ${r.child_age})` : ''}`]] as [string, string][]) : []),
+    [isKids ? 'שם ההורה' : 'שם מלא', r.full_name],
+    ['טלפון', r.phone],
+    ['סניף', r.branch],
+    ['יישוב', r.city ?? '—'],
+    ['מסלול', r.membership_plan ?? '—'],
+    ['קוד מבצע', r.promo_code ?? '—'],
+    ['מקור', r.source],
+    ['קמפיין', r.utm_campaign ?? '—'],
+  ]
+
+  const html = rows
+    .map(([k, v]) => `<tr><td style="padding:6px 12px;font-weight:700">${k}</td><td style="padding:6px 12px">${v}</td></tr>`)
+    .join('')
+
+  try {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: 'Teva Bike <leads@mail.tevabike.com>',
+        to: ['bennyfire@gmail.com'],
+        subject: `הרשמה חדשה — ${r.branch} — ${isKids ? r.child_name ?? r.full_name : r.full_name}`,
+        html: `<div dir="rtl" style="font-family:Arial,sans-serif">
+          <h2 style="margin:0 0 12px">🎉 הרשמה שנתית חדשה</h2>
+          <table style="border-collapse:collapse;font-size:15px">${html}</table>
+          <p style="margin-top:16px">
+            <a href="https://wa.me/972${r.phone.replace(/\D/g, '').replace(/^0/, '')}"
+               style="background:#25D366;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">
+              פתיחת וואטסאפ
+            </a>
+            &nbsp;
+            <a href="https://tevabike.com/admin/coordinator/registrations"
+               style="background:#7c3aed;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700">
+              לדשבורד
+            </a>
+          </p>
+        </div>`,
+      }),
+    })
+  } catch (e) {
+    console.error('[register] notification failed (registration was still saved):', e)
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()
@@ -49,6 +118,21 @@ export async function POST(req: Request) {
       console.error('registration insert failed:', error)
       return NextResponse.json({ error: 'שמירת ההרשמה נכשלה' }, { status: 500 })
     }
+
+    // Best-effort alert — the registration is already stored either way.
+    await notifyRegistration({
+      full_name: body.full_name,
+      phone: body.phone,
+      branch: body.branch,
+      registration_type: body.registration_type === 'adults' ? 'annual_adults' : 'annual_kids',
+      child_name: body.child_name || null,
+      child_age: body.child_age || null,
+      city: body.city || null,
+      membership_plan: body.membership_plan || null,
+      promo_code: body.promo_code || null,
+      source: (utm_source ?? 'website').toLowerCase(),
+      utm_campaign,
+    })
 
     return NextResponse.json({ ok: true })
   } catch (e) {
