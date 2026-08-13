@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const MATNAS_URL = 'https://www.matnasmatteasher.org.il/%D7%9E%D7%97%D7%9C%D7%A7%D7%AA-%D7%A1%D7%A4%D7%95%D7%A8%D7%98/'
 
@@ -52,6 +52,32 @@ export default function RegisterPage() {
     email: '',
     notes: '',
   })
+  const [utm, setUtm] = useState<{ utm_source?: string; utm_medium?: string; utm_campaign?: string }>({})
+
+  // Capture campaign tags from the landing URL and keep them for the session,
+  // so a registration can be traced back to the ad that produced it even if
+  // the visitor browsed a few pages before signing up.
+  useEffect(() => {
+    const KEY = 'tb_utm'
+    try {
+      const q = new URLSearchParams(window.location.search)
+      const fresh = {
+        utm_source:   q.get('utm_source')   || undefined,
+        utm_medium:   q.get('utm_medium')   || undefined,
+        utm_campaign: q.get('utm_campaign') || undefined,
+      }
+      if (fresh.utm_source || fresh.utm_medium || fresh.utm_campaign) {
+        sessionStorage.setItem(KEY, JSON.stringify(fresh))
+        setUtm(fresh)
+        return
+      }
+      const saved = sessionStorage.getItem(KEY)
+      if (saved) setUtm(JSON.parse(saved))
+    } catch {
+      // storage blocked (private browsing) — tracking is optional, carry on
+    }
+  }, [])
+
   const [sending, setSending] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
@@ -89,6 +115,7 @@ export default function RegisterPage() {
           ...form,
           registration_type: type,
           promo_code: promo ? 'BOOST5' : null,
+          ...utm,
         }),
       })
       const data = await res.json()
