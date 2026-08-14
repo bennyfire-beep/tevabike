@@ -16,7 +16,7 @@ const DAY_DETAILS: Record<string, { title: string; place: string; what: string; 
   yaad: {
     title: "יום א' · 16.8",
     place: 'יעד',
-    what: 'רכיבת אנדורו + ',
+    what: 'רכיבת אנדורו ',
     img: '/yaad.jpg',
     schedule: ['8:30 נפגשים במועדון טבע בייק', '8:45 תדריך ותחילת רכיבה', '13:30 ארוחת צהריים', '14:00 סיכום והביתה'],
   },
