@@ -15,7 +15,7 @@ const DAY_IDS = ['yaad', 'yarden', 'misgav'] as const
 type DayId = (typeof DAY_IDS)[number]
 
 const DAYS: Record<DayId, { label: string; date: string; capacity: number | null }> = {
-  yaad:   { label: "יום א' | יעד — אנדורו + אייר באג", date: '16.8', capacity: 16 },
+  yaad:   { label: "יום א' | יעד — רכיבת אנדורו", date: '16.8', capacity: 16 },
   yarden: { label: "יום ג' | ירדן — קפיצות למים",      date: '18.8', capacity: null },
   misgav: { label: "יום ה' | משגב — סשן אייר באג",     date: '20.8', capacity: null },
 }
