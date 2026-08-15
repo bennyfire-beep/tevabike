@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-3-flash-preview";
 const INLINE_LIMIT = 15 * 1024 * 1024; // מעל 15MB או וידאו → Files API
 
 export async function POST(req: Request) {
