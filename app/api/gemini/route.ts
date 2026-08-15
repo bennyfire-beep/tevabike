@@ -1,18 +1,35 @@
-// app/api/gemini/route.ts — Teva Bike shared Gemini endpoint (v1)
+// app/api/gemini/route.ts — Teva Bike shared Gemini endpoint (v2: secret OR logged-in admin)
 // מקבל קובץ (טקסט / תמונה / וידאו) + פרומפט, מחזיר ניתוח מ-Gemini
 import { GoogleGenAI, createUserContent, createPartFromUri } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 const MODEL = "gemini-3-flash-preview";
-const INLINE_LIMIT = 15 * 1024 * 1024; // מעל 15MB או וידאו → Files API
+const INLINE_LIMIT = 15 * 1024 * 1024;
+
+async function isAuthorized(req: Request): Promise<boolean> {
+  const secret = process.env.GEMINI_ROUTE_SECRET;
+  if (secret && req.headers.get("x-api-secret") === secret) return true;
+
+  const auth = req.headers.get("authorization") || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token) return false;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return false;
+  const supa = createClient(url, key);
+  const { data: { user } } = await supa.auth.getUser(token);
+  if (!user) return false;
+  const { data: role } = await supa.from("admin_roles").select("id").eq("user_id", user.id).limit(1);
+  return !!role && role.length > 0;
+}
 
 export async function POST(req: Request) {
   try {
-    const secret = process.env.GEMINI_ROUTE_SECRET;
-    if (secret && req.headers.get("x-api-secret") !== secret) {
+    if (!(await isAuthorized(req))) {
       return Response.json({ error: "unauthorized" }, { status: 401 });
     }
 
@@ -46,4 +63,3 @@ export async function POST(req: Request) {
     return Response.json({ error: e?.message || "gemini error" }, { status: 500 });
   }
 }
-
