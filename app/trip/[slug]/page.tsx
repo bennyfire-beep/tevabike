@@ -607,11 +607,18 @@ export default function TripRegistrationPage() {
           </p>
         </div>
 
-        <div className="mt-6">
+        <div
+          className="mt-6 border p-5"
+          style={{
+            borderColor: form.terms_accepted ? 'var(--brand)' : 'var(--line)',
+            background: 'var(--panel)',
+            transition: 'border-color .18s',
+          }}
+        >
           <Toggle
             checked={form.terms_accepted}
             onChange={(v) => set('terms_accepted', v)}
-            label="קראתי את תנאי הביטול ואני מאשר/ת אותם"
+            label="קראתי את תנאי הביטול ואני מאשר/ת אותם — חובה"
           />
         </div>
       </Section>
@@ -854,33 +861,46 @@ function Toggle({
   label: string
 }) {
   return (
-    <label className="flex items-start gap-3 cursor-pointer group">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="sr-only peer"
-      />
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex items-start gap-3 text-right w-full
+        focus-visible:outline focus-visible:outline-2
+        focus-visible:outline-offset-4 focus-visible:outline-brand"
+      style={{ userSelect: 'none', cursor: 'pointer', background: 'none' }}
+    >
       <span
-        className="mt-0.5 w-5 h-5 border border-line shrink-0 grid place-items-center
-          transition-colors peer-checked:border-brand peer-checked:bg-brand
-          peer-focus-visible:outline peer-focus-visible:outline-2
-          peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand
-          group-hover:border-stone-500"
+        aria-hidden="true"
+        style={{
+          marginTop: '2px',
+          width: '22px',
+          height: '22px',
+          flexShrink: 0,
+          display: 'grid',
+          placeItems: 'center',
+          border: `1px solid ${checked ? 'var(--brand)' : 'var(--line)'}`,
+          background: checked ? 'var(--brand)' : 'transparent',
+          transition: 'background .18s, border-color .18s',
+        }}
       >
         {checked && (
           <svg
             viewBox="0 0 12 12"
-            className="w-3 h-3"
+            width="13"
+            height="13"
             fill="none"
-            stroke="#0E1C17"
+            stroke="var(--ink)"
             strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           >
             <path d="M2 6.5L4.5 9L10 3" />
           </svg>
         )}
       </span>
       <span className="text-sm text-stone-200 leading-snug">{label}</span>
-    </label>
+    </button>
   )
 }
