@@ -4,16 +4,17 @@ import { Resend } from 'resend'
 
 // ============================================================
 // נתיב: app/api/cron/trip-reminders/route.ts
-// רץ פעם ביום. שולח 4 תזכורות אוטומטיות לנרשמים.
+// רץ פעם ביום ב-06:00. שולח תזכורות אוטומטיות לנרשמים.
 //
-//  110 יום לפני  →  תשלום יתרה
-//  105 יום לפני  →  נספח ציוד
+//  110 יום לפני  →  תשלום יתרה (לפי מספר הנרשמים בפועל)
+//  105 יום לפני  →  נספח ציוד ואריזת אופניים
 //   90 יום לפני  →  ביטוח נסיעות
 //   60 יום לפני  →  סדנת הכנה
 //   30 יום לפני  →  בקשת פרטי טיסה (להזמנת הסעות)
 //   10 יום לפני  →  פרטים אחרונים והסעות
 //
-// כל מייל נשלח פעם אחת בלבד (unique על registration_id + kind)
+// כל מייל נשלח פעם אחת בלבד לכל נרשם
+// (unique על registration_id + kind בטבלת trip_emails)
 // ============================================================
 
 export const runtime = 'nodejs'
@@ -24,11 +25,20 @@ const MILESTONES = [
   { days: 105, kind: 'equipment' },
   { days: 90, kind: 'insurance' },
   { days: 60, kind: 'workshop' },
-  { days: 45, kind: 'flights' },
-  { days: 10, kind: 'voucher' },
+  { days: 30, kind: 'flights' },
+  { days: 10, kind: 'final' },
 ] as const
 
 type Kind = (typeof MILESTONES)[number]['kind']
+
+const LABELS: Record<Kind, string> = {
+  payment: 'תשלום יתרה',
+  equipment: 'נספח ציוד',
+  insurance: 'ביטוח נסיעות',
+  workshop: 'סדנת הכנה',
+  flights: 'בקשת פרטי טיסה',
+  final: 'פרטים אחרונים',
+}
 
 const admin = () =>
   createClient(
@@ -45,7 +55,7 @@ const heDate = (iso: string) =>
   })
 
 export async function GET(req: NextRequest) {
-  // Vercel Cron sends this header; also allow a manual secret for testing
+  // Vercel Cron sends this header; a secret also allows manual testing
   const isCron = req.headers.get('x-vercel-cron') !== null
   const secret = req.nextUrl.searchParams.get('secret')
   if (!isCron && secret !== process.env.CRON_SECRET) {
@@ -54,11 +64,12 @@ export async function GET(req: NextRequest) {
 
   const db = admin()
   const resend = new Resend(process.env.RESEND_API_KEY!)
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const sent: string[] = []
-  const failed: string[] = []
+  let totalSent = 0
+  let totalFailed = 0
 
   const { data: trips } = await db
     .from('trips')
@@ -67,9 +78,7 @@ export async function GET(req: NextRequest) {
 
   for (const trip of trips ?? []) {
     const start = new Date(trip.trip_start + 'T00:00:00')
-    const daysOut = Math.round(
-      (start.getTime() - today.getTime()) / 86_400_000
-    )
+    const daysOut = Math.round((start.getTime() - today.getTime()) / 86_400_000)
 
     const milestone = MILESTONES.find((m) => m.days === daysOut)
     if (!milestone) continue
@@ -77,7 +86,7 @@ export async function GET(req: NextRequest) {
     // live headcount → the price everyone actually pays
     const { data: regs } = await db
       .from('trip_registrations')
-      .select('*')
+      .select('id, name_he, email, payment_status')
       .eq('trip_id', trip.id)
       .neq('payment_status', 'cancelled')
 
@@ -88,7 +97,7 @@ export async function GET(req: NextRequest) {
         ? Number(trip.price_large_group)
         : Number(trip.price_small_group)
 
-    // who already got this email
+    // who already got this particular email
     const { data: already } = await db
       .from('trip_emails')
       .select('registration_id')
@@ -96,21 +105,20 @@ export async function GET(req: NextRequest) {
       .eq('kind', milestone.kind)
     const done = new Set((already ?? []).map((r) => r.registration_id))
 
-    const skipped: string[] = []
+    let sent = 0
+    let failed = 0
+    let noEmail = 0
 
     for (const rider of riders) {
       if (done.has(rider.id)) continue
-      if (!rider.email) continue
-
-      // never send an empty voucher — wait until the transfer is entered
-      if (milestone.kind === 'voucher' && !rider.transfer_pickup_gva) {
-        skipped.push(rider.name_he)
+      if (!rider.email) {
+        noEmail++
         continue
       }
 
       const mail = buildEmail(milestone.kind, {
         trip,
-        rider,
+        name: rider.name_he.split(' ')[0],
         headcount,
         price,
       })
@@ -129,39 +137,43 @@ export async function GET(req: NextRequest) {
           kind: milestone.kind,
           resend_id: res.data?.id ?? null,
         })
-        sent.push(`${milestone.kind}:${rider.id}`)
+        sent++
       } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e)
         await db.from('trip_emails').insert({
           trip_id: trip.id,
           registration_id: rider.id,
           kind: milestone.kind,
-          error: msg,
+          error: e instanceof Error ? e.message : String(e),
         })
-        failed.push(`${milestone.kind}:${rider.id}`)
+        failed++
       }
     }
 
+    totalSent += sent
+    totalFailed += failed
+
     // summary to Benny
-    if (sent.length || failed.length) {
+    if (sent || failed || noEmail) {
       try {
         await resend.emails.send({
           from: 'Teva Bike <info@mail.tevabike.com>',
           to: 'bennyfire@gmail.com',
-          subject: `תזכורות ${milestone.days} יום — ${trip.title} (${sent.length} נשלחו)`,
+          subject: `תזכורות ${milestone.days} יום — ${trip.title} (${sent} נשלחו)`,
           text: [
-            `${trip.title}`,
-            `אבן דרך: ${milestone.days} יום לפני היציאה — ${labelOf(milestone.kind)}`,
+            trip.title,
+            `אבן דרך: ${milestone.days} יום לפני היציאה — ${LABELS[milestone.kind]}`,
             `נרשמים: ${headcount}`,
             `מחיר בתוקף: €${price}`,
-            ``,
-            `נשלחו: ${sent.length}`,
-            failed.length ? `נכשלו: ${failed.length}` : '',
-            skipped.length
-              ? `לא נשלח (חסרים פרטי הסעה): ${skipped.join(', ')}`
+            '',
+            `נשלחו: ${sent}`,
+            failed ? `נכשלו: ${failed}` : '',
+            noEmail ? `בלי אימייל: ${noEmail} — צריך לשלוח להם בוואטסאפ` : '',
+            '',
+            milestone.kind === 'flights'
+              ? 'התשובות עם כרטיסי הטיסה יגיעו לתיבה הזו. אחרי שיאספו — להזמין הסעות.'
               : '',
-            riders.filter((r) => !r.email).length
-              ? `בלי אימייל: ${riders.filter((r) => !r.email).length} — צריך לשלוח להם בוואטסאפ`
+            milestone.kind === 'final' && !trip.final_details
+              ? 'שים לב: לא מילאת את שדה final_details, אז לא נשלחו פרטי הסעה.'
               : '',
           ]
             .filter(Boolean)
@@ -173,35 +185,18 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, sent: sent.length, failed: failed.length })
-}
-
-function labelOf(kind: Kind) {
-  return {
-    payment: 'תשלום יתרה',
-    equipment: 'נספח ציוד',
-    insurance: 'ביטוח נסיעות',
-    workshop: 'סדנת הכנה',
-    flights: 'בקשת פרטי טיסה',
-    voucher: 'שובר נסיעה',
-  }[kind]
+  return NextResponse.json({ ok: true, sent: totalSent, failed: totalFailed })
 }
 
 // ------------------------------------------------------------
-// the four emails
+// the six emails
 // ------------------------------------------------------------
 function buildEmail(
   kind: Kind,
-  ctx: {
-    trip: any
-    rider: any
-    headcount: number
-    price: number
-  }
-) {
-  const { trip, rider, headcount, price } = ctx
-  const name = rider.name_he.split(' ')[0]
-  const sign = `\n\nבני\nטבע בייק\n054-570-8084`
+  ctx: { trip: any; name: string; headcount: number; price: number }
+): { subject: string; body: string } {
+  const { trip, name, headcount, price } = ctx
+  const sign = '\n\nבני\nטבע בייק\n054-570-8084'
 
   if (kind === 'payment')
     return {
@@ -209,11 +204,14 @@ function buildEmail(
       body:
         `היי ${name},\n\n` +
         `נשארו כ-110 ימים ל${trip.title}, וזה הזמן לסגור את התשלום.\n\n` +
-        `נרשמו לטיול ${headcount} רוכבים, ולכן המחיר הסופי שלך הוא €${price.toLocaleString()}.\n` +
+        `נרשמו לטיול ${headcount} רוכבים, ולכן המחיר הסופי שלך הוא ` +
+        `€${price.toLocaleString()}.\n` +
         `מהסכום הזה יורדת המקדמה של ₪${trip.deposit_ils} ששילמת בהרשמה.\n\n` +
         `היתרה תחושב לפי שער העברות והמחאות ביום התשלום, כפי שמופיע בתנאים.\n` +
         `יש להשלים את התשלום עד ${trip.balance_days_before} יום לפני היציאה.\n\n` +
-        `אשלח לך פרטי העברה בוואטסאפ. אם נוח לך לשלם באשראי — תגיד לי ואסדר.\n\n` +
+        (trip.bank_details
+          ? `להעברה בנקאית:\n${trip.bank_details}\n\n`
+          : `אשלח לך פרטי העברה בהודעה נפרדת.\n\n`) +
         `החופשה: ${heDate(trip.trip_start)} עד ${heDate(trip.trip_end)}` +
         sign,
     }
@@ -226,11 +224,15 @@ function buildEmail(
         `מצרף את נספח הציוד לחופשה. כדאי לקרוא אותו עכשיו ולא שבוע לפני — ` +
         `חלק מהדברים דורשים הזמנה מראש.\n\n` +
         `שלוש נקודות שאני מדגיש כל שנה:\n\n` +
-        `1. במורזין חובה קסדת Full Face וחליפת לחץ. זה לא המלצה.\n` +
+        `1. במורזין חובה קסדת Full Face וחליפת לחץ. זו לא המלצה.\n` +
         `2. "אוזן" אחורית רזרבית — ייחודית לכל דגם אופניים, חייבים להזמין מראש.\n` +
         `3. בדיקת אופניים אצל מכונאי — בלמים, צמיגים, שרשרת. עכשיו, לא ביוני.\n\n` +
         (trip.equipment_doc_url
           ? `הנספח המלא:\n${trip.equipment_doc_url}\n\n`
+          : '') +
+        (trip.rental_shop_name
+          ? `אם אתה שוכר אופניים ב${trip.rental_shop_name} — הקסדה, חליפת ` +
+            `הלחץ ומגיני הברכיים כלולים בהשכרה, אז אין צורך להביא אותם.\n\n`
           : '') +
         `שאלות על ציוד — תכתוב לי, אני שמח לעזור.` +
         sign,
@@ -252,58 +254,24 @@ function buildEmail(
         sign,
     }
 
-  if (kind === 'flights')
+  if (kind === 'workshop')
     return {
-      subject: `${trip.title} — צריך את פרטי הטיסה שלך`,
+      subject: `${trip.title} — סדנת הכנה, 60 יום לצאת`,
       body:
         `היי ${name},\n\n` +
-        `נשאר חודש וחצי. אני מזמין עכשיו את ההסעות משדה התעופה בז׳נבה, ` +
-        `ובשביל זה אני צריך את פרטי הטיסה שלך.\n\n` +
-        `פשוט תשיב למייל הזה עם כרטיס הטיסה, או תכתוב לי:\n\n` +
-        `טיסה הלוך — מספר טיסה ושעת נחיתה בז׳נבה\n` +
-        `טיסה חזור — מספר טיסה ושעת המראה מז׳נבה\n\n` +
-        `חשוב: אני צריך את זה כדי לתאם את ההסעה. ` +
-        `בלי פרטי הטיסה אי אפשר לשריין לך מקום בשאטל, ` +
-        `ותצטרך להגיע למורזין על חשבונך.\n\n` +
-        `אם הטיסה שלך שונה משאר הקבוצה — תגיד לי, נמצא פתרון.` +
-        sign,
-    }
-
-  if (kind === 'voucher')
-    return {
-      subject: `${trip.title} — פרטים אחרונים לפני היציאה`,
-      body:
-        `היי ${name},\n\n` +
-        `עוד עשרה ימים ואנחנו במורזין. הנה כל מה שצריך לדעת.\n\n` +
-        `--------------------------------------------\n` +
-        `ההסעה מז׳נבה\n` +
-        `--------------------------------------------\n` +
-        (rider.transfer_company ? `חברה: ${rider.transfer_company}\n` : '') +
-        (rider.transfer_ref ? `מספר הזמנה: ${rider.transfer_ref}\n` : '') +
-        `${rider.transfer_pickup_gva}\n\n` +
-        (rider.transfer_pickup_back
-          ? `ההסעה חזרה:\n${rider.transfer_pickup_back}\n\n`
-          : '') +
-        `--------------------------------------------\n` +
-        `הלינה\n` +
-        `--------------------------------------------\n` +
-        (trip.chalet_address ? `${trip.chalet_address}\n` : '') +
-        (trip.chalet_checkin ? `כניסה: ${trip.chalet_checkin}\n` : '') +
-        (rider.rooming ? `החדר שלך: ${rider.rooming}\n` : '') +
-        `\n` +
-        (trip.local_contact
-          ? `איש קשר במורזין: ${trip.local_contact}\n\n`
-          : '') +
-        `--------------------------------------------\n` +
-        `לפני שאתה סוגר את התיק\n` +
-        `--------------------------------------------\n` +
-        `דרכון בתוקף\n` +
-        `אישור ביטוח מודפס או בטלפון\n` +
-        `קסדת Full Face וחליפת לחץ\n` +
-        `"אוזן" אחורית רזרבית לאופניים שלך\n` +
-        `מעיל גשם — מזג האוויר בהרים משתנה בתוך שעה\n\n` +
-        (trip.voucher_note ? `${trip.voucher_note}\n\n` : '') +
-        `אני זמין בטלפון לאורך כל החופשה. נתראה בהרים.` +
+        `נשארו חודשיים. זה בדיוק הזמן להתחיל להתכונן פיזית וטכנית.\n\n` +
+        `הירידות במורזין ארוכות בהרבה ממה שאנחנו רגילים אליו בארץ — ` +
+        `ירידה אחת יכולה להיות 1,400 מטר ברצף. הידיים והרגליים מרגישות ` +
+        `את זה ביום השני אם לא מגיעים מוכנים.\n\n` +
+        `אנחנו מריצים סדנת הכנה לרכיבת אלפים` +
+        (trip.workshop_price_ils
+          ? `, במחיר מיוחד של ₪${trip.workshop_price_ils} לנרשמי הטיול.\n\n`
+          : `, במחיר מיוחד לנרשמי הטיול.\n\n`) +
+        `בסדנה: עבודה על מיקום גוף בירידות ארוכות, בלימה נכונה שלא שורפת ` +
+        `אצבעות, וקריאת מסלול במהירות.\n\n` +
+        (trip.workshop_url ? `לפרטים והרשמה:\n${trip.workshop_url}\n\n` : '') +
+        `גם אם לא תגיע לסדנה — תתחיל לרכב יותר ולעבוד על אחיזה. ` +
+        `זה ישתלם לך ביום הראשון.` +
         sign,
     }
 
@@ -324,50 +292,28 @@ function buildEmail(
         sign,
     }
 
-  if (kind === 'final')
-    return {
-      subject: `${trip.title} — פרטים אחרונים לפני היציאה`,
-      body:
-        `היי ${name},\n\n` +
-        `עשרה ימים. הנה כל מה שצריך לדעת:\n\n` +
-        (trip.final_details
-          ? `${trip.final_details}\n\n`
-          : `פרטי ההסעה יישלחו בהודעה נפרדת.\n\n`) +
-        `--------------------------------------------\n` +
-        `לפני שאתה יוצא מהבית\n` +
-        `--------------------------------------------\n` +
-        `- דרכון בתוקף\n` +
-        `- אישור ביטוח נסיעות לספורט אתגרי — שמור בטלפון\n` +
-        `- קסדת Full Face וחליפת לחץ (או אישור השכרה)\n` +
-        `- "אוזן" אחורית רזרבית אם אתה מביא אופניים\n` +
-        `- ציוד רכיבה בתיק היד, לא רק במזוודה — למקרה שהמזוודה מתעכבת\n\n` +
-        (trip.emergency_phone
-          ? `טלפון חירום שלי בחו״ל: ${trip.emergency_phone}\n`
-          : '') +
-        (trip.resort_contact
-          ? `איש קשר במורזין: ${trip.resort_contact}\n`
-          : '') +
-        `\nנתראה שם.` +
-        sign,
-    }
-
-  // workshop
+  // final
   return {
-    subject: `${trip.title} — סדנת הכנה, 60 יום לצאת`,
+    subject: `${trip.title} — פרטים אחרונים לפני היציאה`,
     body:
       `היי ${name},\n\n` +
-      `נשארו חודשיים. זה בדיוק הזמן להתחיל להתכונן פיזית וטכנית.\n\n` +
-      `הירידות במורזין ארוכות בהרבה ממה שאנחנו רגילים אליו בארץ — ` +
-      `ירידה אחת יכולה להיות 1,400 מטר ברצף. הידיים והרגליים מרגישות את זה ` +
-      `ביום השני אם לא מגיעים מוכנים.\n\n` +
-      `אנחנו מריצים סדנת הכנה לרכיבת אלפים, ` +
-      `${trip.workshop_price_ils ? `במחיר מיוחד של ₪${trip.workshop_price_ils} ` : 'במחיר מיוחד '}` +
-      `לנרשמי הטיול.\n\n` +
-      `בסדנה: עבודה על מיקום גוף בירידות ארוכות, בלימה נכונה שלא שורפת אצבעות, ` +
-      `וקריאת מסלול במהירות.\n\n` +
-      (trip.workshop_url ? `לפרטים והרשמה:\n${trip.workshop_url}\n\n` : '') +
-      `גם אם לא תגיע לסדנה — תתחיל לרכב יותר ולעבוד על אחיזה. ` +
-      `זה ישתלם לך ביום הראשון.` +
+      `עשרה ימים. הנה כל מה שצריך לדעת:\n\n` +
+      (trip.final_details
+        ? `${trip.final_details}\n\n`
+        : `פרטי ההסעה יישלחו בהודעה נפרדת.\n\n`) +
+      `--------------------------------------------\n` +
+      `לפני שאתה יוצא מהבית\n` +
+      `--------------------------------------------\n` +
+      `- דרכון בתוקף\n` +
+      `- אישור ביטוח נסיעות לספורט אתגרי — שמור בטלפון\n` +
+      `- קסדת Full Face וחליפת לחץ, או אישור השכרה\n` +
+      `- "אוזן" אחורית רזרבית אם אתה מביא אופניים\n` +
+      `- ציוד רכיבה בתיק היד ולא רק במזוודה, למקרה שהמזוודה מתעכבת\n\n` +
+      (trip.emergency_phone
+        ? `טלפון חירום שלי בחו״ל: ${trip.emergency_phone}\n`
+        : '') +
+      (trip.resort_contact ? `איש קשר במורזין: ${trip.resort_contact}\n` : '') +
+      `\nנתראה שם.` +
       sign,
   }
 }
