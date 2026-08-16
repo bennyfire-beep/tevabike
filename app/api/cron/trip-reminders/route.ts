@@ -10,6 +10,8 @@ import { Resend } from 'resend'
 //  105 יום לפני  →  נספח ציוד
 //   90 יום לפני  →  ביטוח נסיעות
 //   60 יום לפני  →  סדנת הכנה
+//   30 יום לפני  →  בקשת פרטי טיסה (להזמנת הסעות)
+//   10 יום לפני  →  פרטים אחרונים והסעות
 //
 // כל מייל נשלח פעם אחת בלבד (unique על registration_id + kind)
 // ============================================================
@@ -22,6 +24,8 @@ const MILESTONES = [
   { days: 105, kind: 'equipment' },
   { days: 90, kind: 'insurance' },
   { days: 60, kind: 'workshop' },
+  { days: 45, kind: 'flights' },
+  { days: 10, kind: 'voucher' },
 ] as const
 
 type Kind = (typeof MILESTONES)[number]['kind']
@@ -73,7 +77,7 @@ export async function GET(req: NextRequest) {
     // live headcount → the price everyone actually pays
     const { data: regs } = await db
       .from('trip_registrations')
-      .select('id, name_he, email, payment_status')
+      .select('*')
       .eq('trip_id', trip.id)
       .neq('payment_status', 'cancelled')
 
@@ -92,9 +96,17 @@ export async function GET(req: NextRequest) {
       .eq('kind', milestone.kind)
     const done = new Set((already ?? []).map((r) => r.registration_id))
 
+    const skipped: string[] = []
+
     for (const rider of riders) {
       if (done.has(rider.id)) continue
       if (!rider.email) continue
+
+      // never send an empty voucher — wait until the transfer is entered
+      if (milestone.kind === 'voucher' && !rider.transfer_pickup_gva) {
+        skipped.push(rider.name_he)
+        continue
+      }
 
       const mail = buildEmail(milestone.kind, {
         trip,
@@ -145,6 +157,9 @@ export async function GET(req: NextRequest) {
             ``,
             `נשלחו: ${sent.length}`,
             failed.length ? `נכשלו: ${failed.length}` : '',
+            skipped.length
+              ? `לא נשלח (חסרים פרטי הסעה): ${skipped.join(', ')}`
+              : '',
             riders.filter((r) => !r.email).length
               ? `בלי אימייל: ${riders.filter((r) => !r.email).length} — צריך לשלוח להם בוואטסאפ`
               : '',
@@ -167,6 +182,8 @@ function labelOf(kind: Kind) {
     equipment: 'נספח ציוד',
     insurance: 'ביטוח נסיעות',
     workshop: 'סדנת הכנה',
+    flights: 'בקשת פרטי טיסה',
+    voucher: 'שובר נסיעה',
   }[kind]
 }
 
@@ -177,7 +194,7 @@ function buildEmail(
   kind: Kind,
   ctx: {
     trip: any
-    rider: { name_he: string }
+    rider: any
     headcount: number
     price: number
   }
@@ -232,6 +249,105 @@ function buildEmail(
         `${trip.insurance_agent} — ${trip.insurance_phone}\n\n` +
         `מומלץ גם ביטוח מטען, במיוחד אם אתה טס עם האופניים שלך.\n\n` +
         `כשסידרת — תעדכן אותי.` +
+        sign,
+    }
+
+  if (kind === 'flights')
+    return {
+      subject: `${trip.title} — צריך את פרטי הטיסה שלך`,
+      body:
+        `היי ${name},\n\n` +
+        `נשאר חודש וחצי. אני מזמין עכשיו את ההסעות משדה התעופה בז׳נבה, ` +
+        `ובשביל זה אני צריך את פרטי הטיסה שלך.\n\n` +
+        `פשוט תשיב למייל הזה עם כרטיס הטיסה, או תכתוב לי:\n\n` +
+        `טיסה הלוך — מספר טיסה ושעת נחיתה בז׳נבה\n` +
+        `טיסה חזור — מספר טיסה ושעת המראה מז׳נבה\n\n` +
+        `חשוב: אני צריך את זה כדי לתאם את ההסעה. ` +
+        `בלי פרטי הטיסה אי אפשר לשריין לך מקום בשאטל, ` +
+        `ותצטרך להגיע למורזין על חשבונך.\n\n` +
+        `אם הטיסה שלך שונה משאר הקבוצה — תגיד לי, נמצא פתרון.` +
+        sign,
+    }
+
+  if (kind === 'voucher')
+    return {
+      subject: `${trip.title} — פרטים אחרונים לפני היציאה`,
+      body:
+        `היי ${name},\n\n` +
+        `עוד עשרה ימים ואנחנו במורזין. הנה כל מה שצריך לדעת.\n\n` +
+        `--------------------------------------------\n` +
+        `ההסעה מז׳נבה\n` +
+        `--------------------------------------------\n` +
+        (rider.transfer_company ? `חברה: ${rider.transfer_company}\n` : '') +
+        (rider.transfer_ref ? `מספר הזמנה: ${rider.transfer_ref}\n` : '') +
+        `${rider.transfer_pickup_gva}\n\n` +
+        (rider.transfer_pickup_back
+          ? `ההסעה חזרה:\n${rider.transfer_pickup_back}\n\n`
+          : '') +
+        `--------------------------------------------\n` +
+        `הלינה\n` +
+        `--------------------------------------------\n` +
+        (trip.chalet_address ? `${trip.chalet_address}\n` : '') +
+        (trip.chalet_checkin ? `כניסה: ${trip.chalet_checkin}\n` : '') +
+        (rider.rooming ? `החדר שלך: ${rider.rooming}\n` : '') +
+        `\n` +
+        (trip.local_contact
+          ? `איש קשר במורזין: ${trip.local_contact}\n\n`
+          : '') +
+        `--------------------------------------------\n` +
+        `לפני שאתה סוגר את התיק\n` +
+        `--------------------------------------------\n` +
+        `דרכון בתוקף\n` +
+        `אישור ביטוח מודפס או בטלפון\n` +
+        `קסדת Full Face וחליפת לחץ\n` +
+        `"אוזן" אחורית רזרבית לאופניים שלך\n` +
+        `מעיל גשם — מזג האוויר בהרים משתנה בתוך שעה\n\n` +
+        (trip.voucher_note ? `${trip.voucher_note}\n\n` : '') +
+        `אני זמין בטלפון לאורך כל החופשה. נתראה בהרים.` +
+        sign,
+    }
+
+  if (kind === 'flights')
+    return {
+      subject: `${trip.title} — צריך את פרטי הטיסה שלך`,
+      body:
+        `היי ${name},\n\n` +
+        `נשאר חודש. אני מזמין עכשיו את ההסעות משדה התעופה בז׳נבה, ` +
+        `ובשביל זה אני צריך לדעת מתי כל אחד נוחת ומתי טס חזרה.\n\n` +
+        `תשיב למייל הזה עם צילום של כרטיס הטיסה, או פשוט תכתוב לי:\n\n` +
+        `- מספר טיסת ההלוך ושעת הנחיתה בז׳נבה\n` +
+        `- מספר טיסת החזור ושעת ההמראה מז׳נבה\n\n` +
+        `חשוב שזה יגיע בימים הקרובים. ההסעה מסודרת לפי שעות הנחיתה בפועל, ` +
+        `ואם פרט אחד חסר — כל הקבוצה מחכה.\n\n` +
+        `בערך עשרה ימים לפני היציאה אשלח לכולם את הפרטים הסופיים: ` +
+        `שעת איסוף, נקודת מפגש וטלפונים לחירום.` +
+        sign,
+    }
+
+  if (kind === 'final')
+    return {
+      subject: `${trip.title} — פרטים אחרונים לפני היציאה`,
+      body:
+        `היי ${name},\n\n` +
+        `עשרה ימים. הנה כל מה שצריך לדעת:\n\n` +
+        (trip.final_details
+          ? `${trip.final_details}\n\n`
+          : `פרטי ההסעה יישלחו בהודעה נפרדת.\n\n`) +
+        `--------------------------------------------\n` +
+        `לפני שאתה יוצא מהבית\n` +
+        `--------------------------------------------\n` +
+        `- דרכון בתוקף\n` +
+        `- אישור ביטוח נסיעות לספורט אתגרי — שמור בטלפון\n` +
+        `- קסדת Full Face וחליפת לחץ (או אישור השכרה)\n` +
+        `- "אוזן" אחורית רזרבית אם אתה מביא אופניים\n` +
+        `- ציוד רכיבה בתיק היד, לא רק במזוודה — למקרה שהמזוודה מתעכבת\n\n` +
+        (trip.emergency_phone
+          ? `טלפון חירום שלי בחו״ל: ${trip.emergency_phone}\n`
+          : '') +
+        (trip.resort_contact
+          ? `איש קשר במורזין: ${trip.resort_contact}\n`
+          : '') +
+        `\nנתראה שם.` +
         sign,
     }
 
