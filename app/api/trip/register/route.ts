@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     // ---- verify the trip and the access code ----
     const { data: trip } = await db
       .from('trips')
-      .select('id, slug, title, access_code, is_open, deposit_ils')
+      .select('id, slug, title, access_code, is_open, deposit_ils, trip_start, trip_end, balance_days_before, bank_details, bit_phone, payment_note')
       .eq('slug', slug)
       .maybeSingle()
 
@@ -155,9 +155,66 @@ export async function POST(req: NextRequest) {
       .eq('trip_id', trip.id)
       .neq('payment_status', 'cancelled')
 
+    const resend = new Resend(process.env.RESEND_API_KEY!)
+
+    // ---- confirmation to the rider, with payment details ----
+    const riderEmail = s('email')
+    if (riderEmail) {
+      const firstName = s('name_he').split(' ')[0]
+      try {
+        await resend.emails.send({
+          from: 'Teva Bike <info@mail.tevabike.com>',
+          to: riderEmail,
+          replyTo: 'bennyfire@gmail.com',
+          subject: `נרשמת ל${trip.title} — פרטים להעברת המקדמה`,
+          text: [
+            `היי ${firstName},`,
+            ``,
+            `ההרשמה שלך ל${trip.title} התקבלה. מעולה שאתה איתנו.`,
+            ``,
+            `המקום נשמר ברגע שהמקדמה מתקבלת, אז כדאי לא לחכות —`,
+            `יש מספר מקומות מוגבל בשאלה.`,
+            ``,
+            `--------------------------------------------`,
+            `מקדמה: ${trip.deposit_ils} ש"ח`,
+            `--------------------------------------------`,
+            ``,
+            trip.bank_details
+              ? `להעברה בנקאית:\n${trip.bank_details}`
+              : `פרטי ההעברה יישלחו אליך בוואטסאפ.`,
+            ``,
+            trip.bit_phone ? `או בביט: ${trip.bit_phone}` : '',
+            ``,
+            `אחרי ההעברה — פשוט תשיב למייל הזה עם צילום מסך של האישור.`,
+            `אני עובר על המיילים ומאשר, ותקבל ממני הודעה שהמקום נשמר.`,
+            `(אם נוח לך יותר בוואטסאפ — 054-570-8084)`,
+            ``,
+            trip.payment_note || '',
+            ``,
+            `יתרת התשלום עד ${trip.balance_days_before} יום לפני היציאה.`,
+            `אעדכן אותך במחיר הסופי לפי מספר המשתתפים.`,
+            ``,
+            `מה שיגיע ממני בהמשך:`,
+            `- נספח ציוד ואריזת אופניים`,
+            `- תזכורת לביטוח נסיעות`,
+            `- הצעה לסדנת הכנה לפני הנסיעה`,
+            ``,
+            `שאלות — אני זמין.`,
+            ``,
+            `בני`,
+            `טבע בייק`,
+            `054-570-8084`,
+          ]
+            .filter((l) => l !== '')
+            .join('\n'),
+        })
+      } catch (mailErr) {
+        console.error('rider confirmation failed:', mailErr)
+      }
+    }
+
     // ---- notify Benny (never block the response on this) ----
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY!)
       await resend.emails.send({
         from: 'Teva Bike <info@mail.tevabike.com>',
         to: 'bennyfire@gmail.com',
