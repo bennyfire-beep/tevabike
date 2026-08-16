@@ -35,6 +35,10 @@ type Trip = {
   insurance_phone: string | null
   includes: string[]
   notes: string | null
+  hero_image: string | null
+  gallery: string[]
+  show_chalet_name: boolean
+  rental_note: string | null
 }
 
 const SHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
@@ -194,6 +198,25 @@ export default function TripRegistrationPage() {
     <Shell>
       {/* hero */}
       <header className="mb-14">
+        {trip.hero_image && (
+          <div className="relative -mx-6 sm:mx-0 mb-10 aspect-[3/2] sm:aspect-[16/9] overflow-hidden bg-panel">
+            <img
+              src={trip.hero_image}
+              alt=""
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover"
+              style={{ filter: 'saturate(.85)' }}
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  'linear-gradient(to top, var(--ink) 2%, rgba(14,28,23,.35) 45%, rgba(14,28,23,.15))',
+              }}
+            />
+          </div>
+        )}
+
         <p className="eyebrow">{trip.destination}</p>
         <h1 className="font-display text-5xl sm:text-6xl leading-none mb-4">
           {trip.title}
@@ -202,7 +225,7 @@ export default function TripRegistrationPage() {
           <p className="text-stone-400 text-lg">{trip.subtitle}</p>
         )}
 
-        <dl className="mt-10 grid grid-cols-2 sm:grid-cols-4 border-t border-line">
+        <dl className="mt-10 grid grid-cols-3 border-t border-line">
           <Stat label="החופשה">
             {heDate(trip.trip_start)}
             <br />
@@ -210,7 +233,6 @@ export default function TripRegistrationPage() {
           </Stat>
           <Stat label="ימי רכיבה">{trip.riding_days}</Stat>
           <Stat label="ימי הובלה מודרכים">{trip.coaching_days}</Stat>
-          <Stat label="השאלה">{trip.chalet_name ?? '—'}</Stat>
         </dl>
       </header>
 
@@ -228,6 +250,30 @@ export default function TripRegistrationPage() {
           <strong className="text-stone-200">לא כולל:</strong> טיסות, אוכל (יש
           מטבח מאובזר בשאלה), ביטוח נסיעות, השכרת אופניים.
         </p>
+
+        {trip.gallery?.length > 0 && (
+          <div className="mt-10 -mx-6 sm:mx-0">
+            <div className="grid grid-cols-3 gap-1.5">
+              {trip.gallery.slice(0, 3).map((src, i) => (
+                <div
+                  key={i}
+                  className="aspect-square overflow-hidden bg-panel"
+                >
+                  <img
+                    src={src}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                    style={{ filter: 'saturate(.85)' }}
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="px-6 sm:px-0 mt-3 text-xs text-stone-500">
+              מתוך השאלה שהזמנו
+            </p>
+          </div>
+        )}
       </Section>
 
       {/* price */}
@@ -420,36 +466,54 @@ export default function TripRegistrationPage() {
                 </div>
               </div>
 
-              {trip.rental_shop_name && (
-                <div className="bg-panel border border-line p-5">
-                  <p className="text-sm text-stone-300 leading-relaxed mb-3">
-                    אנחנו עובדים עם{' '}
-                    <strong className="text-stone-100">
-                      {trip.rental_shop_name}
-                    </strong>
-                    . ההזמנה נעשית ישירות מולם, עם קוד ההנחה שלנו.
+            </div>
+          )}
+
+          {trip.rental_shop_name && (
+            <div className="bg-panel border border-line p-6">
+              <p className="text-sm text-stone-300 leading-relaxed">
+                אנחנו עובדים עם{' '}
+                <strong className="text-stone-100">
+                  {trip.rental_shop_name}
+                </strong>{' '}
+                במורזין. ההזמנה נעשית ישירות מולם, עם קוד הנחה של טבע בייק.
+              </p>
+
+              {trip.rental_coupon && (
+                <div className="mt-5 border border-brand p-4 text-center">
+                  <p className="text-[10px] tracking-[.16em] text-stone-400 mb-2">
+                    קוד ההנחה שלכם
                   </p>
-                  {trip.rental_coupon && (
-                    <p className="font-mono text-brand tracking-widest text-lg mb-3">
-                      {trip.rental_coupon}
-                    </p>
-                  )}
-                  {trip.rental_shop_url && (
-                    <a
-                      href={trip.rental_shop_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-brand underline underline-offset-4"
-                    >
-                      להזמנה באתר {trip.rental_shop_name} ←
-                    </a>
-                  )}
-                  <p className="text-xs text-stone-500 mt-4 leading-relaxed">
-                    השכרת האופניים אינה חלק מהחבילה. ההתקשרות והתשלום הם בינך
-                    לבין החנות.
+                  <p className="font-mono text-brand tracking-[.2em] text-xl">
+                    {trip.rental_coupon}
                   </p>
                 </div>
               )}
+
+              {trip.rental_note && (
+                <p className="text-sm text-stone-400 mt-5 leading-relaxed">
+                  {trip.rental_note}
+                </p>
+              )}
+
+              {trip.rental_shop_url && (
+                <a
+                  href={trip.rental_shop_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block mt-5 border border-brand text-brand
+                    px-6 py-3 text-sm transition-colors hover:bg-brand hover:text-ink
+                    focus-visible:outline focus-visible:outline-2
+                    focus-visible:outline-offset-2 focus-visible:outline-brand"
+                >
+                  להזמנת אופניים ←
+                </a>
+              )}
+
+              <p className="text-xs text-stone-500 mt-5 leading-relaxed">
+                השכרת האופניים אינה חלק מהחבילה. ההתקשרות והתשלום הם בינך לבין
+                החנות.
+              </p>
             </div>
           )}
 
