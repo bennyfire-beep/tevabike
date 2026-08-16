@@ -9,8 +9,7 @@ import { supabase } from '@/lib/supabase'
 const LEADS_HREF = '/admin/coordinator/leads'
 
 // רק בני ושיר רואים שכר. תואם ל-is_salary_admin() בבסיס הנתונים.
-const SALARY_ADMINS = ['bennyfire@gmail.com', 'shirkobi8@gmail.com']
-const NAV = [
+const SALARY_ADMINS = ['bennyfire@gmail.com', 'shirkobi8@gmail.com']const NAV = [
   { href: '/admin/coordinator',            label: 'לוח בקרה', exact: true  },
   { href: '/admin/coordinator/groups',     label: 'קבוצות',   exact: false },
   { href: '/admin/coordinator/students',   label: 'תלמידים',  exact: false },
@@ -23,6 +22,7 @@ const NAV = [
   { href: '/admin/coordinator/camp-sukkot', label: 'מחנה סוכות', exact: false },
   { href: '/admin/coordinator/registrations', label: 'הרשמות', exact: false },
   { href: '/admin/coordinator/reports', label: 'דוחות', exact: false },
+  { href: '/admin/coordinator/trips', label: 'טיולי חו״ל', exact: false, salaryOnly: true },
 ]
 
 export default function CoordinatorLayout({ children }: { children: React.ReactNode }) {
