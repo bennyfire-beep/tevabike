@@ -28,6 +28,7 @@ type Trip = {
   size_large: number
   deposit_ils: number
   balance_days_before: number
+  balance_due_date: string | null
   rental_shop_name: string | null
   rental_shop_url: string | null
   rental_coupon: string | null
@@ -337,7 +338,10 @@ export default function TripRegistrationPage() {
             <strong>₪{trip.deposit_ils}</strong> מקדמה בהרשמה — שומרת את המקום
           </p>
           <p className="text-stone-200">
-            <strong>היתרה</strong> עד {trip.balance_days_before} יום לפני היציאה
+            <strong>היתרה</strong>{' '}
+            {trip.balance_due_date
+              ? `עד ${heDate(trip.balance_due_date)}`
+              : `עד ${trip.balance_days_before} יום לפני היציאה`}
           </p>
         </div>
       </Section>
