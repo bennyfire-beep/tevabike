@@ -9,33 +9,35 @@ const PROMO_ENDS = new Date('2026-09-01T00:00:00+03:00')
 const promoActive = () => new Date() < PROMO_ENDS
 
 const BRANCHES = [
-  { value: 'משגב', label: 'משגב', day: 'ראשון 15:30–17:00' },
+  { value: 'משגב', label: 'משגב', day: 'ראשון וחמישי 15:30–17:00' },
   { value: 'ביריה', label: 'ביריה', day: 'שני 15:45–17:15' },
   { value: 'מטה אשר', label: 'מטה אשר', day: 'שלישי', external: true },
   { value: 'פרוד-אמירים', label: 'פרוד-אמירים', day: 'רביעי 15:45–17:00' },
   { value: 'אחר', label: 'אחר', day: '' },
 ]
 
-const PLANS = [
+// Summer 2026 tracks. Friday (יומועדון) is cancelled, so the only remaining
+// membership_plan value is 'center' — the track is what varies now.
+const TRACKS = [
   {
-    value: 'center',
-    title: 'אימון שבועי במרכז',
+    value: 'once_weekly',
+    title: 'פעם בשבוע',
     price: 300,
-    desc: 'אימון קבוע אחד בשבוע בסניף שלכם',
+    desc: 'אימון קבוע אחד בשבוע — בוחרים ראשון או חמישי',
   },
   {
-    value: 'yomoadon',
-    title: 'יומועדון בלבד',
-    price: 360,
-    desc: 'שישי 08:00–10:00, מסלול אחר בכל שבוע ברחבי הצפון',
-  },
-  {
-    value: 'combined',
-    title: 'משולב — מרכז + יומועדון',
-    price: 640,
-    desc: 'האימון השבועי בסניף וגם היומועדון בשישי',
+    value: 'twice_weekly',
+    title: 'פעמיים בשבוע',
+    price: 550,
+    desc: 'ראשון וגם חמישי — אימון כפול בשבוע',
     best: true,
   },
+]
+
+// 0 = Sunday .. 6 = Saturday, matching groups.days_of_week in Supabase.
+const TRACK_DAYS = [
+  { value: '0', label: "יום ראשון" },
+  { value: '4', label: "יום חמישי" },
 ]
 
 export default function RegisterPage() {
@@ -47,6 +49,8 @@ export default function RegisterPage() {
     city: '',
     class_type: '',
     membership_plan: '',
+    track: '',
+    chosen_day: '',
     full_name: '',
     phone: '',
     email: '',
@@ -101,8 +105,12 @@ export default function RegisterPage() {
       )
       return
     }
-    if (isKids && !form.membership_plan) {
+    if (isKids && !form.track) {
       setError('בחרו מסלול הרשמה')
+      return
+    }
+    if (isKids && form.track === 'once_weekly' && !form.chosen_day) {
+      setError('בחרו יום קבוע — ראשון או חמישי')
       return
     }
 
@@ -113,6 +121,12 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
+          // Friday is cancelled, so every kids registration is a plain branch
+          // membership; the track is what carries the price distinction now.
+          membership_plan: isKids ? 'center' : form.membership_plan || null,
+          // A twice-weekly student attends both days, so no single chosen day.
+          chosen_day: form.track === 'twice_weekly' ? null : form.chosen_day || null,
+          amount_monthly: TRACKS.find((t) => t.value === form.track)?.price ?? null,
           registration_type: type,
           promo_code: promo ? 'BOOST5' : null,
           ...utm,
@@ -241,13 +255,16 @@ export default function RegisterPage() {
                 {isKids && (
                   <Section title="מסלול הרשמה">
                     <div className="space-y-2">
-                      {PLANS.map((p) => {
-                        const selected = form.membership_plan === p.value
+                      {TRACKS.map((p) => {
+                        const selected = form.track === p.value
                         return (
                           <button
                             key={p.value}
                             type="button"
-                            onClick={() => set('membership_plan', p.value)}
+                            onClick={() => {
+                              set('track', p.value)
+                              if (p.value === 'twice_weekly') set('chosen_day', '')
+                            }}
                             className={`w-full text-right p-4 rounded-lg border transition ${
                               selected
                                 ? 'bg-lime-400 text-stone-950 border-lime-400'
@@ -275,9 +292,36 @@ export default function RegisterPage() {
                         )
                       })}
                     </div>
+
+                    {/* Once-weekly students commit to one fixed day. */}
+                    {form.track === 'once_weekly' && (
+                      <div className="pt-1">
+                        <div className="text-xs text-stone-400 mb-2">איזה יום? *</div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {TRACK_DAYS.map((d) => {
+                            const selected = form.chosen_day === d.value
+                            return (
+                              <button
+                                key={d.value}
+                                type="button"
+                                onClick={() => set('chosen_day', d.value)}
+                                className={`p-3 rounded-lg border text-sm font-bold transition ${
+                                  selected
+                                    ? 'bg-lime-400 text-stone-950 border-lime-400'
+                                    : 'bg-stone-950 border-stone-700 hover:border-stone-500'
+                                }`}
+                              >
+                                {d.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     <p className="text-xs text-stone-500 leading-relaxed">
-                      יומועדון הוא אימון מועדוני משותף לכל רוכבי טבע בייק, בכל יום שישי 08:00–10:00,
-                      במסלול אחר בכל שבוע ברחבי הצפון. פתוח לרוכבי מיני גרביטי וגרביטי פרו.
+                      החוגים במשגב מתקיימים בימים ראשון וחמישי, 15:30–17:00.
+                      במסלול פעם בשבוע בוחרים יום קבוע אחד ונשארים איתו לאורך השנה.
                     </p>
                   </Section>
                 )}

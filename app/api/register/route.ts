@@ -3,6 +3,13 @@ import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
+// Summer 2026 tracks, for the coordinator alert email.
+const TRACK_LABEL: Record<string, string> = {
+  once_weekly:  'פעם בשבוע — ₪300',
+  twice_weekly: 'פעמיים בשבוע — ₪550',
+}
+const DAY_LABEL = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+
 /**
  * Fire-and-forget email alert on a new registration.
  * Never blocks or fails the registration itself — if the mail fails, the row
@@ -17,6 +24,8 @@ async function notifyRegistration(r: {
   child_age: string | null
   city: string | null
   membership_plan: string | null
+  track: string | null
+  chosen_day: number | null
   promo_code: string | null
   source: string
   utm_campaign: string | null
@@ -32,7 +41,8 @@ async function notifyRegistration(r: {
     ['טלפון', r.phone],
     ['סניף', r.branch],
     ['יישוב', r.city ?? '—'],
-    ['מסלול', r.membership_plan ?? '—'],
+    ['מסלול', r.track ? TRACK_LABEL[r.track] ?? r.track : r.membership_plan ?? '—'],
+    ...(r.chosen_day !== null ? ([['יום קבוע', DAY_LABEL[r.chosen_day] ?? '—']] as [string, string][]) : []),
     ['קוד מבצע', r.promo_code ?? '—'],
     ['מקור', r.source],
     ['קמפיין', r.utm_campaign ?? '—'],
@@ -103,6 +113,12 @@ export async function POST(req: Request) {
       class_type: body.class_type || null,
       registration_type: body.registration_type === 'adults' ? 'annual_adults' : 'annual_kids',
       membership_plan: body.membership_plan || null,
+      track: body.track || null,
+      chosen_day:
+        body.chosen_day === '' || body.chosen_day === null || body.chosen_day === undefined
+          ? null
+          : parseInt(String(body.chosen_day), 10),
+      amount_monthly: body.amount_monthly ?? null,
       promo_code: body.promo_code || null,
       child_name: body.child_name || null,
       child_age: body.child_age ? parseInt(body.child_age, 10) : null,
@@ -129,6 +145,11 @@ export async function POST(req: Request) {
       child_age: body.child_age || null,
       city: body.city || null,
       membership_plan: body.membership_plan || null,
+      track: body.track || null,
+      chosen_day:
+        body.chosen_day === '' || body.chosen_day === null || body.chosen_day === undefined
+          ? null
+          : parseInt(String(body.chosen_day), 10),
       promo_code: body.promo_code || null,
       source: (utm_source ?? 'website').toLowerCase(),
       utm_campaign,

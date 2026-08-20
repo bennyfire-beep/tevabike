@@ -1,8 +1,39 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 
-// Default hourly rate for instructors with no explicit admin_roles.hourly_rate.
+// Fallbacks for instructors with no staff_pay row yet.
+//   hourly_rate     → special activities (camps, ימי שיא), paid per hour
+//   rate_per_lesson → ordinary weekly lessons, paid a flat rate per lesson
 export const DEFAULT_HOURLY_RATE = 90
+export const DEFAULT_RATE_PER_LESSON = 150
+
+/**
+ * Both instructor rates live in `staff_pay`, keyed by admin_roles.id.
+ * They are NOT columns on admin_roles — reading them from there returns a
+ * PostgREST error and a null payload, which is how special activities silently
+ * came out at ₪0.
+ */
+async function ratesFor(
+  instructorIds: string[],
+  client: SupabaseClient,
+): Promise<Map<string, { hourly: number; perLesson: number }>> {
+  const out = new Map<string, { hourly: number; perLesson: number }>()
+  if (!instructorIds.length) return out
+
+  const { data } = await client
+    .from('staff_pay')
+    .select('admin_role_id, hourly_rate, rate_per_lesson')
+    .in('admin_role_id', instructorIds)
+
+  for (const id of instructorIds) {
+    const row = (data ?? []).find(r => r.admin_role_id === id)
+    out.set(id, {
+      hourly:    row?.hourly_rate     == null ? DEFAULT_HOURLY_RATE     : Number(row.hourly_rate),
+      perLesson: row?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(row.rate_per_lesson),
+    })
+  }
+  return out
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared attendance-save + automatic pay calculation.
@@ -14,25 +45,25 @@ export const DEFAULT_HOURLY_RATE = 90
 //
 // The `client` argument lets callers pass a specific Supabase client:
 //   • the desktop page passes the default browser client (the coordinator is
-//     authenticated, so RLS lets it read admin_roles.pay_multiplier);
+//     authenticated, so RLS lets it read staff_pay);
 //   • the instructor mobile page has no login, so it saves via an API route
-//     that passes a service-role client here — that keeps admin_roles (which
-//     holds staff PII) off the public anon key while still applying the
-//     correct multiplier.
+//     that passes a service-role client here — that keeps staff pay off the
+//     public anon key while still applying the correct rates.
+//
+// Instructors have TWO rates, both on `staff_pay` (keyed by admin_roles.id):
+//   • rate_per_lesson — an ordinary weekly lesson, flat per lesson
+//   • hourly_rate     — a special activity (camp / ימי שיא), per hour
 //
 // Pay model — regular sessions (type 'regular'):
-//   • present_count = riders marked present for the session
-//   • base amount   = matching row in `pay_rates`
-//                     (present_count between min_riders and max_riders,
-//                      max_riders NULL = no upper cap)
-//   • instructor_pay = base amount × the session instructor's pay_multiplier
+//   • instructor_pay = Σ rate_per_lesson over the session's instructors.
+//     Attendance no longer scales it: a lesson is a lesson.
 //
 // Pay model — special activities / camps (type 'special'):
 //   • pay does NOT depend on attendance; it is duration_hours × hourly_rate.
 //   • a special activity can have several instructors (session.instructor_ids);
-//     each is paid duration × their own admin_roles.hourly_rate. The value we
-//     store in class_sessions.instructor_pay is the activity total (the sum
-//     across instructors); the payroll report splits it back per instructor.
+//     each is paid duration × their own hourly_rate. The value stored in
+//     class_sessions.instructor_pay is the activity total (the sum across
+//     instructors); the payroll report splits it back per instructor.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface SaveSession {
@@ -58,30 +89,24 @@ export interface SaveResult {
 }
 
 /**
- * Resolve the base pay amount for a present-count from the `pay_rates` table,
- * then scale it by the instructor's multiplier. Returns 0 if no rate matches.
+ * Pay for an ordinary lesson = the instructor's flat rate_per_lesson.
+ * Co-taught lessons pay each listed instructor their own rate.
  */
-export async function computePay(
-  presentCount: number,
-  multiplier: number,
+export async function computeRegularPay(
+  instructorIds: string[],
   client: SupabaseClient = supabase,
 ): Promise<number> {
-  const { data } = await client
-    .from('pay_rates')
-    .select('min_riders, max_riders, amount')
-  const rows = data ?? []
-  const match = rows.find(
-    r => presentCount >= r.min_riders && (r.max_riders == null || presentCount <= r.max_riders),
+  if (!instructorIds.length) return 0
+  const rates = await ratesFor(instructorIds, client)
+  const total = instructorIds.reduce(
+    (s, id) => s + (rates.get(id)?.perLesson ?? DEFAULT_RATE_PER_LESSON), 0,
   )
-  const amount = match ? Number(match.amount) : 0
-  const m = multiplier != null && !Number.isNaN(multiplier) ? multiplier : 1
-  return Math.round(amount * m * 100) / 100
+  return Math.round(total * 100) / 100
 }
 
 /**
  * Total pay for a special activity = duration_hours × Σ hourly_rate over its
- * instructors. Instructors with no explicit hourly_rate fall back to
- * DEFAULT_HOURLY_RATE (90).
+ * instructors. Independent of how many riders showed up.
  */
 export async function computeSpecialPay(
   durationHours: number,
@@ -89,11 +114,10 @@ export async function computeSpecialPay(
   client: SupabaseClient = supabase,
 ): Promise<number> {
   if (!instructorIds.length) return 0
-  const { data } = await client
-    .from('admin_roles')
-    .select('id, hourly_rate')
-    .in('id', instructorIds)
-  const sumRates = (data ?? []).reduce((s, r) => s + Number(r.hourly_rate ?? DEFAULT_HOURLY_RATE), 0)
+  const rates = await ratesFor(instructorIds, client)
+  const sumRates = instructorIds.reduce(
+    (s, id) => s + (rates.get(id)?.hourly ?? DEFAULT_HOURLY_RATE), 0,
+  )
   const hours = Number(durationHours) || 0
   return Math.round(hours * sumRates * 100) / 100
 }
@@ -137,26 +161,15 @@ export async function saveAttendanceAndPay(
   const presentCount = count ?? 0
 
   // 3 + 4. Compute pay depending on the session type, then store it.
-  let pay: number
-  if (session.type === 'special') {
-    // Special activity: pay is duration × hourly_rate, independent of attendance.
-    const instructorIds = (session.instructor_ids && session.instructor_ids.length)
-      ? session.instructor_ids
-      : (session.instructor_id ? [session.instructor_id] : [])
-    pay = await computeSpecialPay(session.duration ?? 0, instructorIds, client)
-  } else {
-    // Regular session: pay_rates bracket × the instructor's pay multiplier.
-    let multiplier = 1
-    if (session.instructor_id) {
-      const { data: role } = await client
-        .from('admin_roles')
-        .select('pay_multiplier')
-        .eq('id', session.instructor_id)
-        .maybeSingle()
-      if (role?.pay_multiplier != null) multiplier = Number(role.pay_multiplier)
-    }
-    pay = await computePay(presentCount, multiplier, client)
-  }
+  const instructorIds = (session.instructor_ids && session.instructor_ids.length)
+    ? session.instructor_ids
+    : (session.instructor_id ? [session.instructor_id] : [])
+
+  const pay = session.type === 'special'
+    // Special activity: duration × hourly_rate, independent of attendance.
+    ? await computeSpecialPay(session.duration ?? 0, instructorIds, client)
+    // Ordinary lesson: the instructor's flat per-lesson rate.
+    : await computeRegularPay(instructorIds, client)
 
   const { error: sessErr } = await client
     .from('class_sessions')

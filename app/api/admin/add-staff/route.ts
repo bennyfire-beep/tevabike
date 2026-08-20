@@ -35,7 +35,11 @@ export async function POST(request: NextRequest) {
   // ── 2. Parse + validate input ──
   let body: {
     name?: string; email?: string; password?: string
-    role?: string; branch?: string | null; hourlyRate?: string | number | null
+    role?: string; branch?: string | null
+    // Two rate shapes, because two screens feed this route: /admin/instructors
+    // sets a per-lesson rate, the older coordinator staff screen an hourly one.
+    ratePerLesson?: string | number | null
+    hourlyRate?: string | number | null
   }
   try { body = await request.json() }
   catch { return NextResponse.json({ error: 'בקשה לא תקינה' }, { status: 400 }) }
@@ -45,6 +49,8 @@ export async function POST(request: NextRequest) {
   const password = String(body.password || '')
   const role = String(body.role || '') as Role
   const branch = body.branch ? String(body.branch).trim() : null
+  const ratePerLesson =
+    body.ratePerLesson != null && body.ratePerLesson !== '' ? Number(body.ratePerLesson) : 150
   const hourlyRate =
     body.hourlyRate != null && body.hourlyRate !== '' ? Number(body.hourlyRate) : null
 
@@ -71,17 +77,43 @@ export async function POST(request: NextRequest) {
   }
 
   // ── 4. Link the role (admin_roles row) ──
-  const { error: roleErr } = await admin.from('admin_roles').insert({
-    user_id: created.user.id,
-    role,
-    name,
-    branch: role === 'instructor' ? branch : null,
-    hourly_rate: role === 'instructor' ? (hourlyRate ?? 60) : null,
-  })
-  if (roleErr) {
+  // Pay lives in staff_pay, not here — admin_roles has no rate column.
+  const { data: roleRow, error: roleErr } = await admin
+    .from('admin_roles')
+    .insert({
+      user_id: created.user.id,
+      role,
+      name,
+      branch: role === 'instructor' ? branch : null,
+    })
+    .select('id')
+    .single()
+
+  if (roleErr || !roleRow) {
     // Roll back the auth user so we don't leave an orphan login
     await admin.auth.admin.deleteUser(created.user.id).catch(() => {})
-    return NextResponse.json({ error: `שמירת התפקיד נכשלה: ${roleErr.message}` }, { status: 500 })
+    return NextResponse.json({ error: `שמירת התפקיד נכשלה: ${roleErr?.message ?? ''}` }, { status: 500 })
+  }
+
+  // ── 5. Per-lesson rate for instructors ──
+  if (role === 'instructor') {
+    const { error: payErr } = await admin
+      .from('staff_pay')
+      .upsert(
+        {
+          admin_role_id: roleRow.id,
+          rate_per_lesson: ratePerLesson,
+          ...(hourlyRate !== null ? { hourly_rate: hourlyRate } : {}),
+        },
+        { onConflict: 'admin_role_id' },
+      )
+
+    // The instructor exists and can log in either way — surface the pay problem
+    // without rolling the whole thing back.
+    if (payErr)
+      return NextResponse.json(
+        { success: true, warning: `המדריך נוצר אך שמירת התעריף נכשלה: ${payErr.message}` },
+      )
   }
 
   return NextResponse.json({ success: true })

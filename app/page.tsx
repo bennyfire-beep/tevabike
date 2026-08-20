@@ -10,17 +10,26 @@ const GREEN_M   = '#1F3D2A'
 const OFF_WHITE = '#F5F2EE'
 
 // ─── Data ────────────────────────────────────────────────────────────────────
+// Summer 2026: Misgav kids run Sunday + Thursday. Friday classes are cancelled.
 const KIDS_CLASSES = [
-  { level: 'מיני גרביטי',    branch: 'משגב',        days: "א' 15:30–17:00", age: '6-10',  icon: '🌱' },
-  { level: 'גרביטי מתחילים', branch: 'משגב',        days: "א' 15:30–17:00", age: '6-10',  icon: '🌱' },
-  { level: 'גרביטי פרו',     branch: 'משגב',        days: "א' 15:30–17:00", age: '12+',   icon: '⚡' },
-  { level: 'מיני גרביטי',    branch: 'ביריה',       days: "ב' 15:45–17:15", age: '6-10',  icon: '🌱' },
-  { level: 'גרביטי מתקדמים', branch: 'ביריה',       days: "ב' 15:45–17:15", age: '10-14', icon: '🔥' },
-  { level: 'מיני גרביטי',    branch: 'מטה אשר',     days: "ג'",             age: '6-10',  icon: '🌱' },
-  { level: 'גרביטי מתקדמים', branch: 'מטה אשר',     days: "ג'",             age: '10-14', icon: '🔥' },
-  { level: 'גרביטי מתקדמים', branch: 'פרוד-אמירים', days: "ד' 15:45–17:00", age: '10-14', icon: '🔥' },
-  { level: 'יומועדון',       branch: 'כל הסניפים',  days: "ו' 08:00–10:00", age: '8+',    icon: '🏔️' },
+  { level: 'מיני גרביטי',    branch: 'משגב',        days: "א' + ה' 15:30–17:00", age: '6-10',  icon: '🌱' },
+  { level: 'גרביטי מתחילים', branch: 'משגב',        days: "א' + ה' 15:30–17:00", age: '6-10',  icon: '🌱' },
+  { level: 'גרביטי פרו',     branch: 'משגב',        days: "א' + ה' 15:30–17:00", age: '12+',   icon: '⚡' },
+  { level: 'מיני גרביטי',    branch: 'ביריה',       days: "ב' 15:45–17:15",      age: '6-10',  icon: '🌱' },
+  { level: 'גרביטי מתקדמים', branch: 'ביריה',       days: "ב' 15:45–17:15",      age: '10-14', icon: '🔥' },
+  { level: 'מיני גרביטי',    branch: 'מטה אשר',     days: "ג'",                  age: '6-10',  icon: '🌱' },
+  { level: 'גרביטי מתקדמים', branch: 'מטה אשר',     days: "ג'",                  age: '10-14', icon: '🔥' },
+  { level: 'גרביטי מתקדמים', branch: 'פרוד-אמירים', days: "ד' 15:45–17:00",      age: '10-14', icon: '🔥' },
 ]
+
+// The two Misgav tracks. Once-weekly students pick either Sunday or Thursday.
+const MISGAV_TRACKS = [
+  { title: 'פעם בשבוע',    price: 300, desc: 'הילד בוחר יום קבוע — ראשון או חמישי', best: false },
+  { title: 'פעמיים בשבוע', price: 550, desc: 'ראשון וגם חמישי — אימון כפול בשבוע',  best: true  },
+]
+
+// Promo deadline shown in the banner and on the registration page.
+const PROMO_TEXT = 'מבצע מיוחד לנרשמים עד 1.9!'
 
 const ADULTS_CLASSES = [
   { level: 'טכני מבוגרים', day: "יום א'", icon: '🏔️', desc: 'שיפור טכניקת רכיבה בשטח' },
@@ -35,7 +44,6 @@ const LEVEL_COLORS: Record<string, [string, string]> = {
   'גרביטי מתחילים': [`${PINK}1A`, PINK],
   'גרביטי מתקדמים': ['#8B22D41A', '#8B22D4'],
   'גרביטי פרו':     ['#1F3D2A',   '#4cdb7a'],
-  'יומועדון':       ['#3B0764',   '#e879f9'],
 }
 
 const BRANCH_COLOR: Record<string, string> = {
@@ -43,7 +51,6 @@ const BRANCH_COLOR: Record<string, string> = {
   'ביריה':       '#4cdb7a',
   'מטה אשר':     '#22B5D4',
   'פרוד-אמירים': '#f59e0b',
-  'כל הסניפים':  '#e879f9',
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -144,7 +151,6 @@ export default function Home() {
             <a href="#classes" className="nav-link">חוגים</a>
             <a href="/camp" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>ימי שיא</a>
             <a href="/camp-sukkot" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מחנה סוכות</a>
-            <a href="/yomoadon" className="nav-link" style={{ color: '#e879f9', fontWeight: 700 }}>יומועדון</a>
             <a href="#why" className="nav-link">למה אנחנו</a>
             <a href="/register" className="btn-primary" style={{ padding: '8px 22px', fontSize: 14, borderRadius: 8 }}>
               הרשמה
@@ -152,6 +158,25 @@ export default function Home() {
           </div>
         </div>
       </nav>
+
+      {/* ═══════════════════════ PROMO BANNER ═══════════════════════ */}
+      {/* Sits directly under the fixed nav so it is the first thing read. */}
+      <a
+        href="/register"
+        style={{
+          display: 'block', textDecoration: 'none',
+          background: `linear-gradient(90deg, ${PINK}, #F0569F, ${PINK})`,
+          color: '#fff', textAlign: 'center',
+          padding: '11px 20px', fontWeight: 900,
+          fontSize: 'clamp(.9rem, 2.4vw, 1.05rem)',
+          letterSpacing: '-0.01em',
+          position: 'relative', zIndex: 40,
+          boxShadow: '0 2px 14px rgba(212,40,138,0.35)',
+        }}
+      >
+        🎉 {PROMO_TEXT}
+        <span style={{ fontWeight: 600, opacity: 0.9, marginRight: 8 }}>הרשמה ←</span>
+      </a>
 
       {/* ════════════════════════════ HERO ════════════════════════════ */}
       <section style={{ position: 'relative', height: '100vh', minHeight: 580, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
@@ -360,6 +385,70 @@ export default function Home() {
               </div>
             ))}
           </div>
+
+          {/* ── Misgav pricing tracks (kids tab only) ── */}
+          {tab === 'kids' && (
+            <div style={{ marginTop: 48 }}>
+              <div style={{ textAlign: 'center', marginBottom: 26 }}>
+                <h3 style={{ fontSize: 'clamp(1.3rem, 2.6vw, 1.8rem)', fontWeight: 900, color: DARK, margin: '0 0 6px', letterSpacing: '-0.02em' }}>
+                  מסלולי משגב
+                </h3>
+                <p style={{ color: '#7A8880', fontSize: 15, margin: 0 }}>
+                  ראשון וחמישי · 15:30–17:00
+                </p>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 18, maxWidth: 720, margin: '0 auto' }}>
+                {MISGAV_TRACKS.map(t => (
+                  <div
+                    key={t.title}
+                    style={{
+                      background: '#fff', borderRadius: 16, padding: '28px 24px',
+                      border: t.best ? `2px solid ${PINK}` : '1px solid #EAE6E1',
+                      boxShadow: t.best ? `0 8px 28px rgba(212,40,138,0.16)` : '0 2px 14px rgba(0,0,0,0.05)',
+                      position: 'relative', textAlign: 'center',
+                    }}
+                  >
+                    {t.best && (
+                      <span style={{
+                        position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+                        background: PINK, color: '#fff', borderRadius: 20,
+                        padding: '4px 16px', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap',
+                      }}>
+                        הכי משתלם
+                      </span>
+                    )}
+
+                    <div style={{ fontSize: 16, fontWeight: 800, color: DARK, marginBottom: 10 }}>{t.title}</div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <span style={{ fontSize: 40, fontWeight: 900, color: PINK, letterSpacing: '-0.03em' }}>₪{t.price}</span>
+                      <span style={{ fontSize: 14, color: '#7A8880', fontWeight: 600 }}> / חודש</span>
+                    </div>
+
+                    <p style={{ color: '#7A8880', fontSize: 13.5, margin: '0 0 20px', lineHeight: 1.6 }}>{t.desc}</p>
+
+                    <a
+                      href="/register"
+                      style={{
+                        display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8,
+                        background: t.best ? PINK : `${PINK}12`,
+                        color:      t.best ? '#fff' : PINK,
+                        fontSize: 14, fontWeight: 700, textDecoration: 'none',
+                        border: `1px solid ${t.best ? PINK : `${PINK}2A`}`,
+                      }}
+                    >
+                      הרשמה ←
+                    </a>
+                  </div>
+                ))}
+              </div>
+
+              <p style={{ textAlign: 'center', color: PINK, fontSize: 14, fontWeight: 800, margin: '22px 0 0' }}>
+                🎉 {PROMO_TEXT}
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -461,10 +550,9 @@ export default function Home() {
             <div>
               <h4 style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 18px', letterSpacing: '0.05em' }}>ניווט מהיר</h4>
               {[
-      { label: 'מחנה סוכות', href: '/camp-sukkot' },
-      { label: 'ימי שיא',  href: '/camp'     },
+                { label: 'מחנה סוכות', href: '/camp-sukkot' },
+                { label: 'ימי שיא',  href: '/camp'     },
                 { label: 'חוגים',    href: '#classes'  },
-                { label: 'יומועדון', href: '/yomoadon' },
                 { label: 'הרשמה',   href: '/register' },
                 { label: 'למה אנחנו', href: '#why'    },
                 { label: 'ניהול',    href: '/admin'    },

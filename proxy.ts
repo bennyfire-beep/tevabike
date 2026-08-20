@@ -40,6 +40,12 @@ function isExpired(payload: { exp?: number }): boolean {
   return payload.exp * 1000 < Date.now()
 }
 
+// True when `pathname` is the prefix itself or a path segment below it.
+// "/admin/instructors" is NOT under "/admin/instructor".
+function isUnder(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(prefix + '/')
+}
+
 function clearAndRedirect(url: URL): NextResponse {
   const res = NextResponse.redirect(url)
   res.cookies.delete('sb_auth_token')
@@ -54,7 +60,7 @@ export function proxy(request: NextRequest): NextResponse {
   // ── Admin routes ──────────────────────────────────────────────────────────
   if (pathname.startsWith(ADMIN_PREFIX)) {
     // Allow public admin paths (login, forgot-password, reset-password)
-    if (ADMIN_PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))) {
+    if (ADMIN_PUBLIC_PATHS.some(p => isUnder(pathname, p))) {
       return NextResponse.next()   // do NOT strip params — reset-password needs ?code=
     }
 
@@ -73,8 +79,11 @@ export function proxy(request: NextRequest): NextResponse {
     if (!userRole || !(userRole in ROLE_PREFIXES)) return clearAndRedirect(loginUrl)
 
     // Role-path enforcement: instructor cannot reach /admin/coordinator etc.
+    // Compared segment-wise, not by raw prefix — a plain startsWith() would
+    // treat /admin/instructors (the staff roster, open to every admin) as if it
+    // were the instructor-only /admin/instructor area and bounce coordinators.
     const isOnWrongRolePath = ['/admin/instructor', '/admin/coordinator', '/admin/accountant']
-      .some(p => pathname.startsWith(p) && !pathname.startsWith(ROLE_PREFIXES[userRole]!))
+      .some(p => isUnder(pathname, p) && !isUnder(pathname, ROLE_PREFIXES[userRole]!))
 
     if (isOnWrongRolePath) {
       return NextResponse.redirect(new URL(ROLE_PREFIXES[userRole]!, request.url))

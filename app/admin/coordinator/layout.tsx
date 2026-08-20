@@ -26,6 +26,9 @@ const NAV = [
   { href: '/admin/coordinator/registrations', label: 'הרשמות', exact: false },
   { href: '/admin/coordinator/reports', label: 'דוחות', exact: false },
   { href: '/admin/coordinator/trips', label: 'טיולי חו״ל', exact: false, salaryOnly: true },
+  // Entry point to the summer-2026 screens (groups / students / instructors /
+  // attendance / salaries), which sit outside the per-role areas.
+  { href: '/admin/groups', label: 'מערכת קיץ 2026', exact: false },
 ]
 
 export default function CoordinatorLayout({ children }: { children: React.ReactNode }) {
