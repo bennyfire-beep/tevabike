@@ -59,7 +59,7 @@ async function ratesFor(
 //     Attendance no longer scales it: a lesson is a lesson.
 //
 // Pay model — special activities / camps (type 'special'):
-//   • pay does NOT depend on attendance; it is duration_hours × hourly_rate.
+//   • pay does NOT depend on attendance; it is duration × hourly_rate.
 //   • a special activity can have several instructors (session.instructor_ids);
 //     each is paid duration × their own hourly_rate. The value stored in
 //     class_sessions.instructor_pay is the activity total (the sum across
@@ -105,7 +105,7 @@ export async function computeRegularPay(
 }
 
 /**
- * Total pay for a special activity = duration_hours × Σ hourly_rate over its
+ * Total pay for a special activity = duration × Σ hourly_rate over its
  * instructors. Independent of how many riders showed up.
  */
 export async function computeSpecialPay(

@@ -201,9 +201,9 @@ export default function InstructorMobilePage() {
   async function save() {
     if (!session || riders.length === 0) return
     setSaving(true)
-    // Save via the service-role API route so the instructor's pay multiplier is
-    // applied correctly (admin_roles is not anon-readable). Shares the same
-    // underlying save logic as the desktop attendance page.
+    // Save via the service-role API route so the instructor's rates are read
+    // correctly (staff_pay is not anon-readable). Shares the same underlying
+    // save logic as the desktop attendance page.
     try {
       const r = await fetch('/api/instructor/save', {
         method: 'POST',

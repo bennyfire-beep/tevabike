@@ -3,16 +3,20 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAdminAuth } from '@/lib/use-admin-auth'
+import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
 
 type InstructorSummary = {
-  adminRoleId: string
-  name:        string
-  branch:      string | null
-  sessions:    number
-  hours:       number
-  hourlyRate:  number
-  totalPay:    number
-  paid:        boolean
+  adminRoleId:   string
+  name:          string
+  branch:        string | null
+  lessons:       number   // ordinary weekly lessons
+  ratePerLesson: number
+  lessonPay:     number
+  specialHours:  number   // camps / ימי שיא
+  hourlyRate:    number
+  specialPay:    number
+  totalPay:      number
+  paid:          boolean
 }
 
 type Payment = {
@@ -99,33 +103,65 @@ export default function AccountantPage() {
     // Fetch all instructor admin_roles
     const { data: roles } = await supabase
       .from('admin_roles')
-      .select('id, name, branch, hourly_rate')
+      .select('id, name, branch')
       .eq('role', 'instructor')
 
     if (!roles?.length) { setInstructors([]); return }
 
-    // Fetch sessions for this month
+    // Both rates live on staff_pay, keyed by admin_roles.id.
+    const { data: pay } = await supabase
+      .from('staff_pay')
+      .select('admin_role_id, rate_per_lesson, hourly_rate')
+
+    // `duration` (not duration_hours) is the real column on class_sessions.
     const { data: sessions } = await supabase
       .from('class_sessions')
-      .select('instructor_id, duration_hours')
+      .select('instructor_id, instructor_ids, type, duration')
       .gte('session_date', firstDay)
       .lte('session_date', lastDay)
 
+    // Tally per instructor, counting co-taught sessions for everyone listed.
+    const lessons      = new Map<string, number>()
+    const specialHours = new Map<string, number>()
+    for (const s of sessions ?? []) {
+      const ids = new Set<string>()
+      if (s.instructor_id) ids.add(s.instructor_id)
+      for (const extra of (s.instructor_ids ?? []) as string[]) ids.add(extra)
+      for (const id of ids) {
+        if (s.type === 'special') {
+          specialHours.set(id, (specialHours.get(id) ?? 0) + (Number(s.duration) || 0))
+        } else {
+          lessons.set(id, (lessons.get(id) ?? 0) + 1)
+        }
+      }
+    }
+
+    const payOf = new Map((pay ?? []).map(p => [p.admin_role_id, p]))
+
     const summaries: InstructorSummary[] = roles.map(r => {
-      const mySessions = sessions?.filter(s => s.instructor_id === r.id) ?? []
-      const hours      = mySessions.reduce((acc, s) => acc + (s.duration_hours ?? 1.5), 0)
-      const rate       = r.hourly_rate ?? 60
+      const p             = payOf.get(r.id)
+      const ratePerLesson = p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson)
+      const hourlyRate    = p?.hourly_rate     == null ? DEFAULT_HOURLY_RATE     : Number(p.hourly_rate)
+
+      const n     = lessons.get(r.id) ?? 0
+      const hours = Math.round((specialHours.get(r.id) ?? 0) * 10) / 10
+      const lessonPay  = n * ratePerLesson
+      const specialPay = hours * hourlyRate
+
       return {
         adminRoleId: r.id,
         name:        r.name,
         branch:      r.branch ?? null,
-        sessions:    mySessions.length,
-        hours:       Math.round(hours * 10) / 10,
-        hourlyRate:  rate,
-        totalPay:    Math.round(hours * rate),
+        lessons:     n,
+        ratePerLesson,
+        lessonPay:   Math.round(lessonPay),
+        specialHours: hours,
+        hourlyRate,
+        specialPay:  Math.round(specialPay),
+        totalPay:    Math.round(lessonPay + specialPay),
         paid:        false, // could track with a separate instructor_payments table
       }
-    }).sort((a, b) => b.hours - a.hours)
+    }).sort((a, b) => b.totalPay - a.totalPay)
 
     setInstructors(summaries)
 
@@ -139,7 +175,7 @@ export default function AccountantPage() {
 
     setSummary({
       totalSessions: sessions?.length ?? 0,
-      totalHours:    Math.round((sessions?.reduce((s, x) => s + (x.duration_hours ?? 1.5), 0) ?? 0) * 10) / 10,
+      totalHours:    Math.round((sessions?.reduce((s, x) => s + (Number(x.duration) || 1.5), 0) ?? 0) * 10) / 10,
       totalStudents: riders?.length ?? 0,
       totalRevenue:  revenue,
       paidCount: paid, pendingCount: pending, overdueCount: overdue,
@@ -295,32 +331,38 @@ export default function AccountantPage() {
                 <div style={{ padding: 28, color: '#7a8f7d', textAlign: 'center', fontSize: 13 }}>אין נתונים לחודש זה</div>
               ) : (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '9px 18px', borderBottom: '1px solid #252b27', fontSize: 11, color: '#7a8f7d', fontWeight: 600 }}>
-                    <span>מדריך</span><span>אימונים</span><span>שעות</span><span>תעריף לשעה</span><span>לתשלום</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 1.3fr 1fr', padding: '9px 18px', borderBottom: '1px solid #252b27', fontSize: 11, color: '#7a8f7d', fontWeight: 600 }}>
+                    <span>מדריך</span><span>שיעורים רגילים</span><span>★ פעילויות מיוחדות</span><span>לתשלום</span>
                   </div>
                   {instructors.map((ins, i) => (
                     <div
                       key={ins.adminRoleId}
-                      style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '13px 18px', borderBottom: i < instructors.length - 1 ? '1px solid #1a1e1c' : 'none', alignItems: 'center' }}
+                      style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 1.3fr 1fr', padding: '13px 18px', borderBottom: i < instructors.length - 1 ? '1px solid #1a1e1c' : 'none', alignItems: 'center' }}
                     >
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 14 }}>{ins.name}</div>
                         {ins.branch && <div style={{ color: '#7a8f7d', fontSize: 11 }}>📍 {ins.branch}</div>}
                       </div>
-                      <span style={{ color: '#81d4fa', fontWeight: 600 }}>{ins.sessions}</span>
-                      <span style={{ color: '#b5e853', fontWeight: 600 }}>{ins.hours}ש'</span>
-                      <span style={{ color: '#7a8f7d', fontSize: 13 }}>₪{ins.hourlyRate}/ש'</span>
+                      <div>
+                        <div style={{ color: '#b5e853', fontWeight: 700, fontSize: 14 }}>₪{ins.lessonPay.toLocaleString()}</div>
+                        <div style={{ color: '#7a8f7d', fontSize: 11 }}>{ins.lessons} × ₪{ins.ratePerLesson}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#c084fc', fontWeight: 700, fontSize: 14 }}>₪{ins.specialPay.toLocaleString()}</div>
+                        <div style={{ color: '#7a8f7d', fontSize: 11 }}>
+                          {ins.specialHours > 0 ? `${ins.specialHours}ש' × ₪${ins.hourlyRate}` : '—'}
+                        </div>
+                      </div>
                       <span style={{ color: '#4cdb7a', fontWeight: 800, fontSize: 16 }}>
                         ₪{ins.totalPay.toLocaleString()}
                       </span>
                     </div>
                   ))}
                   {/* Total row */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', padding: '12px 18px', borderTop: '1px solid #252b27', background: '#1a1e1c', alignItems: 'center' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 1.3fr 1fr', padding: '12px 18px', borderTop: '1px solid #252b27', background: '#1a1e1c', alignItems: 'center' }}>
                     <span style={{ fontWeight: 700, color: '#7a8f7d', fontSize: 13 }}>סה"כ</span>
-                    <span style={{ color: '#81d4fa', fontWeight: 700 }}>{instructors.reduce((s, i) => s + i.sessions, 0)}</span>
-                    <span style={{ color: '#b5e853', fontWeight: 700 }}>{instructors.reduce((s, i) => s + i.hours, 0)}ש'</span>
-                    <span />
+                    <span style={{ color: '#b5e853', fontWeight: 700 }}>₪{instructors.reduce((s, i) => s + i.lessonPay, 0).toLocaleString()}</span>
+                    <span style={{ color: '#c084fc', fontWeight: 700 }}>₪{instructors.reduce((s, i) => s + i.specialPay, 0).toLocaleString()}</span>
                     <span style={{ color: '#4cdb7a', fontWeight: 900, fontSize: 17 }}>
                       ₪{instructors.reduce((s, i) => s + i.totalPay, 0).toLocaleString()}
                     </span>

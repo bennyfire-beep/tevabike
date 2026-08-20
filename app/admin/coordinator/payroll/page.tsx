@@ -2,15 +2,20 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
-import { DEFAULT_HOURLY_RATE } from '@/lib/attendance'
+import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Monthly pay report (coordinator).
 //
 // A person's monthly pay is the sum of three kinds of line item:
-//   • בסיס חודשי  — admin_roles.monthly_base (once per month, if > 0)
-//   • regular sessions — class_sessions.instructor_pay (pay_rates × multiplier)
-//   • special activities — duration × the instructor's hourly_rate (per instructor)
+//   • בסיס חודשי  — staff_pay.monthly_base (once per month, if > 0)
+//   • regular sessions   — the instructor's staff_pay.rate_per_lesson, flat
+//   • special activities — duration × the instructor's staff_pay.hourly_rate
+//
+// Both session rates are read live from staff_pay rather than from the stored
+// class_sessions.instructor_pay, so a rate change on /admin/instructors shows
+// up here immediately and rows written under the retired pay_rates bracket
+// model cannot leak into a current report.
 //
 // Rows are merged BY NAME, because one person can have two admin_roles rows
 // (e.g. a coordinator row carrying monthly_base + an instructor row that teaches
@@ -25,7 +30,12 @@ const BRANCH_COLOR: Record<string, string> = {
   'אמירים': '#c084fc',
 }
 
-type Role = { id: string; name: string; hourly_rate: number | null; monthly_base: number | null; role: string }
+type Role = {
+  id: string; name: string; role: string
+  hourly_rate: number | null
+  rate_per_lesson: number | null
+  monthly_base: number | null
+}
 type SessionRow = {
   id: string
   instructor_id: string | null
@@ -87,25 +97,28 @@ export default function PayrollPage() {
     const first  = `${ym}-01`
     const last   = new Date(y, m, 0).toISOString().split('T')[0]
 
-    // Staff: names, hourly rates (default 90) and monthly base for every role.
+    // Staff: names, both pay rates and monthly base for every role.
     const [{ data: roles }, { data: pay }] = await Promise.all([
       supabase.from('admin_roles').select('id, name, role'),
-      supabase.from('staff_pay').select('admin_role_id, hourly_rate, monthly_base'),
+      supabase.from('staff_pay').select('admin_role_id, hourly_rate, rate_per_lesson, monthly_base'),
     ])
-    const payOf: Record<string, { hourly_rate: number | null; monthly_base: number | null }> = {}
+    const payOf: Record<string, { hourly_rate: number | null; rate_per_lesson: number | null; monthly_base: number | null }> = {}
     for (const p of (pay ?? []) as any[]) payOf[p.admin_role_id] = p
 
     const roleRows = ((roles ?? []) as any[]).map(r => ({
       ...r,
-      hourly_rate:  payOf[r.id]?.hourly_rate  ?? null,
-      monthly_base: payOf[r.id]?.monthly_base ?? null,
+      hourly_rate:     payOf[r.id]?.hourly_rate     ?? null,
+      rate_per_lesson: payOf[r.id]?.rate_per_lesson ?? null,
+      monthly_base:    payOf[r.id]?.monthly_base    ?? null,
     })) as Role[]
 
     const nameOf: Record<string, string> = {}
-    const rateOf: Record<string, number> = {}
+    const rateOf: Record<string, number> = {}        // per hour — special activities
+    const lessonRateOf: Record<string, number> = {}  // per lesson — regular sessions
     for (const r of roleRows) {
       nameOf[r.id] = r.name
       rateOf[r.id] = r.hourly_rate == null ? DEFAULT_HOURLY_RATE : Number(r.hourly_rate)
+      lessonRateOf[r.id] = r.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(r.rate_per_lesson)
     }
 
     // Only sessions with saved attendance (present_count populated on save).
@@ -133,10 +146,13 @@ export default function PayrollPage() {
           })
         }
       } else {
+        // Regular lesson: the instructor's flat per-lesson rate. Unassigned
+        // sessions pay nobody, so they carry no amount.
         items.push({
           key: s.id, name: s.instructor_id ? (nameOf[s.instructor_id] ?? 'מדריך לא ידוע') : 'ללא מדריך',
           kind: 'regular', label: s.class_name, branch: s.branch, date: s.session_date,
-          present: s.present_count ?? 0, pay: Number(s.instructor_pay ?? 0),
+          present: s.present_count ?? 0,
+          pay: s.instructor_id ? (lessonRateOf[s.instructor_id] ?? DEFAULT_RATE_PER_LESSON) : 0,
         })
       }
     }

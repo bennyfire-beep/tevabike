@@ -5,10 +5,10 @@ import { saveAttendanceAndPay, type SaveSession, type SaveRider } from '@/lib/at
 // Attendance save for the no-login instructor mobile page.
 //
 // The attendance / class_sessions writes are already anon-permitted by RLS, but
-// applying the correct pay multiplier requires reading admin_roles, which is not
-// anon-readable. So the mobile page posts here and we run the shared save logic
-// with a service-role client. That keeps the multiplier (and the rest of
-// admin_roles PII) off the public anon key while still computing pay correctly.
+// pay needs the instructor's rates from staff_pay, which is not anon-readable.
+// So the mobile page posts here and we run the shared save logic with a
+// service-role client. That keeps staff pay off the public anon key while
+// still computing the amount correctly.
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   // Require the service role: with the anon key we could still write attendance,
-  // but reading admin_roles for the pay multiplier / hourly rate would silently
+  // but reading staff_pay for the instructor's rates would silently
   // fail under RLS and understate pay. Fail loudly instead.
   if (!url || !serviceKey) {
     console.error('[instructor/save] SUPABASE_SERVICE_ROLE_KEY or URL not set — refusing to save with wrong pay. Configure it in the deployment environment.')
