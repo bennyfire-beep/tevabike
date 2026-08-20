@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
+import { isSalaryAdmin } from '@/lib/salary-access'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Monthly pay report (coordinator).
@@ -48,7 +49,8 @@ type SessionRow = {
   branch: string | null
   session_date: string
   present_count: number
-  instructor_pay: number | null
+  // instructor_pay is deliberately absent: the column is revoked from
+  // `authenticated`, and every amount here is derived live from staff_pay.
   type: 'regular' | 'special' | null
   activity_name: string | null
   instructor_ids: string[] | null
@@ -87,7 +89,7 @@ const SALARY_ADMINS = ['bennyfire@gmail.com', 'shirkobi8@gmail.com']
 
 export default function PayrollPage() {
   const user = useCoordinator()
-  const canSeeSalary = !!user?.email && SALARY_ADMINS.includes(user.email.toLowerCase())
+  const canSeeSalary = isSalaryAdmin(user?.email)
   const [month, setMonth]       = useState(currentYm)
   const [groups, setGroups]     = useState<PersonGroup[]>([])
   const [loading, setLoading]   = useState(true)
@@ -133,7 +135,7 @@ export default function PayrollPage() {
     // Only sessions with saved attendance (present_count populated on save).
     const { data: sessions } = await supabase
       .from('class_sessions')
-      .select('id, instructor_id, class_name, branch, session_date, present_count, instructor_pay, type, activity_name, instructor_ids, duration')
+      .select('id, instructor_id, class_name, branch, session_date, present_count, type, activity_name, instructor_ids, duration')
       .gte('session_date', first)
       .lte('session_date', last)
       .not('present_count', 'is', null)

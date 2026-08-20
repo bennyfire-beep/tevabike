@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAdminAuth } from '@/lib/use-admin-auth'
+import { isSalaryAdmin } from '@/lib/salary-access'
 
 // ─── Brand ────────────────────────────────────────────────────────────────────
 const PINK  = '#D4288A'
@@ -244,11 +245,28 @@ export default function SalaryPage() {
     </div>
   )
 
+  // Pay is limited to the salary admins. RLS refuses the underlying reads to
+  // anyone else anyway; this just says so instead of rendering an empty table.
+  if (user && !isSalaryAdmin(user.email)) return (
+    <div dir="rtl" style={{ background: DARK, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e8efe9', fontFamily: 'Heebo, Arial, sans-serif', padding: 24 }}>
+      <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 14, padding: 30, maxWidth: 380, textAlign: 'center' }}>
+        <div style={{ fontSize: 34, marginBottom: 10 }}>🔒</div>
+        <h1 style={{ fontSize: 18, fontWeight: 900, margin: '0 0 8px' }}>אין לך גישה למסך זה</h1>
+        <p style={{ color: '#7a8f7d', fontSize: 13.5, margin: '0 0 20px', lineHeight: 1.7 }}>
+          נתוני שכר, תעריפים ונסיעות פתוחים להנהלה בלבד.
+        </p>
+        <a href="/admin" style={{ display: 'block', background: '#b5e853', color: '#0d0f0e', borderRadius: 8, padding: '11px 0', fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>
+          חזרה לניהול
+        </a>
+      </div>
+    </div>
+  )
+
   const totalHours  = rows.reduce((s, r) => s + r.totalHours,  0)
   const totalSalary = rows.reduce((s, r) => s + r.totalSalary, 0)
   const totalTravel = rows.reduce((s, r) => s + r.travelAmount, 0)
   const totalPay    = totalSalary + totalTravel
-  const canEditRate = user?.role === 'coordinator'
+  const canEditRate = isSalaryAdmin(user?.email)
 
   return (
     <div dir="rtl" style={{ fontFamily: 'Heebo, Arial, sans-serif', background: DARK, minHeight: '100vh', color: '#e8efe9' }}>

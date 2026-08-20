@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { DEFAULT_HOURLY_RATE } from '@/lib/attendance'
+import { isSalaryAdmin } from '@/lib/salary-access'
 
 const ACCENT = '#b5e853'
 const CARD   = '#141716'
@@ -64,7 +65,7 @@ export default function StaffPage() {
 
   // רק בני ושיר רואים תעריפים
   const me = useCoordinator()
-  const canSeeSalary = !!me?.email && ['bennyfire@gmail.com','shirkobi8@gmail.com'].includes(me.email.toLowerCase())
+  const canSeeSalary = isSalaryAdmin(me?.email)
 
   const loadStaff = useCallback(async () => {
     // Show all staff (active + inactive) so deactivated instructors can be

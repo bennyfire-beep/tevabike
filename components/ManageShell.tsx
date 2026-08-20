@@ -3,26 +3,33 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createContext, useContext } from 'react'
 import { useAdminAuth, type AdminUser } from '@/lib/use-admin-auth'
+import { isSalaryAdmin } from '@/lib/salary-access'
 
 /**
  * Chrome for the top-level management screens (/admin/groups, /admin/students,
  * /admin/instructors, /admin/attendance, /admin/salaries).
  *
  * These sit outside the per-role areas on purpose: instructors mark attendance
- * from their phone and coordinators manage the roster, so the pages are open to
- * any signed-in admin. proxy.ts still gates them behind a valid role cookie.
+ * from their phone and coordinators manage the roster, so the roster screens are
+ * open to any signed-in admin and proxy.ts gates them behind a valid role cookie.
+ *
+ * The screens that show pay or rates (/admin/salaries, /admin/instructors) pass
+ * salaryOnly and are limited to the salary admins. That is a courtesy layer —
+ * the real enforcement is is_salary_admin() in RLS, which returns nothing to
+ * anyone else even on a direct REST call.
  */
 
 /** The signed-in admin, so screens inside the shell don't refetch it. */
 const ManageCtx = createContext<AdminUser | null>(null)
 export const useManageUser = () => useContext(ManageCtx)
 
-export const NAV = [
+export const NAV: { href: string; label: string; icon: string; salaryOnly?: boolean }[] = [
   { href: '/admin/groups',      label: 'קבוצות',  icon: '👥' },
   { href: '/admin/students',    label: 'חניכים',  icon: '🚵' },
-  { href: '/admin/instructors', label: 'מדריכים', icon: '🎓' },
+  // Rates live on this screen, so it is salary-admin only.
+  { href: '/admin/instructors', label: 'מדריכים', icon: '🎓', salaryOnly: true },
   { href: '/admin/attendance',  label: 'נוכחות',  icon: '✅' },
-  { href: '/admin/salaries',    label: 'שכר',     icon: '₪'  },
+  { href: '/admin/salaries',    label: 'שכר',     icon: '₪',  salaryOnly: true },
 ]
 
 export const C = {
@@ -101,7 +108,14 @@ export function Btn({
   )
 }
 
-export function ManageShell({ title, children }: { title: string; children: React.ReactNode }) {
+export function ManageShell({
+  title, children, salaryOnly = false,
+}: {
+  title: string
+  children: React.ReactNode
+  /** Screens that show pay or rates. Blocked for anyone but the salary admins. */
+  salaryOnly?: boolean
+}) {
   const { user, loading, logout } = useAdminAuth()
   const pathname = usePathname()
 
@@ -113,6 +127,31 @@ export function ManageShell({ title, children }: { title: string; children: Reac
     )
   }
   if (!user) return null
+
+  const canSeeSalary = isSalaryAdmin(user.email)
+  const navItems = NAV.filter(n => !n.salaryOnly || canSeeSalary)
+
+  // Belt and braces: RLS already returns nothing to a non-salary-admin, but the
+  // screen should say so plainly rather than render an empty report.
+  if (salaryOnly && !canSeeSalary) {
+    return (
+      <div dir="rtl" style={{ fontFamily: 'Heebo, Arial, sans-serif', background: C.bg, minHeight: '100vh', color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 30, maxWidth: 380, textAlign: 'center' }}>
+          <div style={{ fontSize: 34, marginBottom: 10 }}>🔒</div>
+          <h1 style={{ fontSize: 18, fontWeight: 900, margin: '0 0 8px' }}>אין לך גישה למסך זה</h1>
+          <p style={{ color: C.muted, fontSize: 13.5, margin: '0 0 20px', lineHeight: 1.7 }}>
+            נתוני שכר, תעריפים ונסיעות פתוחים להנהלה בלבד.
+          </p>
+          <Link
+            href="/admin/attendance"
+            style={{ display: 'block', background: C.accent, color: C.bg, borderRadius: 8, padding: '11px 0', fontWeight: 700, fontSize: 14, textDecoration: 'none' }}
+          >
+            חזרה לנוכחות
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <ManageCtx.Provider value={user}>
@@ -135,7 +174,7 @@ export function ManageShell({ title, children }: { title: string; children: Reac
 
         {/* Horizontally scrollable tabs — fits a phone without wrapping */}
         <nav style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 2, WebkitOverflowScrolling: 'touch' }}>
-          {NAV.map(n => {
+          {navItems.map(n => {
             const active = pathname === n.href
             return (
               <Link

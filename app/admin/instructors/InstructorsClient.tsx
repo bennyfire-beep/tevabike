@@ -272,7 +272,7 @@ export default function InstructorsClient() {
   }
 
   return (
-    <ManageShell title="מדריכים">
+    <ManageShell title="מדריכים" salaryOnly>
       <ErrorBox>{error}</ErrorBox>
       {notice && (
         <div style={{ background: '#f59e0b22', border: '1px solid #f59e0b44', borderRadius: 8, padding: '10px 14px', color: '#fbbf24', fontSize: 13, marginBottom: 14 }}>

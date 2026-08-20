@@ -115,13 +115,20 @@ export async function GET(request: NextRequest) {
   const month  = url.searchParams.get('month') ?? prevMonth()   // cron reports prev month
   const doSend = url.searchParams.get('send') === 'true'
 
-  // Verify cron secret (set CRON_SECRET in env; Vercel passes it automatically)
+  // ── Authorisation: the cron secret is mandatory ──────────────────────────
+  // This route runs with the service-role key and returns every instructor's
+  // name, personal rates and pay. It previously only checked CRON_SECRET when
+  // that variable happened to be set — and it was not set in production, so the
+  // whole report was readable by anyone on the internet. Fail closed instead:
+  // no secret configured means nobody gets in, including the cron.
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret) {
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  if (!cronSecret) {
+    console.error('[salary/report] CRON_SECRET is not set — refusing to serve the salary report.')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  const authHeader = request.headers.get('authorization')
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL

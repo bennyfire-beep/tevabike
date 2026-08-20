@@ -187,7 +187,7 @@ export default function SalariesClient() {
   const grandTravel  = useMemo(() => active.reduce((s, r) => s + r.travelPay, 0), [active])
 
   return (
-    <ManageShell title="דוח שכר חודשי">
+    <ManageShell title="דוח שכר חודשי" salaryOnly>
       <ErrorBox>{error}</ErrorBox>
 
       <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 15, marginBottom: 16 }}>

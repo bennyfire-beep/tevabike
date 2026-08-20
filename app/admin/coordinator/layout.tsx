@@ -5,13 +5,12 @@ import { useEffect, useState } from 'react'
 import { useAdminAuth } from '@/lib/use-admin-auth'
 import { CoordinatorCtx } from '@/lib/coordinator-context'
 import { supabase } from '@/lib/supabase'
+import { isSalaryAdmin } from '@/lib/salary-access'
 
 const LEADS_HREF = '/admin/coordinator/leads'
 
-// רק בני ושיר רואים שכר. תואם ל-is_salary_admin() בבסיס הנתונים.
-
-
-const SALARY_ADMINS = ['bennyfire@gmail.com', 'shirkobi8@gmail.com']
+// Salary visibility is limited to the two salary admins. The list mirrors
+// is_salary_admin() in the database, which is the real enforcement.
 const NAV = [
   { href: '/admin/coordinator',            label: 'לוח בקרה', exact: true  },
   { href: '/admin/coordinator/groups',     label: 'קבוצות',   exact: false },
@@ -50,7 +49,7 @@ export default function CoordinatorLayout({ children }: { children: React.ReactN
   )
   if (!user) return null
 
-  const canSeeSalary = !!user.email && SALARY_ADMINS.includes(user.email.toLowerCase())
+  const canSeeSalary = isSalaryAdmin(user.email)
   const navItems = NAV.filter(n => !(n as any).salaryOnly || canSeeSalary)
 
   return (

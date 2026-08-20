@@ -20,16 +20,30 @@ const ROLE_PREFIXES: Record<string, string> = {
   accountant:  '/admin/accountant',
 }
 
+// Screens that show pay, rates or travel. Only the salary admins may open them.
+// Kept in step with lib/salary-access.ts and is_salary_admin() in Postgres.
+const SALARY_PATHS = [
+  '/admin/salary',
+  '/admin/salaries',
+  '/admin/instructors',
+  '/admin/coordinator/payroll',
+]
+
+const SALARY_ADMIN_EMAILS = [
+  'bennyfire@gmail.com',
+  'shirkobi8@gmail.com',
+]
+
 // ─── JWT decode (no signature verification — fast, Edge-safe) ─────────────────
 // The cookie is httpOnly (cannot be modified by client JS).
 // Full DB verification still happens in useAdminAuth on every page load.
-function decodeJWT(token: string): { exp?: number; sub?: string } | null {
+function decodeJWT(token: string): { exp?: number; sub?: string; email?: string } | null {
   try {
     const part = token.split('.')[1]
     if (!part) return null
     const padded = part.replace(/-/g, '+').replace(/_/g, '/')
     // atob is available in the Edge Runtime
-    return JSON.parse(atob(padded)) as { exp?: number; sub?: string }
+    return JSON.parse(atob(padded)) as { exp?: number; sub?: string; email?: string }
   } catch {
     return null
   }
@@ -87,6 +101,17 @@ export function proxy(request: NextRequest): NextResponse {
 
     if (isOnWrongRolePath) {
       return NextResponse.redirect(new URL(ROLE_PREFIXES[userRole]!, request.url))
+    }
+
+    // Pay screens: only the salary admins, checked at the edge from the email
+    // claim in the Supabase JWT. The cookie is httpOnly and the token is signed
+    // by Supabase, so this cannot be forged from the browser. RLS enforces the
+    // same rule on the data itself — this just stops the page rendering at all.
+    if (SALARY_PATHS.some(p => isUnder(pathname, p))) {
+      const email = (payload.email ?? '').toLowerCase()
+      if (!SALARY_ADMIN_EMAILS.includes(email)) {
+        return NextResponse.redirect(new URL(ROLE_PREFIXES[userRole]!, request.url))
+      }
     }
 
     // No sensitive data in URL params — strip if present

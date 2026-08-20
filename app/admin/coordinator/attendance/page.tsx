@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
-import { saveAttendanceAndPay } from '@/lib/attendance'
+import { saveAttendance as persistAttendance } from '@/lib/attendance'
 import { useCoordinator } from '@/lib/coordinator-context'
 
 const BRANCH_COLOR: Record<string, string> = {
@@ -233,7 +233,7 @@ export default function AttendancePage() {
     if (error) { alert(error.message); setSpCreating(false); return }
     const s = data as unknown as Session
     // Persist the chosen participants (all present by default) and compute pay.
-    const res = await saveAttendanceAndPay(s, spParticipants.map(r => ({ id: r.id, full_name: r.full_name })), {})
+    const res = await persistAttendance(s, spParticipants.map(r => ({ id: r.id, full_name: r.full_name })), {})
     if (res.error) alert(res.error)
     setSessions(p => [...p, s])
     loadAttendance(s)
@@ -246,9 +246,10 @@ export default function AttendancePage() {
     if (!selected || riders.length === 0) return
     setSaving(true)
     // Shared save flow: upserts attendance and recomputes the instructor pay.
-    const res = await saveAttendanceAndPay(selected, riders, attendance)
+    const res = await persistAttendance(selected, riders, attendance)
     if (res.error) { alert(res.error); setSaving(false); return }
-    setSavedMsg(`נוכחות נשמרה! ✓ ${res.presentCount} נוכחים · שכר ₪${res.pay.toLocaleString()}`)
+    // No pay in this message: saving a register is not a salary-admin action.
+    setSavedMsg(`נוכחות נשמרה! ✓ ${res.presentCount} נוכחים`)
     setTimeout(() => setSavedMsg(''), 4000)
     setSaving(false)
   }
