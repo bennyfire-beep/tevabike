@@ -40,6 +40,11 @@ export async function POST(request: NextRequest) {
     // sets a per-lesson rate, the older coordinator staff screen an hourly one.
     ratePerLesson?: string | number | null
     hourlyRate?: string | number | null
+    // Travel arrangement, set on /admin/instructors.
+    travelType?: string | null
+    travelKm?: string | number | null
+    travelRate?: string | number | null
+    travelMonthly?: string | number | null
   }
   try { body = await request.json() }
   catch { return NextResponse.json({ error: 'בקשה לא תקינה' }, { status: 400 }) }
@@ -53,6 +58,15 @@ export async function POST(request: NextRequest) {
     body.ratePerLesson != null && body.ratePerLesson !== '' ? Number(body.ratePerLesson) : 150
   const hourlyRate =
     body.hourlyRate != null && body.hourlyRate !== '' ? Number(body.hourlyRate) : null
+
+  const num = (v: unknown) => (v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : 0)
+  const travelType = ['per_km', 'none', 'monthly_fixed'].includes(String(body.travelType))
+    ? String(body.travelType)
+    : 'none'
+  // Only keep the fields the chosen arrangement actually uses.
+  const travelKm      = travelType === 'per_km'        ? num(body.travelKm)      : 0
+  const travelRate    = travelType === 'per_km'        ? num(body.travelRate)    : 0
+  const travelMonthly = travelType === 'monthly_fixed' ? num(body.travelMonthly) : 0
 
   if (!name) return NextResponse.json({ error: 'חסר שם' }, { status: 400 })
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
@@ -104,6 +118,10 @@ export async function POST(request: NextRequest) {
           admin_role_id: roleRow.id,
           rate_per_lesson: ratePerLesson,
           ...(hourlyRate !== null ? { hourly_rate: hourlyRate } : {}),
+          travel_type: travelType,
+          travel_km: travelKm,
+          travel_rate: travelRate,
+          travel_monthly_amount: travelMonthly,
         },
         { onConflict: 'admin_role_id' },
       )

@@ -1,8 +1,13 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
-import { ManageShell, Note, ErrorBox, C, inputStyle, labelStyle } from '@/components/ManageShell'
+import {
+  computeTravel, travelConfigOf, travelDetail, TRAVEL_LABEL, type TravelType,
+} from '@/lib/travel'
+import {
+  ManageShell, Btn, Note, ErrorBox, C, inputStyle, labelStyle,
+} from '@/components/ManageShell'
 
 type Row = {
   id: string
@@ -16,6 +21,12 @@ type Row = {
   specialHours: number
   hourlyRate: number
   specialPay: number
+  // Travel — arrangement per instructor.
+  travelType: TravelType
+  workingDays: number
+  travelDetail: string
+  travelPay: number
+  travelIsOverride: boolean   // this month has its own instructor_travel row
   total: number
 }
 
@@ -40,97 +51,140 @@ export default function SalariesClient() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState('')
 
-  useEffect(() => {
-    let cancelled = false
+  // Inline editing of a monthly_fixed travel amount for this month.
+  const [editingTravelId, setEditingTravelId] = useState<string | null>(null)
+  const [travelInput,     setTravelInput]     = useState('')
+  const [savingTravel,    setSavingTravel]    = useState(false)
 
-    async function load() {
-      setLoading(true)
-      setError('')
-      const { from, to } = monthRange(month)
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    const { from, to } = monthRange(month)
 
-      const [
-        { data: instructors, error: e1 },
-        { data: pay,         error: e2 },
-        { data: sessions,    error: e3 },
-      ] = await Promise.all([
-        supabase.from('admin_roles').select('id, name').eq('role', 'instructor').order('name'),
-        // Both rates live here, not on admin_roles.
-        supabase.from('staff_pay').select('admin_role_id, rate_per_lesson, hourly_rate'),
-        supabase
-          .from('class_sessions')
-          .select('id, instructor_id, instructor_ids, type, duration')
-          .gte('session_date', from)
-          .lte('session_date', to),
-      ])
+    const [
+      { data: instructors, error: e1 },
+      { data: pay,         error: e2 },
+      { data: sessions,    error: e3 },
+      { data: travelRows,  error: e4 },
+    ] = await Promise.all([
+      supabase.from('admin_roles').select('id, name').eq('role', 'instructor').order('name'),
+      // Rates and travel arrangement — never on admin_roles.
+      supabase
+        .from('staff_pay')
+        .select('admin_role_id, rate_per_lesson, hourly_rate, travel_type, travel_km, travel_rate, travel_monthly_amount'),
+      supabase
+        .from('class_sessions')
+        .select('id, instructor_id, instructor_ids, type, duration, session_date')
+        .gte('session_date', from)
+        .lte('session_date', to),
+      // Per-month override for the monthly_fixed arrangement.
+      supabase.from('instructor_travel').select('instructor_id, amount').eq('month', month),
+    ])
 
-      if (cancelled) return
-
-      if (e1 || e2 || e3) {
-        setError('הטעינה נכשלה: ' + (e1?.message ?? e2?.message ?? e3?.message))
-        setLoading(false)
-        return
-      }
-
-      // Tally per instructor. A lesson counts for instructor_id and for anyone
-      // listed in instructor_ids when a session was co-taught.
-      const lessons      = new Map<string, number>()
-      const specialCount = new Map<string, number>()
-      const specialHours = new Map<string, number>()
-
-      for (const s of sessions ?? []) {
-        const ids = new Set<string>()
-        if (s.instructor_id) ids.add(s.instructor_id)
-        for (const extra of (s.instructor_ids ?? []) as string[]) ids.add(extra)
-
-        for (const id of ids) {
-          if (s.type === 'special') {
-            specialCount.set(id, (specialCount.get(id) ?? 0) + 1)
-            specialHours.set(id, (specialHours.get(id) ?? 0) + (Number(s.duration) || 0))
-          } else {
-            lessons.set(id, (lessons.get(id) ?? 0) + 1)
-          }
-        }
-      }
-
-      const payOf = new Map((pay ?? []).map(p => [p.admin_role_id, p]))
-
-      setRows(
-        (instructors ?? []).map(i => {
-          const p             = payOf.get(i.id)
-          const ratePerLesson = p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson)
-          const hourlyRate    = p?.hourly_rate     == null ? DEFAULT_HOURLY_RATE     : Number(p.hourly_rate)
-
-          const n        = lessons.get(i.id) ?? 0
-          const hours    = specialHours.get(i.id) ?? 0
-          const lessonPay  = n * ratePerLesson
-          const specialPay = hours * hourlyRate
-
-          return {
-            id: i.id,
-            name: i.name ?? '—',
-            lessons: n,
-            ratePerLesson,
-            lessonPay,
-            specialCount: specialCount.get(i.id) ?? 0,
-            specialHours: hours,
-            hourlyRate,
-            specialPay,
-            total: lessonPay + specialPay,
-          }
-        }),
-      )
+    if (e1 || e2 || e3 || e4) {
+      setError('הטעינה נכשלה: ' + (e1?.message ?? e2?.message ?? e3?.message ?? e4?.message))
       setLoading(false)
+      return
     }
 
-    load()
-    return () => { cancelled = true }
+    // Tally per instructor. A session counts for instructor_id and for anyone
+    // listed in instructor_ids when it was co-taught.
+    const lessons      = new Map<string, number>()
+    const specialCount = new Map<string, number>()
+    const specialHours = new Map<string, number>()
+    const workDays     = new Map<string, Set<string>>()   // distinct dates actually taught
+
+    for (const s of sessions ?? []) {
+      const ids = new Set<string>()
+      if (s.instructor_id) ids.add(s.instructor_id)
+      for (const extra of (s.instructor_ids ?? []) as string[]) ids.add(extra)
+
+      for (const id of ids) {
+        if (!workDays.has(id)) workDays.set(id, new Set())
+        workDays.get(id)!.add(s.session_date)
+
+        if (s.type === 'special') {
+          specialCount.set(id, (specialCount.get(id) ?? 0) + 1)
+          specialHours.set(id, (specialHours.get(id) ?? 0) + (Number(s.duration) || 0))
+        } else {
+          lessons.set(id, (lessons.get(id) ?? 0) + 1)
+        }
+      }
+    }
+
+    const payOf      = new Map((pay ?? []).map(p => [p.admin_role_id, p]))
+    const overrideOf = new Map((travelRows ?? []).map(t => [t.instructor_id, Number(t.amount)]))
+
+    setRows(
+      (instructors ?? []).map(i => {
+        const p             = payOf.get(i.id)
+        const ratePerLesson = p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson)
+        const hourlyRate    = p?.hourly_rate     == null ? DEFAULT_HOURLY_RATE     : Number(p.hourly_rate)
+
+        const n           = lessons.get(i.id) ?? 0
+        const hours       = specialHours.get(i.id) ?? 0
+        const workingDays = workDays.get(i.id)?.size ?? 0
+        const lessonPay   = n * ratePerLesson
+        const specialPay  = hours * hourlyRate
+
+        const override  = overrideOf.has(i.id) ? overrideOf.get(i.id)! : null
+        const travelPay = computeTravel(p, workingDays, override)
+
+        return {
+          id: i.id,
+          name: i.name ?? '—',
+          lessons: n,
+          ratePerLesson,
+          lessonPay,
+          specialCount: specialCount.get(i.id) ?? 0,
+          specialHours: hours,
+          hourlyRate,
+          specialPay,
+          travelType: travelConfigOf(p).type,
+          workingDays,
+          travelDetail: travelDetail(p, workingDays),
+          travelPay,
+          travelIsOverride: override !== null,
+          total: lessonPay + specialPay + travelPay,
+        }
+      }),
+    )
+    setLoading(false)
   }, [month])
 
+  useEffect(() => { load() }, [load])
+
+  async function saveTravel(id: string) {
+    const amount = Number(travelInput)
+    if (!Number.isFinite(amount) || amount < 0) { setError('סכום נסיעות לא תקין'); return }
+
+    setSavingTravel(true)
+    setError('')
+
+    // One row per instructor per month — the table already has a unique key.
+    const { error: err } = await supabase
+      .from('instructor_travel')
+      .upsert(
+        { instructor_id: id, month, amount, mode: 'car', km: 0 },
+        { onConflict: 'instructor_id,month' },
+      )
+
+    setSavingTravel(false)
+    if (err) { setError('שמירת הנסיעות נכשלה: ' + err.message); return }
+
+    setEditingTravelId(null)
+    load()
+  }
+
   // Instructors who worked nothing this month are noise in a payroll report.
-  const active = useMemo(() => rows.filter(r => r.lessons > 0 || r.specialCount > 0), [rows])
-  const grand  = useMemo(() => active.reduce((s, r) => s + r.total, 0), [active])
+  const active = useMemo(
+    () => rows.filter(r => r.lessons > 0 || r.specialCount > 0 || r.travelPay > 0),
+    [rows],
+  )
+  const grand        = useMemo(() => active.reduce((s, r) => s + r.total, 0), [active])
   const grandLessons = useMemo(() => active.reduce((s, r) => s + r.lessonPay, 0), [active])
   const grandSpecial = useMemo(() => active.reduce((s, r) => s + r.specialPay, 0), [active])
+  const grandTravel  = useMemo(() => active.reduce((s, r) => s + r.travelPay, 0), [active])
 
   return (
     <ManageShell title="דוח שכר חודשי">
@@ -166,7 +220,7 @@ export default function SalariesClient() {
                   </div>
 
                   {/* Special activities */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, paddingBottom: 7, borderBottom: `1px solid ${C.border}` }}>
                     <span style={{ color: r.specialCount > 0 ? '#c084fc' : C.muted }}>
                       ★ פעילויות מיוחדות
                       <span style={{ opacity: 0.75 }}>
@@ -177,6 +231,47 @@ export default function SalariesClient() {
                     </span>
                     <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{ils(r.specialPay)}</span>
                   </div>
+
+                  {/* Travel */}
+                  {editingTravelId === r.id ? (
+                    <div style={{ display: 'flex', gap: 7, alignItems: 'flex-end', paddingTop: 3 }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={labelStyle}>נסיעות לחודש זה (₪)</label>
+                        <input
+                          style={inputStyle} type="number" inputMode="decimal" dir="ltr" autoFocus
+                          value={travelInput} onChange={e => setTravelInput(e.target.value)}
+                        />
+                      </div>
+                      <Btn onClick={() => saveTravel(r.id)} disabled={savingTravel} style={{ padding: '11px 14px' }}>
+                        {savingTravel ? '...' : 'שמור'}
+                      </Btn>
+                      <Btn tone="ghost" onClick={() => setEditingTravelId(null)} disabled={savingTravel} style={{ padding: '11px 12px' }}>✕</Btn>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, alignItems: 'center' }}>
+                      <span style={{ color: r.travelPay > 0 ? '#81d4fa' : C.muted }}>
+                        🚗 נסיעות
+                        <span style={{ opacity: 0.75 }}> · {TRAVEL_LABEL[r.travelType]}</span>
+                        {r.travelType !== 'none' && (
+                          <span style={{ opacity: 0.6, fontSize: 12 }}> · {r.travelDetail}</span>
+                        )}
+                        {r.travelIsOverride && (
+                          <span style={{ color: '#fbbf24', fontSize: 11 }}> · נערך ידנית</span>
+                        )}
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+                        <span style={{ fontWeight: 700 }}>{ils(r.travelPay)}</span>
+                        {r.travelType === 'monthly_fixed' && (
+                          <button
+                            onClick={() => { setEditingTravelId(r.id); setTravelInput(String(r.travelPay)) }}
+                            style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 7, color: C.muted, padding: '4px 9px', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer' }}
+                          >
+                            ✎
+                          </button>
+                        )}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -187,8 +282,11 @@ export default function SalariesClient() {
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: C.muted, marginBottom: 6 }}>
               <span>שיעורים רגילים</span><span>{ils(grandLessons)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: C.muted, marginBottom: 10, paddingBottom: 10, borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: C.muted, marginBottom: 6 }}>
               <span>פעילויות מיוחדות</span><span>{ils(grandSpecial)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: C.muted, marginBottom: 10, paddingBottom: 10, borderBottom: `1px solid ${C.border}` }}>
+              <span>נסיעות</span><span>{ils(grandTravel)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontWeight: 800, fontSize: 15 }}>סה״כ לתשלום</span>
@@ -196,9 +294,9 @@ export default function SalariesClient() {
             </div>
           </div>
 
-          {rows.some(r => r.lessons === 0 && r.specialCount === 0) && (
+          {rows.some(r => r.lessons === 0 && r.specialCount === 0 && r.travelPay === 0) && (
             <div style={{ color: C.muted, fontSize: 12, marginTop: 12, textAlign: 'center' }}>
-              {rows.filter(r => r.lessons === 0 && r.specialCount === 0).length} מדריכים ללא פעילות החודש אינם מוצגים
+              {rows.filter(r => r.lessons === 0 && r.specialCount === 0 && r.travelPay === 0).length} מדריכים ללא פעילות החודש אינם מוצגים
             </div>
           )}
         </>

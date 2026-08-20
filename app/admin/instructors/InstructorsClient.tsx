@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
 import {
+  TRAVEL_TYPES, TRAVEL_LABEL, TRAVEL_HINT, travelConfigOf, type TravelType,
+} from '@/lib/travel'
+import {
   ManageShell, Btn, Note, ErrorBox, C, inputStyle, labelStyle,
 } from '@/components/ManageShell'
 
@@ -13,6 +16,10 @@ type Instructor = {
   active: boolean | null
   ratePerLesson: number // staff_pay.rate_per_lesson — an ordinary weekly lesson
   hourlyRate: number    // staff_pay.hourly_rate     — special activities, per hour
+  travelType: TravelType
+  travelKm: number
+  travelRate: number
+  travelMonthly: number
   hasPayRow: boolean    // false → the numbers shown are defaults, not set values
 }
 
@@ -22,6 +29,79 @@ const emptyForm = {
   name: '', email: '', password: '', branch: 'משגב',
   ratePerLesson: String(DEFAULT_RATE_PER_LESSON),
   hourlyRate: String(DEFAULT_HOURLY_RATE),
+  travelType: 'none' as TravelType,
+  travelKm: '', travelRate: '', travelMonthly: '',
+}
+
+/** Travel-type picker plus whichever fields that choice needs. */
+function TravelFields({
+  type, km, rate, monthly, onType, onKm, onRate, onMonthly,
+}: {
+  type: TravelType; km: string; rate: string; monthly: string
+  onType: (t: TravelType) => void
+  onKm: (v: string) => void
+  onRate: (v: string) => void
+  onMonthly: (v: string) => void
+}) {
+  return (
+    <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 13 }}>
+      <label style={labelStyle}>הסדר נסיעות</label>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 4 }}>
+        {TRAVEL_TYPES.map(t => {
+          const on = type === t
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => onType(t)}
+              style={{
+                background: on ? C.accent : 'transparent',
+                color: on ? C.bg : C.muted,
+                border: `1px solid ${on ? C.accent : C.border}`,
+                borderRadius: 9, padding: '10px 4px', fontSize: 12.5, fontWeight: 700,
+                fontFamily: 'inherit', cursor: 'pointer', minHeight: 44,
+              }}
+            >
+              {TRAVEL_LABEL[t]}
+            </button>
+          )
+        })}
+      </div>
+      <div style={{ color: C.muted, fontSize: 11.5, marginBottom: 10 }}>{TRAVEL_HINT[type]}</div>
+
+      {type === 'per_km' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div>
+            <label style={labelStyle}>ק״מ ליום עבודה</label>
+            <input
+              style={inputStyle} type="number" inputMode="decimal" dir="ltr"
+              value={km} onChange={e => onKm(e.target.value)} placeholder="0"
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>תעריף לק״מ (₪)</label>
+            <input
+              style={inputStyle} type="number" inputMode="decimal" dir="ltr"
+              value={rate} onChange={e => onRate(e.target.value)} placeholder="0"
+            />
+          </div>
+        </div>
+      )}
+
+      {type === 'monthly_fixed' && (
+        <div>
+          <label style={labelStyle}>סכום חודשי (₪)</label>
+          <input
+            style={inputStyle} type="number" inputMode="decimal" dir="ltr"
+            value={monthly} onChange={e => onMonthly(e.target.value)} placeholder="0"
+          />
+          <div style={{ color: C.muted, fontSize: 11.5, marginTop: 5 }}>
+            זו ברירת המחדל — אפשר לשנות לחודש מסוים ישירות בדוח השכר.
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function InstructorsClient() {
@@ -33,10 +113,14 @@ export default function InstructorsClient() {
   const [saving,  setSaving]  = useState(false)
   const [form,    setForm]    = useState({ ...emptyForm })
 
-  // Inline rate editing — both rates together.
+  // Inline editing — both rates and the travel arrangement together.
   const [editingId,   setEditingId]   = useState<string | null>(null)
   const [editLesson,  setEditLesson]  = useState('')
   const [editHourly,  setEditHourly]  = useState('')
+  const [editTravelType,    setEditTravelType]    = useState<TravelType>('none')
+  const [editTravelKm,      setEditTravelKm]      = useState('')
+  const [editTravelRate,    setEditTravelRate]    = useState('')
+  const [editTravelMonthly, setEditTravelMonthly] = useState('')
   const [savingRates, setSavingRates] = useState(false)
 
   const set = (k: keyof typeof emptyForm, v: string) => setForm(f => ({ ...f, [k]: v }))
@@ -49,8 +133,10 @@ export default function InstructorsClient() {
         .select('id, name, branch, active')
         .eq('role', 'instructor')
         .order('name'),
-      // Both rates live here, keyed by admin_roles.id — never on admin_roles.
-      supabase.from('staff_pay').select('admin_role_id, rate_per_lesson, hourly_rate'),
+      // Rates and the travel arrangement live here, keyed by admin_roles.id.
+      supabase
+        .from('staff_pay')
+        .select('admin_role_id, rate_per_lesson, hourly_rate, travel_type, travel_km, travel_rate, travel_monthly_amount'),
     ])
 
     if (e1 || e2) {
@@ -59,6 +145,7 @@ export default function InstructorsClient() {
       const payOf = new Map((pay ?? []).map(p => [p.admin_role_id, p]))
       setList((roles ?? []).map(r => {
         const p = payOf.get(r.id)
+        const cfg = travelConfigOf(p)
         return {
           id: r.id,
           name: r.name,
@@ -66,6 +153,10 @@ export default function InstructorsClient() {
           active: r.active,
           ratePerLesson: p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson),
           hourlyRate:    p?.hourly_rate     == null ? DEFAULT_HOURLY_RATE     : Number(p.hourly_rate),
+          travelType:    cfg.type,
+          travelKm:      cfg.km,
+          travelRate:    cfg.rate,
+          travelMonthly: cfg.monthly,
           hasPayRow: !!p,
         }
       }))
@@ -101,6 +192,10 @@ export default function InstructorsClient() {
           branch: form.branch,
           ratePerLesson: form.ratePerLesson || DEFAULT_RATE_PER_LESSON,
           hourlyRate:    form.hourlyRate    || DEFAULT_HOURLY_RATE,
+          travelType:    form.travelType,
+          travelKm:      form.travelType === 'per_km'        ? (form.travelKm || 0) : 0,
+          travelRate:    form.travelType === 'per_km'        ? (form.travelRate || 0) : 0,
+          travelMonthly: form.travelType === 'monthly_fixed' ? (form.travelMonthly || 0) : 0,
         }),
       })
       const data = await res.json()
@@ -121,6 +216,10 @@ export default function InstructorsClient() {
     setEditingId(ins.id)
     setEditLesson(String(ins.ratePerLesson))
     setEditHourly(String(ins.hourlyRate))
+    setEditTravelType(ins.travelType)
+    setEditTravelKm(String(ins.travelKm))
+    setEditTravelRate(String(ins.travelRate))
+    setEditTravelMonthly(String(ins.travelMonthly))
     setError('')
   }
 
@@ -130,21 +229,44 @@ export default function InstructorsClient() {
     if (!Number.isFinite(perLesson) || perLesson < 0) { setError('תעריף לשיעור לא תקין'); return }
     if (!Number.isFinite(hourly)    || hourly    < 0) { setError('תעריף לשעה לא תקין'); return }
 
+    // Only the fields the chosen arrangement uses are validated and stored;
+    // the others are zeroed so a stale value cannot resurface after a switch.
+    const km      = editTravelType === 'per_km'        ? Number(editTravelKm || 0)      : 0
+    const rate    = editTravelType === 'per_km'        ? Number(editTravelRate || 0)    : 0
+    const monthly = editTravelType === 'monthly_fixed' ? Number(editTravelMonthly || 0) : 0
+    if (!Number.isFinite(km) || km < 0)           { setError('ק״מ לא תקין'); return }
+    if (!Number.isFinite(rate) || rate < 0)       { setError('תעריף לק״מ לא תקין'); return }
+    if (!Number.isFinite(monthly) || monthly < 0) { setError('סכום חודשי לא תקין'); return }
+
     setSavingRates(true)
     setError('')
 
     const { error: err } = await supabase
       .from('staff_pay')
       .upsert(
-        { admin_role_id: id, rate_per_lesson: perLesson, hourly_rate: hourly },
+        {
+          admin_role_id: id,
+          rate_per_lesson: perLesson,
+          hourly_rate: hourly,
+          travel_type: editTravelType,
+          travel_km: km,
+          travel_rate: rate,
+          travel_monthly_amount: monthly,
+        },
         { onConflict: 'admin_role_id' },
       )
 
     setSavingRates(false)
-    if (err) { setError('עדכון התעריפים נכשל: ' + err.message); return }
+    if (err) { setError('העדכון נכשל: ' + err.message); return }
 
     setList(prev => prev.map(i =>
-      i.id === id ? { ...i, ratePerLesson: perLesson, hourlyRate: hourly, hasPayRow: true } : i,
+      i.id === id
+        ? {
+            ...i, ratePerLesson: perLesson, hourlyRate: hourly,
+            travelType: editTravelType, travelKm: km, travelRate: rate, travelMonthly: monthly,
+            hasPayRow: true,
+          }
+        : i,
     ))
     setEditingId(null)
   }
@@ -213,6 +335,12 @@ export default function InstructorsClient() {
                       />
                     </div>
                   </div>
+                  <TravelFields
+                    type={editTravelType} km={editTravelKm} rate={editTravelRate} monthly={editTravelMonthly}
+                    onType={setEditTravelType} onKm={setEditTravelKm}
+                    onRate={setEditTravelRate} onMonthly={setEditTravelMonthly}
+                  />
+
                   <div style={{ display: 'flex', gap: 9 }}>
                     <Btn onClick={() => saveRates(ins.id)} disabled={savingRates} style={{ flex: 1 }}>
                       {savingRates ? 'שומר...' : 'שמירה'}
@@ -221,14 +349,29 @@ export default function InstructorsClient() {
                   </div>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
-                  <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 9, padding: '9px 12px' }}>
-                    <div style={{ color: C.muted, fontSize: 11, marginBottom: 2 }}>לשיעור רגיל</div>
-                    <div style={{ color: C.accent, fontWeight: 800, fontSize: 16 }}>₪{ins.ratePerLesson}</div>
+                <div style={{ display: 'grid', gap: 9 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
+                    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 9, padding: '9px 12px' }}>
+                      <div style={{ color: C.muted, fontSize: 11, marginBottom: 2 }}>לשיעור רגיל</div>
+                      <div style={{ color: C.accent, fontWeight: 800, fontSize: 16 }}>₪{ins.ratePerLesson}</div>
+                    </div>
+                    <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 9, padding: '9px 12px' }}>
+                      <div style={{ color: C.muted, fontSize: 11, marginBottom: 2 }}>★ לשעה (מיוחדת)</div>
+                      <div style={{ color: '#c084fc', fontWeight: 800, fontSize: 16 }}>₪{ins.hourlyRate}</div>
+                    </div>
                   </div>
+
                   <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 9, padding: '9px 12px' }}>
-                    <div style={{ color: C.muted, fontSize: 11, marginBottom: 2 }}>★ לשעה (מיוחדת)</div>
-                    <div style={{ color: '#c084fc', fontWeight: 800, fontSize: 16 }}>₪{ins.hourlyRate}</div>
+                    <div style={{ color: C.muted, fontSize: 11, marginBottom: 2 }}>🚗 נסיעות · {TRAVEL_LABEL[ins.travelType]}</div>
+                    <div style={{ color: '#81d4fa', fontWeight: 800, fontSize: 14 }}>
+                      {ins.travelType === 'per_km' && (
+                        ins.travelKm > 0
+                          ? `${ins.travelKm} ק״מ × ₪${ins.travelRate} ליום עבודה`
+                          : <span style={{ color: '#fbbf24' }}>חסר ק״מ ליום — הנסיעות יחושבו ₪0</span>
+                      )}
+                      {ins.travelType === 'monthly_fixed' && `₪${ins.travelMonthly} לחודש`}
+                      {ins.travelType === 'none' && <span style={{ color: C.muted, fontWeight: 600 }}>ללא החזר</span>}
+                    </div>
                   </div>
                 </div>
               )}
@@ -290,6 +433,14 @@ export default function InstructorsClient() {
                   />
                 </div>
               </div>
+
+              <TravelFields
+                type={form.travelType} km={form.travelKm} rate={form.travelRate} monthly={form.travelMonthly}
+                onType={t => setForm(f => ({ ...f, travelType: t }))}
+                onKm={v => set('travelKm', v)}
+                onRate={v => set('travelRate', v)}
+                onMonthly={v => set('travelMonthly', v)}
+              />
 
               <div style={{ display: 'flex', gap: 9, marginTop: 4 }}>
                 <Btn onClick={addInstructor} disabled={saving} style={{ flex: 1 }}>

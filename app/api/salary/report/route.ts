@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
+import { computeTravel, TRAVEL_LABEL, travelConfigOf } from '@/lib/travel'
 
 // ─── Vercel Cron: runs at 08:00 on the 1st of every month ────────────────────
 // Add to vercel.json:  { "crons": [{ "path": "/api/salary/report", "schedule": "0 6 1 * *" }] }
@@ -42,6 +43,7 @@ function buildHtml(report: ReportRow[], ym: string, totalHours: number, totalSal
       <td style="padding:8px 12px;border-bottom:1px solid #ddd">${r.name}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center">${r.lessons} × ₪${r.ratePerLesson}<br><b>₪${r.lessonPay.toLocaleString()}</b></td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center">${r.totalHours > 0 ? `${r.totalHours}ש' × ₪${r.hourlyRate}<br><b>₪${r.specialPay.toLocaleString()}</b>` : '—'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center">${r.travelPay > 0 ? `₪${r.travelPay.toLocaleString()}<br><span style="font-size:11px;color:#6b7a72">${r.travelLabel}</span>` : '—'}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-weight:700;color:#16A34A;text-align:center">₪${r.totalSalary.toLocaleString()}</td>
     </tr>`).join('')
 
@@ -75,6 +77,7 @@ function buildHtml(report: ReportRow[], ym: string, totalHours: number, totalSal
             <th style="padding:10px 12px;text-align:right;font-size:12px;color:#6b7a72">שם מדריך</th>
             <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6b7a72">שיעורים רגילים</th>
             <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6b7a72">★ פעילויות מיוחדות</th>
+            <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6b7a72">🚗 נסיעות</th>
             <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6b7a72">סה"כ</th>
           </tr>
         </thead>
@@ -101,6 +104,8 @@ type ReportRow = {
   totalHours:    number   // hours across special activities
   hourlyRate:    number
   specialPay:    number
+  travelPay:     number
+  travelLabel:   string
   totalSalary:   number
 }
 
@@ -129,22 +134,27 @@ export async function GET(request: NextRequest) {
   // Rates live on staff_pay (admin_roles carries neither), and the lesson log is
   // class_sessions — the previous `instructor_hours` table does not exist, which
   // is why this report came out empty.
-  const [{ data: instructors }, { data: pay }, { data: sessions }] = await Promise.all([
+  const [{ data: instructors }, { data: pay }, { data: sessions }, { data: travelRows }] = await Promise.all([
     db.from('admin_roles').select('id, name').eq('role', 'instructor').order('name'),
-    db.from('staff_pay').select('admin_role_id, rate_per_lesson, hourly_rate'),
+    db.from('staff_pay')
+      .select('admin_role_id, rate_per_lesson, hourly_rate, travel_type, travel_km, travel_rate, travel_monthly_amount'),
     db.from('class_sessions')
-      .select('instructor_id, instructor_ids, type, duration')
+      .select('instructor_id, instructor_ids, type, duration, session_date')
       .gte('session_date', first).lte('session_date', last),
+    db.from('instructor_travel').select('instructor_id, amount').eq('month', month),
   ])
 
   // Tally per instructor; co-taught sessions count for everyone listed.
   const lessons      = new Map<string, number>()
   const specialHours = new Map<string, number>()
+  const workDays     = new Map<string, Set<string>>()
   for (const s of sessions ?? []) {
     const ids = new Set<string>()
     if (s.instructor_id) ids.add(s.instructor_id)
     for (const extra of (s.instructor_ids ?? []) as string[]) ids.add(extra)
     for (const id of ids) {
+      if (!workDays.has(id)) workDays.set(id, new Set())
+      workDays.get(id)!.add(s.session_date)
       if (s.type === 'special') {
         specialHours.set(id, (specialHours.get(id) ?? 0) + (Number(s.duration) || 0))
       } else {
@@ -153,17 +163,20 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const payOf = new Map((pay ?? []).map(p => [p.admin_role_id, p]))
+  const payOf      = new Map((pay ?? []).map(p => [p.admin_role_id, p]))
+  const overrideOf = new Map((travelRows ?? []).map(t => [t.instructor_id, Number(t.amount)]))
 
   const report: ReportRow[] = (instructors ?? []).map(inst => {
     const p             = payOf.get(inst.id)
     const ratePerLesson = p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson)
     const hourlyRate    = p?.hourly_rate     == null ? DEFAULT_HOURLY_RATE     : Number(p.hourly_rate)
 
-    const n     = lessons.get(inst.id) ?? 0
-    const hours = Math.round((specialHours.get(inst.id) ?? 0) * 10) / 10
-    const lessonPay  = n * ratePerLesson
-    const specialPay = hours * hourlyRate
+    const n           = lessons.get(inst.id) ?? 0
+    const hours       = Math.round((specialHours.get(inst.id) ?? 0) * 10) / 10
+    const workingDays = workDays.get(inst.id)?.size ?? 0
+    const lessonPay   = n * ratePerLesson
+    const specialPay  = hours * hourlyRate
+    const travelPay   = computeTravel(p, workingDays, overrideOf.has(inst.id) ? overrideOf.get(inst.id)! : null)
 
     return {
       name:        inst.name,
@@ -173,7 +186,9 @@ export async function GET(request: NextRequest) {
       totalHours:  hours,
       hourlyRate,
       specialPay:  Math.round(specialPay),
-      totalSalary: Math.round(lessonPay + specialPay),
+      travelPay:   Math.round(travelPay),
+      travelLabel: TRAVEL_LABEL[travelConfigOf(p).type],
+      totalSalary: Math.round(lessonPay + specialPay + travelPay),
     }
   })
 

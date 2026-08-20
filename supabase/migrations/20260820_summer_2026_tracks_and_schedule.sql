@@ -110,3 +110,27 @@ create policy coordinator_delete_groups on public.groups
 drop policy if exists coordinator_delete_sessions on public.class_sessions;
 create policy coordinator_delete_sessions on public.class_sessions
   for delete to authenticated using (true);
+
+-- ── Per-instructor travel arrangement (applied 2026-08-20) ─────────────────
+-- Standing configuration on staff_pay; the per-month amount for the
+-- monthly_fixed arrangement lives on instructor_travel, which already carries
+-- UNIQUE (instructor_id, month) and is upserted from the salary report.
+alter table public.staff_pay
+  add column if not exists travel_type text not null default 'none'
+    check (travel_type in ('per_km', 'none', 'monthly_fixed'));
+alter table public.staff_pay
+  add column if not exists travel_km numeric not null default 0;
+alter table public.staff_pay
+  add column if not exists travel_rate numeric not null default 0;
+alter table public.staff_pay
+  add column if not exists travel_monthly_amount numeric not null default 0;
+
+update public.staff_pay sp
+set travel_type = 'per_km', travel_rate = 1
+from public.admin_roles ar
+where ar.id = sp.admin_role_id and ar.name = 'תומס סלימן';
+
+update public.staff_pay sp
+set travel_type = 'none'
+from public.admin_roles ar
+where ar.id = sp.admin_role_id and ar.name = 'טל ברקן';

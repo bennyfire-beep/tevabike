@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAdminAuth } from '@/lib/use-admin-auth'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
+import { computeTravel, travelConfigOf, TRAVEL_LABEL } from '@/lib/travel'
 
 type InstructorSummary = {
   adminRoleId:   string
@@ -15,6 +16,8 @@ type InstructorSummary = {
   specialHours:  number   // camps / ימי שיא
   hourlyRate:    number
   specialPay:    number
+  travelPay:     number
+  travelLabel:   string
   totalPay:      number
   paid:          boolean
 }
@@ -108,26 +111,35 @@ export default function AccountantPage() {
 
     if (!roles?.length) { setInstructors([]); return }
 
-    // Both rates live on staff_pay, keyed by admin_roles.id.
+    // Both rates and the travel arrangement live on staff_pay.
     const { data: pay } = await supabase
       .from('staff_pay')
-      .select('admin_role_id, rate_per_lesson, hourly_rate')
+      .select('admin_role_id, rate_per_lesson, hourly_rate, travel_type, travel_km, travel_rate, travel_monthly_amount')
+
+    // Per-month travel override for the monthly_fixed arrangement.
+    const { data: travelRows } = await supabase
+      .from('instructor_travel')
+      .select('instructor_id, amount')
+      .eq('month', month)
 
     // `duration` (not duration_hours) is the real column on class_sessions.
     const { data: sessions } = await supabase
       .from('class_sessions')
-      .select('instructor_id, instructor_ids, type, duration')
+      .select('instructor_id, instructor_ids, type, duration, session_date')
       .gte('session_date', firstDay)
       .lte('session_date', lastDay)
 
     // Tally per instructor, counting co-taught sessions for everyone listed.
     const lessons      = new Map<string, number>()
     const specialHours = new Map<string, number>()
+    const workDays     = new Map<string, Set<string>>()
     for (const s of sessions ?? []) {
       const ids = new Set<string>()
       if (s.instructor_id) ids.add(s.instructor_id)
       for (const extra of (s.instructor_ids ?? []) as string[]) ids.add(extra)
       for (const id of ids) {
+        if (!workDays.has(id)) workDays.set(id, new Set())
+        workDays.get(id)!.add(s.session_date)
         if (s.type === 'special') {
           specialHours.set(id, (specialHours.get(id) ?? 0) + (Number(s.duration) || 0))
         } else {
@@ -136,17 +148,20 @@ export default function AccountantPage() {
       }
     }
 
-    const payOf = new Map((pay ?? []).map(p => [p.admin_role_id, p]))
+    const payOf      = new Map((pay ?? []).map(p => [p.admin_role_id, p]))
+    const overrideOf = new Map((travelRows ?? []).map(t => [t.instructor_id, Number(t.amount)]))
 
     const summaries: InstructorSummary[] = roles.map(r => {
       const p             = payOf.get(r.id)
       const ratePerLesson = p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson)
       const hourlyRate    = p?.hourly_rate     == null ? DEFAULT_HOURLY_RATE     : Number(p.hourly_rate)
 
-      const n     = lessons.get(r.id) ?? 0
-      const hours = Math.round((specialHours.get(r.id) ?? 0) * 10) / 10
-      const lessonPay  = n * ratePerLesson
-      const specialPay = hours * hourlyRate
+      const n           = lessons.get(r.id) ?? 0
+      const hours       = Math.round((specialHours.get(r.id) ?? 0) * 10) / 10
+      const workingDays = workDays.get(r.id)?.size ?? 0
+      const lessonPay   = n * ratePerLesson
+      const specialPay  = hours * hourlyRate
+      const travelPay   = computeTravel(p, workingDays, overrideOf.has(r.id) ? overrideOf.get(r.id)! : null)
 
       return {
         adminRoleId: r.id,
@@ -158,7 +173,9 @@ export default function AccountantPage() {
         specialHours: hours,
         hourlyRate,
         specialPay:  Math.round(specialPay),
-        totalPay:    Math.round(lessonPay + specialPay),
+        travelPay:   Math.round(travelPay),
+        travelLabel: TRAVEL_LABEL[travelConfigOf(p).type],
+        totalPay:    Math.round(lessonPay + specialPay + travelPay),
         paid:        false, // could track with a separate instructor_payments table
       }
     }).sort((a, b) => b.totalPay - a.totalPay)
@@ -331,13 +348,13 @@ export default function AccountantPage() {
                 <div style={{ padding: 28, color: '#7a8f7d', textAlign: 'center', fontSize: 13 }}>אין נתונים לחודש זה</div>
               ) : (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 1.3fr 1fr', padding: '9px 18px', borderBottom: '1px solid #252b27', fontSize: 11, color: '#7a8f7d', fontWeight: 600 }}>
-                    <span>מדריך</span><span>שיעורים רגילים</span><span>★ פעילויות מיוחדות</span><span>לתשלום</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1.2fr 1.1fr 1fr', padding: '9px 18px', borderBottom: '1px solid #252b27', fontSize: 11, color: '#7a8f7d', fontWeight: 600 }}>
+                    <span>מדריך</span><span>שיעורים רגילים</span><span>★ פעילויות מיוחדות</span><span>🚗 נסיעות</span><span>לתשלום</span>
                   </div>
                   {instructors.map((ins, i) => (
                     <div
                       key={ins.adminRoleId}
-                      style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 1.3fr 1fr', padding: '13px 18px', borderBottom: i < instructors.length - 1 ? '1px solid #1a1e1c' : 'none', alignItems: 'center' }}
+                      style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1.2fr 1.1fr 1fr', padding: '13px 18px', borderBottom: i < instructors.length - 1 ? '1px solid #1a1e1c' : 'none', alignItems: 'center' }}
                     >
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 14 }}>{ins.name}</div>
@@ -353,16 +370,21 @@ export default function AccountantPage() {
                           {ins.specialHours > 0 ? `${ins.specialHours}ש' × ₪${ins.hourlyRate}` : '—'}
                         </div>
                       </div>
+                      <div>
+                        <div style={{ color: '#81d4fa', fontWeight: 700, fontSize: 14 }}>₪{ins.travelPay.toLocaleString()}</div>
+                        <div style={{ color: '#7a8f7d', fontSize: 11 }}>{ins.travelLabel}</div>
+                      </div>
                       <span style={{ color: '#4cdb7a', fontWeight: 800, fontSize: 16 }}>
                         ₪{ins.totalPay.toLocaleString()}
                       </span>
                     </div>
                   ))}
                   {/* Total row */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.3fr 1.3fr 1fr', padding: '12px 18px', borderTop: '1px solid #252b27', background: '#1a1e1c', alignItems: 'center' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1.2fr 1.1fr 1fr', padding: '12px 18px', borderTop: '1px solid #252b27', background: '#1a1e1c', alignItems: 'center' }}>
                     <span style={{ fontWeight: 700, color: '#7a8f7d', fontSize: 13 }}>סה"כ</span>
                     <span style={{ color: '#b5e853', fontWeight: 700 }}>₪{instructors.reduce((s, i) => s + i.lessonPay, 0).toLocaleString()}</span>
                     <span style={{ color: '#c084fc', fontWeight: 700 }}>₪{instructors.reduce((s, i) => s + i.specialPay, 0).toLocaleString()}</span>
+                    <span style={{ color: '#81d4fa', fontWeight: 700 }}>₪{instructors.reduce((s, i) => s + i.travelPay, 0).toLocaleString()}</span>
                     <span style={{ color: '#4cdb7a', fontWeight: 900, fontSize: 17 }}>
                       ₪{instructors.reduce((s, i) => s + i.totalPay, 0).toLocaleString()}
                     </span>

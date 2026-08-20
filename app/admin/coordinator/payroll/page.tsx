@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
+import { computeTravel, travelDetail } from '@/lib/travel'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Monthly pay report (coordinator).
@@ -35,6 +36,10 @@ type Role = {
   hourly_rate: number | null
   rate_per_lesson: number | null
   monthly_base: number | null
+  travel_type: string | null
+  travel_km: number | null
+  travel_rate: number | null
+  travel_monthly_amount: number | null
 }
 type SessionRow = {
   id: string
@@ -49,7 +54,7 @@ type SessionRow = {
   instructor_ids: string[] | null
   duration: number | null
 }
-type Kind = 'regular' | 'special' | 'base'
+type Kind = 'regular' | 'special' | 'base' | 'travel'
 type LineItem = {
   key: string
   name: string
@@ -100,16 +105,20 @@ export default function PayrollPage() {
     // Staff: names, both pay rates and monthly base for every role.
     const [{ data: roles }, { data: pay }] = await Promise.all([
       supabase.from('admin_roles').select('id, name, role'),
-      supabase.from('staff_pay').select('admin_role_id, hourly_rate, rate_per_lesson, monthly_base'),
+      supabase.from('staff_pay').select('admin_role_id, hourly_rate, rate_per_lesson, monthly_base, travel_type, travel_km, travel_rate, travel_monthly_amount'),
     ])
-    const payOf: Record<string, { hourly_rate: number | null; rate_per_lesson: number | null; monthly_base: number | null }> = {}
+    const payOf: Record<string, any> = {}
     for (const p of (pay ?? []) as any[]) payOf[p.admin_role_id] = p
 
     const roleRows = ((roles ?? []) as any[]).map(r => ({
       ...r,
-      hourly_rate:     payOf[r.id]?.hourly_rate     ?? null,
-      rate_per_lesson: payOf[r.id]?.rate_per_lesson ?? null,
-      monthly_base:    payOf[r.id]?.monthly_base    ?? null,
+      hourly_rate:           payOf[r.id]?.hourly_rate           ?? null,
+      rate_per_lesson:       payOf[r.id]?.rate_per_lesson       ?? null,
+      monthly_base:          payOf[r.id]?.monthly_base          ?? null,
+      travel_type:           payOf[r.id]?.travel_type           ?? null,
+      travel_km:             payOf[r.id]?.travel_km             ?? null,
+      travel_rate:           payOf[r.id]?.travel_rate           ?? null,
+      travel_monthly_amount: payOf[r.id]?.travel_monthly_amount ?? null,
     })) as Role[]
 
     const nameOf: Record<string, string> = {}
@@ -130,10 +139,30 @@ export default function PayrollPage() {
       .not('present_count', 'is', null)
       .order('session_date')
 
+    // Per-month travel override for the monthly_fixed arrangement.
+    const { data: travelRows } = await supabase
+      .from('instructor_travel')
+      .select('instructor_id, amount')
+      .eq('month', ym)
+    const overrideOf: Record<string, number> = {}
+    for (const t of travelRows ?? []) overrideOf[t.instructor_id] = Number(t.amount)
+
+    // Distinct dates each instructor actually taught — the basis for per_km travel.
+    const workDays: Record<string, Set<string>> = {}
+
     const items: LineItem[] = []
 
     // Session line items (special sessions expand to one item per instructor).
     for (const s of (sessions ?? []) as SessionRow[]) {
+      // Record the working day for everyone credited with this session.
+      const credited = (s.instructor_ids && s.instructor_ids.length)
+        ? s.instructor_ids
+        : (s.instructor_id ? [s.instructor_id] : [])
+      for (const iid of credited) {
+        if (!workDays[iid]) workDays[iid] = new Set()
+        workDays[iid].add(s.session_date)
+      }
+
       if (s.type === 'special') {
         const iids = (s.instructor_ids && s.instructor_ids.length)
           ? s.instructor_ids
@@ -165,6 +194,20 @@ export default function PayrollPage() {
       }
     }
 
+    // Travel line items — one per instructor with a non-zero reimbursement.
+    // Working days are the distinct dates they actually taught this month.
+    for (const r of roleRows) {
+      const days   = workDays[r.id]?.size ?? 0
+      const amount = computeTravel(r, days, overrideOf[r.id] ?? null)
+      if (amount > 0) {
+        items.push({
+          key: 'travel-' + r.id, name: r.name, kind: 'travel',
+          label: `נסיעות · ${travelDetail(r, days)}`,
+          branch: null, date: null, present: null, pay: amount,
+        })
+      }
+    }
+
     // Merge by name.
     const map: Record<string, PersonGroup> = {}
     for (const it of items) {
@@ -172,7 +215,8 @@ export default function PayrollPage() {
       const g = map[it.name]
       g.items.push(it)
       g.totalPay += it.pay
-      if (it.kind !== 'base') { g.sessionCount++; g.totalPresent += it.present ?? 0 }
+      // Base pay and travel are not sessions — they must not inflate the count.
+      if (it.kind !== 'base' && it.kind !== 'travel') { g.sessionCount++; g.totalPresent += it.present ?? 0 }
     }
     for (const g of Object.values(map)) {
       g.items.sort((a, b) => {
@@ -342,6 +386,8 @@ export default function PayrollPage() {
                           <span style={{ fontWeight: 600 }}>{it.label}</span>
                           {it.kind === 'base'
                             ? <span style={{ marginRight: 6, background: '#f0b90b22', color: '#f0b90b', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>💼 קבוע</span>
+                            : it.kind === 'travel'
+                            ? <span style={{ marginRight: 6, background: '#81d4fa22', color: '#81d4fa', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>🚗 נסיעות</span>
                             : it.kind === 'special'
                               ? <span style={{ marginRight: 6, background: '#c084fc22', color: '#c084fc', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>★ מיוחדת</span>
                               : it.branch && <span style={{ marginRight: 6, background: (BRANCH_COLOR[it.branch] ?? '#7a8f7d') + '22', color: BRANCH_COLOR[it.branch] ?? '#7a8f7d', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>{it.branch}</span>}
