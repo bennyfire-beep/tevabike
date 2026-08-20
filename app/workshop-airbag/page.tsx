@@ -1,4 +1,4 @@
-// app/workshop-airbag/page.tsx — דף רישום סדנת איר באג (גרסה 3 — כולל תנאי אחריות)
+// app/workshop-airbag/page.tsx — דף רישום סדנת איר באג (גרסה 4 — 16 משתתפים)
 "use client";
 
 import { useEffect, useState } from "react";
@@ -167,7 +167,7 @@ export default function WorkshopAirbagPage() {
             ["🎯 למי", "פתוח לכולם · רמת מתחילים"],
             ["💰 עלות", "200 ₪ · Whistle/KTM/BH — ‏10% הנחה"],
             ["🚲 להביא", "אופניים תקינים, קסדת פול פייס, מיגון"],
-            ["👥 מקומות", "עד 10 משתתפים בלבד לסדנה"],
+            ["👥 מקומות", "עד 16 משתתפים בלבד לסדנה"],
           ].map(([k, v]) => (
             <div
               key={k}
