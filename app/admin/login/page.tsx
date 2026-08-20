@@ -38,6 +38,14 @@ const S = {
   label: { fontSize: 12, color: '#7a8f7d', display: 'block', marginBottom: 4 },
 }
 
+// Roles that exist in the system. A login is only valid if admin_roles.role
+// matches one of these keys — otherwise there is no dashboard to land on.
+const ROLE_LABELS: Record<string, string> = {
+  instructor:  'מדריך',
+  coordinator: 'רכז סניף',
+  accountant:  'רואה חשבון',
+}
+
 // useSearchParams must live inside a <Suspense> boundary to allow static export
 function ResetSuccessBanner() {
   const searchParams = useSearchParams()
@@ -88,33 +96,43 @@ export default function AdminLoginPage() {
       return
     }
 
+    // ── Look up this user's admin role ───────────────────────────────────────
+    // maybeSingle() → no row comes back as data: null instead of an error,
+    // so "no permissions" and "query failed" get distinct messages.
     const { data: rd, error: roleErr } = await supabase
       .from('admin_roles')
       .select('role, name')
       .eq('user_id', data.user.id)
-      .single()
+      .maybeSingle()
 
-    if (roleErr || !rd) {
+    if (roleErr) {
       await supabase.auth.signOut()
-      setError('לחשבון זה אין הרשאות גישה למערכת הניהול')
+      setError('שגיאה בבדיקת ההרשאות. נסה שוב בעוד רגע')
+      setLoading(false)
+      return
+    }
+
+    const role = rd?.role as string | undefined
+    if (!role || !(role in ROLE_LABELS)) {
+      await supabase.auth.signOut()
+      setError('לחשבון זה אין הרשאות גישה למערכת הניהול. פנה למנהל המערכת')
       setLoading(false)
       return
     }
 
     // ── Set httpOnly auth cookies (read by proxy.ts) ─────────────────────────
-    await setAdminSession(data.session!.access_token, rd.role)
+    await setAdminSession(data.session!.access_token, role)
     // Reset rate limit counter on success
     await resetRateLimit(email.toLowerCase(), 'login')
 
-    // Redirect directly to the role-specific dashboard (bypasses the hub)
-    router.push(`/admin/${rd.role}`)
+    // Redirect directly to the role-specific dashboard (bypasses the hub).
+    // refresh() after push re-runs proxy.ts and the server render with the
+    // cookies that were just set — without it the client router can replay a
+    // cached pre-login payload and the page appears stuck.
+    router.push(`/admin/${role}`)
+    router.refresh()
   }
 
-  const ROLE_LABELS: Record<string, string> = {
-    instructor:  'מדריך',
-    coordinator: 'רכז סניף',
-    accountant:  'רואה חשבון',
-  }
 
   return (
     <div style={S.page}>

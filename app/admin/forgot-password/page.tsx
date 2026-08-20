@@ -49,7 +49,10 @@ export default function ForgotPasswordPage() {
     setLoading(true)
     setError('')
 
-    const redirectTo = `${window.location.origin}/admin/reset-password`
+    // Hardcoded to the production domain: window.location.origin sends the
+    // reset link to localhost (or a Vercel preview URL) when the form is
+    // submitted from there, and the emailed link then goes nowhere useful.
+    const redirectTo = 'https://www.tevabike.com/admin/reset-password'
 
     const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo,
