@@ -1,4 +1,4 @@
-// app/workshop-airbag/page.tsx — דף רישום סדנת איר באג (גרסה 5 — נוסח אחריות מעודכן)
+// app/workshop-airbag/page.tsx — דף רישום סדנת איר באג (גרסה 6 — תמונת הירו)
 "use client";
 
 import { useEffect, useState } from "react";
@@ -137,6 +137,12 @@ export default function WorkshopAirbagPage() {
           }}
         />
         <div className="relative max-w-2xl mx-auto space-y-5">
+          <img
+            src="/workshop-hero.jpg"
+            alt="רוכב באוויר מעל כרית האוויר של טבע בייק — סדנת איר באג"
+            className="w-full rounded-2xl border shadow-lg"
+            style={{ borderColor: `${C.brand}55` }}
+          />
           <p className="font-bold tracking-widest text-sm" style={{ color: C.brand }}>
             טבע בייק · סדנת AIR BAG
           </p>
