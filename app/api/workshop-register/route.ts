@@ -1,4 +1,4 @@
-// app/api/workshop-register/route.ts — API רישום סדנת איר באג + מייל אישור אוטומטי
+// app/api/workshop-register/route.ts — גרסה 2: תיקון שליחת מיילים (await)
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -150,13 +150,15 @@ export async function POST(req: NextRequest) {
   const dateLabel = DATE_LABEL[workshop_date] ?? workshop_date
   const discount = !!bike_brand && DISCOUNT_BRANDS.includes(bike_brand)
 
-  // Confirmation to registrant + internal alert to Benny (both fire-and-forget)
-  void sendEmail(
+  // Confirmation to registrant + internal alert to Benny.
+  // Must be awaited: on Vercel the function freezes right after the response
+  // is returned, so un-awaited sends silently die.
+  await sendEmail(
     email,
     'הרישום לסדנת האיר באג התקבל! 🚵 טבע בייק',
     confirmationHtml(full_name, dateLabel, discount)
   )
-  void sendEmail(
+  await sendEmail(
     ADMIN_EMAIL,
     `🆕 רישום לסדנת איר באג: ${full_name} (${dateLabel})`,
     `<div dir="rtl" style="font-family:Arial,sans-serif">
