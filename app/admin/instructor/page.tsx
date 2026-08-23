@@ -28,11 +28,15 @@ import { clearAdminSession } from '@/lib/auth-actions'
 //   התלמידים שלי   — the riders of the groups I teach.
 //   המשכורת שלי    — this month's pay, mine only.
 //
-// The last two, plus opening a register and adding a rider, are served by
-// service-role routes that resolve the instructor from the access token rather
-// than from anything this page sends — see lib/instructor-identity.ts. RLS on
-// staff_pay stays shut: no instructor can read another instructor's pay, and
-// there is no request shape that would return it.
+// The last two, plus opening a register, are served by service-role routes that
+// resolve the instructor from the access token rather than from anything this
+// page sends — see lib/instructor-identity.ts. RLS on staff_pay stays shut: no
+// instructor can read another instructor's pay, and there is no request shape
+// that would return it.
+//
+// "➕ חניך חדש" is RiderForm's existing contract, unchanged: the rider is saved
+// with payment_status='unpaid', a lead is opened in "מתעניינים", and Tal gets
+// the email — see /api/staff-lead.
 //
 // Instructors on the per_km travel arrangement also report where they travelled
 // from and how far, once for the day. Neither their arrangement nor their rate
@@ -89,7 +93,14 @@ type Group = {
   start_time: string | null
   level: string | null
 }
-type Rider = { id: string; full_name: string; phone: string | null; is_regular: boolean | null }
+type Rider = {
+  id: string
+  full_name: string
+  phone: string | null
+  // 'unpaid' | 'paid' | null. RiderForm stamps 'unpaid' on anyone added in the
+  // field; null on riders who predate the column.
+  payment_status: string | null
+}
 type TravelDay = { origin: string; km: number }
 type TravelStatus = { is_per_km: boolean; today: TravelDay | null; last: TravelDay | null }
 
@@ -626,7 +637,7 @@ export default function InstructorPage() {
       const ids = (attData ?? []).map(a => a.rider_id)
       let plist: Rider[] = []
       if (ids.length) {
-        const { data } = await supabase.from('riders').select('id, full_name, phone, is_regular').in('id', ids).order('full_name')
+        const { data } = await supabase.from('riders').select('id, full_name, phone, payment_status').in('id', ids).order('full_name')
         plist = (data ?? []) as Rider[]
       }
       const map: Record<string, boolean> = {}
@@ -645,7 +656,7 @@ export default function InstructorPage() {
       if (ids.length) {
         const { data } = await supabase
           .from('riders')
-          .select('id, full_name, phone, is_regular')
+          .select('id, full_name, phone, payment_status')
           .in('id', ids)
           .order('full_name')
         list = (data ?? []) as Rider[]
@@ -653,7 +664,7 @@ export default function InstructorPage() {
     } else {
       const { data } = await supabase
         .from('riders')
-        .select('id, full_name, phone, is_regular')
+        .select('id, full_name, phone, payment_status')
         .eq('group_name', s.class_name).eq('branch', s.branch).eq('is_regular', true)
         .order('full_name')
       list = (data ?? []) as Rider[]
@@ -1108,7 +1119,7 @@ export default function InstructorPage() {
             const present = attendance[r.id] !== false
             // Riders an instructor added in the field are not on the paying
             // roster yet — tinted amber so it's obvious at a glance.
-            const unpaid = r.is_regular === false
+            const unpaid = r.payment_status === 'unpaid'
             return (
               <div
                 key={r.id}
@@ -1155,21 +1166,19 @@ export default function InstructorPage() {
         </div>
       )}
 
-      {/* A rider added here is created as NOT paying, opens a lead in
-          "מתעניינים", and emails Tal — all of it in /api/instructor/add-rider. */}
+      {/* RiderForm already carries the whole "new rider" contract: the rider is
+          saved with payment_status='unpaid', a lead is opened in "מתעניינים"
+          via /api/staff-lead, and Tal gets the email. Nothing to add here. */}
       {showAddRider && openGroupId && (
         <RiderForm
           rider={null}
           allowDelete={false}
           defaultGroupId={openGroupId}
           groups={formGroups}
-          createVia="/api/instructor/add-rider"
-          createHeaders={authHeaders}
-          createNote="החניך ייווצר כלא־משלם, ייפתח עבורו ליד ב״מתעניינים״ ותישלח התראה לטל."
           onClose={() => setShowAddRider(false)}
           onSaved={name => {
             setShowAddRider(false)
-            setAddedMsg(`${name} נוסף/ה לקבוצה כחניך שטרם שולם — נפתח ליד ב״מתעניינים״ ונשלחה התראה לטל.`)
+            setAddedMsg(`${name} נוסף/ה לקבוצה כ״לא שולם״ — נפתח ליד ב״מתעניינים״ ונשלח מייל לטל.`)
             openSession(session)
             setTimeout(() => setAddedMsg(''), 8000)
           }}

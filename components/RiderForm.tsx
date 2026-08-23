@@ -2,8 +2,19 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
-// טופס חניך — יצירה ועריכה. משמש גם רכזות (עמוד תלמידים) וגם מדריכים (מסך נוכחות).
-// שדות חובה: שם פרטי ומשפחה של החניך, שם פרטי ומשפחה של ההורה, טלפון הורה.
+// v3 — טופס חניך: יצירה ועריכה. משמש גם רכזות (עמוד תלמידים) וגם מדריכים (מסך נוכחות).
+//
+// שדות חובה ביצירה: שם פרטי ומשפחה של החניך, שם פרטי ומשפחה של ההורה,
+// טלפון הורה וטלפון החניך.
+//
+// חניך חדש נשמר תמיד עם payment_status = 'unpaid' (מסומן בצבע כתום ברשימת
+// התלמידים) ובמקביל נפתחת עבורו שורה ב"מתעניינים" ונשלח מייל לטל — דרך
+// /api/staff-lead. פתיחת הליד היא best-effort: אם היא נכשלת החניך עדיין נשמר.
+//
+// חשוב: אין להשתמש כאן ב-`rider!.id`. React Compiler (reactCompiler: true)
+// הפיל את הקומפוננטה עם "Cannot read properties of null (reading 'id')" כשהיא
+// נפתחה עם rider={null} — כלומר בכל לחיצה על "➕ חניך חדש". מזהה החניך נקרא
+// פעם אחת ל-riderId ומשם והלאה עובדים רק איתו.
 
 export type RiderRecord = {
   id: string
@@ -19,12 +30,14 @@ export type RiderRecord = {
   group_name?: string | null
   branch?: string | null
   is_regular?: boolean | null
+  payment_status?: string | null
 }
 
 type GroupOpt = { id: string; name: string; branch: string | null }
 
 const BG = '#0d0f0e', PANEL = '#141716', BORDER = '#252b27'
 const TEXT = '#e8efe9', MUTED = '#7a8f7d', LIME = '#b5e853'
+const AMBER = '#ff8f6b'
 
 const BIKE_TYPES = ['הארדטייל', 'פול סאספנשן', 'אנדורו', 'דירט / פאמפטרק', 'אופניים חשמליים', 'אחר']
 
@@ -35,7 +48,6 @@ const splitName = (full?: string | null) => {
 
 export default function RiderForm({
   rider, groups, defaultGroupId, onClose, onSaved, allowDelete = true,
-  createVia, createHeaders, createNote,
 }: {
   rider?: RiderRecord | null
   groups: GroupOpt[]
@@ -43,15 +55,9 @@ export default function RiderForm({
   onClose: () => void
   onSaved: (savedName: string) => void
   allowDelete?: boolean
-  // Creating a rider normally means a direct insert. Callers that need more to
-  // happen than that — the instructor screen opens a lead and emails Tal as
-  // well — point `createVia` at an API route and the same payload is POSTed
-  // there instead. Editing is unaffected either way.
-  createVia?: string
-  createHeaders?: () => Promise<Record<string, string> | null>
-  createNote?: string
 }) {
-  const isEdit = !!rider?.id
+  const riderId = rider?.id ?? null
+  const isEdit = riderId !== null
 
   const rn = splitName(rider?.full_name)
   const pn = splitName(rider?.parent_name)
@@ -67,8 +73,11 @@ export default function RiderForm({
     groupId: rider?.group_id ?? defaultGroupId ?? '',
     notes: rider?.notes ?? '',
   })
+  // '' = לא ידוע (חניכים ותיקים שנכנסו לפני שהשדה נוסף) — נשמר כ-null.
+  const [payStatus, setPayStatus] = useState(rider?.payment_status ?? '')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
+  const [warn, setWarn] = useState('')
   const [confirmDel, setConfirmDel] = useState(false)
 
   useEffect(() => {
@@ -82,14 +91,40 @@ export default function RiderForm({
   const riderName  = `${f.riderFirst.trim()} ${f.riderLast.trim()}`.trim()
   const parentName = `${f.parentFirst.trim()} ${f.parentLast.trim()}`.trim()
 
+  // פותח ליד ב"מתעניינים" ושולח מייל לטל. best-effort — לא מפיל את השמירה.
+  async function openLead(branch: string | null, groupName: string | null) {
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    if (!token) return 'הליד לא נפתח (אין הרשאה) — צריך לפתוח אותו ידנית'
+
+    const res = await fetch('/api/staff-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        rider_name: riderName,
+        parent_name: parentName,
+        parent_phone: f.parentPhone.trim(),
+        rider_phone: f.riderPhone.trim(),
+        branch,
+        group_name: groupName,
+        notes: f.notes.trim() || null,
+      }),
+    })
+    if (res.ok) return ''
+    const body = await res.json().catch(() => ({}))
+    return `החניך נשמר, אבל פתיחת הליד נכשלה: ${body.error ?? res.status}`
+  }
+
   async function save() {
     setErr('')
+    setWarn('')
     if (!f.riderFirst.trim() || !f.riderLast.trim()) { setErr('שם פרטי ומשפחה של החניך הם שדות חובה'); return }
     if (!f.parentFirst.trim() || !f.parentLast.trim()) { setErr('שם פרטי ומשפחה של ההורה הם שדות חובה'); return }
     if (!f.parentPhone.trim()) { setErr('טלפון הורה הוא שדה חובה'); return }
+    if (!isEdit && !f.riderPhone.trim()) { setErr('טלפון החניך הוא שדה חובה'); return }
 
     setSaving(true)
-    const g = groups.find(x => x.id === f.groupId)
+    const g = groups.find(x => x.id === f.groupId) ?? null
     const payload: Record<string, unknown> = {
       full_name: riderName,
       parent_name: parentName,
@@ -103,47 +138,41 @@ export default function RiderForm({
       group_name: g?.name ?? null,
       branch: g?.branch ?? null,
     }
-    if (!isEdit) { payload.is_regular = !!f.groupId; payload.active = true }
-
-    // New rider through a route that does more than insert (see `createVia`).
-    if (!isEdit && createVia) {
-      try {
-        const extra = createHeaders ? await createHeaders() : {}
-        if (!extra) { setErr('החיבור פג — יש להתחבר מחדש'); setSaving(false); return }
-        const res = await fetch(createVia, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...extra },
-          body: JSON.stringify(payload),
-        })
-        const d = await res.json().catch(() => ({}))
-        setSaving(false)
-        if (!res.ok) { setErr(d.error ?? 'שמירת החניך נכשלה'); return }
-        onSaved(riderName)
-      } catch (e) {
-        setSaving(false)
-        setErr('שמירת החניך נכשלה: ' + (e as Error).message)
-      }
-      return
+    if (isEdit) {
+      payload.payment_status = payStatus || null
+    } else {
+      payload.is_regular = !!f.groupId
+      payload.active = true
+      payload.payment_status = 'unpaid'   // חניך חדש — עדיין לא שולם
     }
 
-    // `rider` is what makes isEdit true, but the compiler can't see that, and a
-    // non-null assertion in a component is what put a white screen on the
-    // instructor page. Read it into a local and check it instead.
-    const editId = rider?.id
-    const { error } = isEdit && editId
-      ? await supabase.from('riders').update(payload).eq('id', editId)
+    const { error } = isEdit && riderId
+      ? await supabase.from('riders').update(payload).eq('id', riderId)
       : await supabase.from('riders').insert(payload)
 
+    if (error) { setSaving(false); setErr(error.message); return }
+
+    // רק בהוספה — פתיחת ליד ומייל לטל.
+    if (!isEdit) {
+      let problem = ''
+      try { problem = await openLead(g?.branch ?? null, g?.name ?? null) }
+      catch { problem = 'החניך נשמר, אבל פתיחת הליד נכשלה (בעיית רשת)' }
+      if (problem) {
+        setSaving(false)
+        setWarn(problem)
+        setTimeout(() => onSaved(riderName), 2500)
+        return
+      }
+    }
+
     setSaving(false)
-    if (error) { setErr(error.message); return }
     onSaved(riderName)
   }
 
   async function remove() {
-    const editId = rider?.id
-    if (!editId) return
+    if (!riderId) return
     setSaving(true)
-    const { error } = await supabase.from('riders').update({ active: false, is_regular: false }).eq('id', editId)
+    const { error } = await supabase.from('riders').update({ active: false, is_regular: false }).eq('id', riderId)
     setSaving(false)
     if (error) { setErr(error.message); return }
     onSaved(riderName)
@@ -185,11 +214,11 @@ export default function RiderForm({
 
         <p style={{ color: MUTED, fontSize: 12.5, margin: '0 0 16px' }}>שדות עם ★ הם חובה</p>
 
-        {!isEdit && createNote && (
-          <p style={{ background: '#2a2114', border: '1px solid #4a3a18', color: '#f0b90b',
-                      borderRadius: 10, padding: '10px 14px', margin: '0 0 16px', fontSize: 13, lineHeight: 1.7 }}>
-            {createNote}
-          </p>
+        {!isEdit && (
+          <div style={{ background: '#231a12', border: `1px solid ${AMBER}55`, color: AMBER,
+                        borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
+            החניך ייכנס כ״לא שולם״, ייפתח עבורו ליד ב״מתעניינים״ ויישלח מייל לטל להמשך התהליך.
+          </div>
         )}
 
         <div style={row}>
@@ -204,7 +233,10 @@ export default function RiderForm({
 
         <div style={row}>
           <div><label style={label}>טלפון הורה ★</label><input style={input} type="tel" inputMode="tel" value={f.parentPhone} onChange={e => set('parentPhone', e.target.value)} /></div>
-          <div><label style={label}>טלפון החניך</label><input style={input} type="tel" inputMode="tel" placeholder="לא חובה" value={f.riderPhone} onChange={e => set('riderPhone', e.target.value)} /></div>
+          <div>
+            <label style={label}>טלפון החניך {isEdit ? '' : '★'}</label>
+            <input style={input} type="tel" inputMode="tel" placeholder={isEdit ? 'לא חובה' : ''} value={f.riderPhone} onChange={e => set('riderPhone', e.target.value)} />
+          </div>
         </div>
 
         <div style={row}>
@@ -232,6 +264,27 @@ export default function RiderForm({
           <input style={input} placeholder="מגבלה רפואית, רמה, כל דבר שחשוב לדעת" value={f.notes} onChange={e => set('notes', e.target.value)} />
         </div>
 
+        {isEdit && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={label}>סטטוס תשלום</label>
+            <select
+              aria-label="סטטוס תשלום"
+              value={payStatus}
+              onChange={e => setPayStatus(e.target.value)}
+              style={{
+                ...input,
+                borderColor: payStatus === 'unpaid' ? AMBER + '77' : payStatus === 'paid' ? LIME + '77' : BORDER,
+                color: payStatus === 'unpaid' ? AMBER : payStatus === 'paid' ? LIME : TEXT,
+                fontWeight: payStatus ? 700 : 400,
+              }}
+            >
+              <option value="">לא ידוע</option>
+              <option value="unpaid">לא שולם</option>
+              <option value="paid">שולם</option>
+            </select>
+          </div>
+        )}
+
         {f.parentPhone.trim() && (
           <a href={waParent()} target="_blank" rel="noopener noreferrer"
             style={{ display: 'block', textAlign: 'center', background: '#1a2114', color: LIME, border: '1px solid #2f4020',
@@ -243,6 +296,10 @@ export default function RiderForm({
         {err && (
           <div style={{ background: '#3a1a1a', border: '1px solid #7f2d2d', color: '#fca5a5',
                         borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13.5 }}>{err}</div>
+        )}
+        {warn && (
+          <div style={{ background: '#231a12', border: `1px solid ${AMBER}`, color: AMBER,
+                        borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13.5 }}>{warn}</div>
         )}
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

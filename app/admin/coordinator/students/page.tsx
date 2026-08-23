@@ -25,6 +25,7 @@ type Rider = {
   branch: string | null
   is_regular: boolean
   group_id: string | null
+  payment_status?: string | null
 }
 
 type Group = {
@@ -243,12 +244,13 @@ export default function StudentsPage() {
         <div style={{ color: '#7a8f7d', textAlign: 'center', padding: 60 }}>טוען תלמידים...</div>
       ) : (
         <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 220px 110px 70px', padding: '10px 20px', borderBottom: '1px solid #252b27', fontSize: 11, color: '#7a8f7d', fontWeight: 700 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 200px 100px 70px 85px', padding: '10px 20px', borderBottom: '1px solid #252b27', fontSize: 11, color: '#7a8f7d', fontWeight: 700 }}>
             <span>שם</span>
             <span>טלפון</span>
             <span>קבוצות</span>
             <span>סניף</span>
             <span>סטטוס</span>
+            <span>תשלום</span>
           </div>
 
           {filtered.length === 0 ? (
@@ -265,7 +267,7 @@ export default function StudentsPage() {
                   onClick={() => openModal(r)}
                   onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModal(r) } }}
                   style={{
-                    display: 'grid', gridTemplateColumns: '1fr 130px 220px 110px 70px',
+                    display: 'grid', gridTemplateColumns: '1fr 130px 200px 100px 70px 85px',
                     padding: '13px 20px',
                     borderBottom: i < filtered.length - 1 ? '1px solid #1a1e1c' : 'none',
                     alignItems: 'center', fontSize: 13,
@@ -314,6 +316,19 @@ export default function StudentsPage() {
                     <span style={{ background: r.is_regular ? '#4cdb7a22' : '#252b27', color: r.is_regular ? '#4cdb7a' : '#7a8f7d', borderRadius: 12, padding: '2px 9px', fontSize: 11, fontWeight: 600 }}>
                       {r.is_regular ? 'קבוע' : 'מזדמן'}
                     </span>
+                  </span>
+                  <span>
+                    {r.payment_status === 'unpaid' ? (
+                      <span style={{ background: '#ff8f6b22', color: '#ff8f6b', border: '1px solid #ff8f6b55', borderRadius: 12, padding: '2px 9px', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        לא שולם
+                      </span>
+                    ) : r.payment_status === 'paid' ? (
+                      <span style={{ background: '#4cdb7a22', color: '#4cdb7a', borderRadius: 12, padding: '2px 9px', fontSize: 11, fontWeight: 600 }}>
+                        שולם
+                      </span>
+                    ) : (
+                      <span style={{ color: '#3a4f3a', fontSize: 11 }}>—</span>
+                    )}
                   </span>
                 </div>
               )
@@ -433,8 +448,11 @@ export default function StudentsPage() {
           groups={groups.map(g => ({ id: g.id, name: g.name, branch: g.branch }))}
           onClose={() => setFormRider(undefined)}
           onSaved={name => {
+            const wasNew = formRider === null
             setFormRider(undefined)
-            setToast(`${name} נשמר בהצלחה`)
+            setToast(wasNew
+              ? `${name} נוסף כ״לא שולם״ · נפתח ליד ב״מתעניינים״ ונשלח מייל לטל`
+              : `${name} נשמר בהצלחה`)
             reloadRiders()
             setTimeout(() => setToast(''), 4000)
           }}
