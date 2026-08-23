@@ -11,7 +11,12 @@ const ADMIN_PUBLIC_PATHS = [
   '/admin/login',
   '/admin/forgot-password',
   '/admin/reset-password',   // receives ?code= from Supabase reset email
-  '/admin/instructor',       // instructor mobile page — no login yet (picks name per-visit)
+  // Instructor mobile page. It requires a login and gates itself — it resolves
+  // admin_roles by auth.uid() and redirects to /admin/login when there is no
+  // session. It stays listed here on purpose: the cookie this proxy checks and
+  // the Supabase session the page checks expire independently, and a field tool
+  // must not lock an instructor out mid-lesson over the shorter of the two.
+  '/admin/instructor',
 ]
 
 const ROLE_PREFIXES: Record<string, string> = {

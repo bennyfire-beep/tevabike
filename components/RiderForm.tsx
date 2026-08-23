@@ -35,6 +35,7 @@ const splitName = (full?: string | null) => {
 
 export default function RiderForm({
   rider, groups, defaultGroupId, onClose, onSaved, allowDelete = true,
+  createVia, createHeaders, createNote,
 }: {
   rider?: RiderRecord | null
   groups: GroupOpt[]
@@ -42,6 +43,13 @@ export default function RiderForm({
   onClose: () => void
   onSaved: (savedName: string) => void
   allowDelete?: boolean
+  // Creating a rider normally means a direct insert. Callers that need more to
+  // happen than that — the instructor screen opens a lead and emails Tal as
+  // well — point `createVia` at an API route and the same payload is POSTed
+  // there instead. Editing is unaffected either way.
+  createVia?: string
+  createHeaders?: () => Promise<Record<string, string> | null>
+  createNote?: string
 }) {
   const isEdit = !!rider?.id
 
@@ -97,8 +105,33 @@ export default function RiderForm({
     }
     if (!isEdit) { payload.is_regular = !!f.groupId; payload.active = true }
 
-    const { error } = isEdit
-      ? await supabase.from('riders').update(payload).eq('id', rider!.id)
+    // New rider through a route that does more than insert (see `createVia`).
+    if (!isEdit && createVia) {
+      try {
+        const extra = createHeaders ? await createHeaders() : {}
+        if (!extra) { setErr('החיבור פג — יש להתחבר מחדש'); setSaving(false); return }
+        const res = await fetch(createVia, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...extra },
+          body: JSON.stringify(payload),
+        })
+        const d = await res.json().catch(() => ({}))
+        setSaving(false)
+        if (!res.ok) { setErr(d.error ?? 'שמירת החניך נכשלה'); return }
+        onSaved(riderName)
+      } catch (e) {
+        setSaving(false)
+        setErr('שמירת החניך נכשלה: ' + (e as Error).message)
+      }
+      return
+    }
+
+    // `rider` is what makes isEdit true, but the compiler can't see that, and a
+    // non-null assertion in a component is what put a white screen on the
+    // instructor page. Read it into a local and check it instead.
+    const editId = rider?.id
+    const { error } = isEdit && editId
+      ? await supabase.from('riders').update(payload).eq('id', editId)
       : await supabase.from('riders').insert(payload)
 
     setSaving(false)
@@ -107,8 +140,10 @@ export default function RiderForm({
   }
 
   async function remove() {
+    const editId = rider?.id
+    if (!editId) return
     setSaving(true)
-    const { error } = await supabase.from('riders').update({ active: false, is_regular: false }).eq('id', rider!.id)
+    const { error } = await supabase.from('riders').update({ active: false, is_regular: false }).eq('id', editId)
     setSaving(false)
     if (error) { setErr(error.message); return }
     onSaved(riderName)
@@ -149,6 +184,13 @@ export default function RiderForm({
         </div>
 
         <p style={{ color: MUTED, fontSize: 12.5, margin: '0 0 16px' }}>שדות עם ★ הם חובה</p>
+
+        {!isEdit && createNote && (
+          <p style={{ background: '#2a2114', border: '1px solid #4a3a18', color: '#f0b90b',
+                      borderRadius: 10, padding: '10px 14px', margin: '0 0 16px', fontSize: 13, lineHeight: 1.7 }}>
+            {createNote}
+          </p>
+        )}
 
         <div style={row}>
           <div><label style={label}>שם פרטי — חניך ★</label><input style={input} value={f.riderFirst} onChange={e => set('riderFirst', e.target.value)} /></div>
