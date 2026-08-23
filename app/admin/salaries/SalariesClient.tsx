@@ -1,4 +1,5 @@
 'use client'
+// SalariesClient v2 — עריכת ק״מ ידני לחודש
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
@@ -23,10 +24,12 @@ type Row = {
   specialPay: number
   // Travel — arrangement per instructor.
   travelType: TravelType
+  travelRate: number          // ₪ per km, for the per_km arrangement
   workingDays: number
   travelDetail: string
   travelPay: number
   travelIsOverride: boolean   // this month has its own instructor_travel row
+  overrideKm: number | null   // manual km entered for this month, per_km only
   total: number
 }
 
@@ -51,7 +54,8 @@ export default function SalariesClient() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState('')
 
-  // Inline editing of a monthly_fixed travel amount for this month.
+  // Inline editing of this month's travel — a shekel sum for monthly_fixed,
+  // kilometres for per_km.
   const [editingTravelId, setEditingTravelId] = useState<string | null>(null)
   const [travelInput,     setTravelInput]     = useState('')
   const [savingTravel,    setSavingTravel]    = useState(false)
@@ -77,8 +81,8 @@ export default function SalariesClient() {
         .select('id, instructor_id, instructor_ids, type, duration, session_date')
         .gte('session_date', from)
         .lte('session_date', to),
-      // Per-month override for the monthly_fixed arrangement.
-      supabase.from('instructor_travel').select('instructor_id, amount').eq('month', month),
+      // Per-month override — a fixed sum, or manual km for a per_km instructor.
+      supabase.from('instructor_travel').select('instructor_id, amount, km, mode').eq('month', month),
     ])
 
     if (e1 || e2 || e3 || e4) {
@@ -113,7 +117,11 @@ export default function SalariesClient() {
     }
 
     const payOf      = new Map((pay ?? []).map(p => [p.admin_role_id, p]))
-    const overrideOf = new Map((travelRows ?? []).map(t => [t.instructor_id, Number(t.amount)]))
+    const overrideOf = new Map((travelRows ?? []).map(t => [t.instructor_id, {
+      amount: Number(t.amount),
+      km:     Number(t.km ?? 0),
+      mode:   (t.mode ?? null) as string | null,
+    }]))
 
     setRows(
       (instructors ?? []).map(i => {
@@ -127,8 +135,14 @@ export default function SalariesClient() {
         const lessonPay   = n * ratePerLesson
         const specialPay  = hours * hourlyRate
 
-        const override  = overrideOf.has(i.id) ? overrideOf.get(i.id)! : null
-        const travelPay = computeTravel(p, workingDays, override)
+        const cfg       = travelConfigOf(p)
+        const override  = overrideOf.get(i.id) ?? null
+        // Only a manual_km row is km the report should show as typed; a row of
+        // any other mode is just an amount.
+        const overrideKm = override && cfg.type === 'per_km' && override.mode === 'manual_km'
+          ? override.km
+          : null
+        const travelPay = computeTravel(p, workingDays, override ? override.amount : null)
 
         return {
           id: i.id,
@@ -140,11 +154,13 @@ export default function SalariesClient() {
           specialHours: hours,
           hourlyRate,
           specialPay,
-          travelType: travelConfigOf(p).type,
+          travelType: cfg.type,
+          travelRate: cfg.rate,
           workingDays,
-          travelDetail: travelDetail(p, workingDays),
+          travelDetail: travelDetail(p, workingDays, overrideKm),
           travelPay,
           travelIsOverride: override !== null,
+          overrideKm,
           total: lessonPay + specialPay + travelPay,
         }
       }),
@@ -155,8 +171,26 @@ export default function SalariesClient() {
   useEffect(() => { load() }, [load])
 
   async function saveTravel(id: string) {
-    const amount = Number(travelInput)
-    if (!Number.isFinite(amount) || amount < 0) { setError('סכום נסיעות לא תקין'); return }
+    const row = rows.find(r => r.id === id)
+    if (!row) return
+    const perKm = row.travelType === 'per_km'
+
+    // per_km takes kilometres, monthly_fixed takes shekels.
+    const entered = Number(travelInput)
+    if (travelInput.trim() === '' || !Number.isFinite(entered) || entered < 0) {
+      setError(perKm ? 'מספר ק״מ לא תקין' : 'סכום נסיעות לא תקין')
+      return
+    }
+    if (perKm && row.travelRate <= 0) {
+      setError('לא הוגדר תעריף ק״מ למדריך זה — קבעו תעריף בדף ניהול המדריכים ואז חזרו לכאן')
+      return
+    }
+
+    // Whatever was typed, the row stores the final shekel figure in `amount` —
+    // that is the one column the reports, the reminders and the cron read.
+    const record = perKm
+      ? { instructor_id: id, month, amount: Math.round(entered * row.travelRate * 100) / 100, mode: 'manual_km', km: entered }
+      : { instructor_id: id, month, amount: entered, mode: 'car', km: 0 }
 
     setSavingTravel(true)
     setError('')
@@ -164,10 +198,7 @@ export default function SalariesClient() {
     // One row per instructor per month — the table already has a unique key.
     const { error: err } = await supabase
       .from('instructor_travel')
-      .upsert(
-        { instructor_id: id, month, amount, mode: 'car', km: 0 },
-        { onConflict: 'instructor_id,month' },
-      )
+      .upsert(record, { onConflict: 'instructor_id,month' })
 
     setSavingTravel(false)
     if (err) { setError('שמירת הנסיעות נכשלה: ' + err.message); return }
@@ -236,7 +267,11 @@ export default function SalariesClient() {
                   {editingTravelId === r.id ? (
                     <div style={{ display: 'flex', gap: 7, alignItems: 'flex-end', paddingTop: 3 }}>
                       <div style={{ flex: 1 }}>
-                        <label style={labelStyle}>נסיעות לחודש זה (₪)</label>
+                        <label style={labelStyle}>
+                          {r.travelType === 'per_km'
+                            ? 'ק״מ לחודש זה (המערכת תכפיל בתעריף)'
+                            : 'נסיעות לחודש זה (₪)'}
+                        </label>
                         <input
                           style={inputStyle} type="number" inputMode="decimal" dir="ltr" autoFocus
                           value={travelInput} onChange={e => setTravelInput(e.target.value)}
@@ -261,9 +296,16 @@ export default function SalariesClient() {
                       </span>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
                         <span style={{ fontWeight: 700 }}>{ils(r.travelPay)}</span>
-                        {r.travelType === 'monthly_fixed' && (
+                        {r.travelType !== 'none' && (
                           <button
-                            onClick={() => { setEditingTravelId(r.id); setTravelInput(String(r.travelPay)) }}
+                            onClick={() => {
+                              setEditingTravelId(r.id)
+                              setTravelInput(
+                                r.travelType === 'per_km'
+                                  ? (r.overrideKm != null ? String(r.overrideKm) : '')
+                                  : String(r.travelPay),
+                              )
+                            }}
                             style={{ background: 'none', border: `1px solid ${C.border}`, borderRadius: 7, color: C.muted, padding: '4px 9px', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer' }}
                           >
                             ✎

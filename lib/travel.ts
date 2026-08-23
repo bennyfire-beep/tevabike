@@ -1,3 +1,4 @@
+// travel.ts v2 — תומך בק״מ ידני לחודש
 // ─────────────────────────────────────────────────────────────────────────────
 // Travel reimbursement.
 //
@@ -6,12 +7,19 @@
 //
 //   per_km        — reimbursed per kilometre: working days × travel_km × travel_rate.
 //                   "Working days" means days actually taught that month (distinct
-//                   session dates), not scheduled days.
+//                   session dates), not scheduled days. A given month can override
+//                   that sum with a row in `instructor_travel` carrying
+//                   mode = 'manual_km': the kilometres typed into the salary report
+//                   are multiplied by the instructor's rate, and the shekel figure
+//                   they come to replaces the automatic calculation outright.
 //   none          — no reimbursement (company vehicle).
 //   monthly_fixed — a flat monthly sum. staff_pay.travel_monthly_amount is the
 //                   default; a given month can override it with a row in
 //                   `instructor_travel` (UNIQUE per instructor+month), editable
 //                   straight from the salary report.
+//
+// Either kind of override lands in `instructor_travel.amount` as the final
+// shekel figure, so the reports, the reminders and the cron all read one column.
 //
 // Every pay report runs its travel through computeTravel so the three
 // arrangements cannot drift apart between screens.
@@ -58,7 +66,9 @@ export function travelConfigOf(row: Partial<TravelConfig> | undefined | null): {
  *
  * `workingDays` — distinct dates the instructor actually taught that month.
  * `monthOverride` — the instructor_travel amount for this month, when a row
- *                   exists. Only consulted for monthly_fixed.
+ *                   exists. Consulted for monthly_fixed and for per_km alike;
+ *                   for per_km it is the manual kilometres already multiplied
+ *                   by the instructor's rate.
  */
 export function computeTravel(
   row: Partial<TravelConfig> | undefined | null,
@@ -69,6 +79,8 @@ export function computeTravel(
 
   switch (cfg.type) {
     case 'per_km':
+      // A manual-km row for the month replaces the automatic calculation.
+      if (monthOverride != null) return Math.round(monthOverride * 100) / 100
       return Math.round(workingDays * cfg.km * cfg.rate * 100) / 100
     case 'monthly_fixed':
       // An explicitly entered 0 for the month is a real value, not "unset".
@@ -79,15 +91,23 @@ export function computeTravel(
   }
 }
 
-/** One-line description of how a travel figure was reached, for the reports. */
+/**
+ * One-line description of how a travel figure was reached, for the reports.
+ *
+ * `overrideKm` — the manual kilometres entered for this month, when a per_km
+ *                instructor has a manual_km row.
+ */
 export function travelDetail(
   row: Partial<TravelConfig> | undefined | null,
   workingDays: number,
+  overrideKm?: number | null,
 ): string {
   const cfg = travelConfigOf(row)
   switch (cfg.type) {
     case 'per_km':
-      return `${workingDays} ימים × ${cfg.km} ק״מ × ₪${cfg.rate}`
+      return overrideKm != null
+        ? `${overrideKm} ק״מ ידני × ₪${cfg.rate}`
+        : `${workingDays} ימים × ${cfg.km} ק״מ × ₪${cfg.rate}`
     case 'monthly_fixed':
       return 'סכום חודשי'
     case 'none':
