@@ -25,8 +25,15 @@ import { isSalaryAdmin } from '@/lib/salary-access'
 //
 // Rows are merged BY NAME, because one person can have two admin_roles rows
 // (e.g. a coordinator row carrying monthly_base + an instructor row that teaches
-// sessions). "Only sessions with saved attendance count": present_count IS NOT
-// NULL, set when attendance is saved.
+// sessions).
+//
+// Every session of the month counts, whether or not its register was ever
+// saved: an unsaved register means nobody was marked present, so present_count
+// reads as 0 — a real figure the by_attendance model prices at the low band,
+// not a reason to leave the lesson out of the month. And every instructor
+// credited with a session is paid for it in full on their own terms —
+// instructor_id plus anyone in instructor_ids, each counted once. Both rules
+// match the other pay screens exactly; the numbers have to agree.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BRANCH_COLOR: Record<string, string> = {
@@ -144,13 +151,13 @@ export default function PayrollPage() {
       lessonCfgOf[r.id] = r
     }
 
-    // Only sessions with saved attendance (present_count populated on save).
+    // Every session in the month — an unsaved register is 0 present, not an
+    // absent lesson.
     const { data: sessions } = await supabase
       .from('class_sessions')
       .select('id, instructor_id, class_name, branch, session_date, present_count, type, activity_name, instructor_ids, duration')
       .gte('session_date', first)
       .lte('session_date', last)
-      .not('present_count', 'is', null)
       .order('session_date')
 
     // Per-month travel override, typed into the salary report.
@@ -182,22 +189,23 @@ export default function PayrollPage() {
 
     const items: LineItem[] = []
 
-    // Session line items (special sessions expand to one item per instructor).
+    // Session line items — one per instructor credited with the session.
     for (const s of (sessions ?? []) as SessionRow[]) {
-      // Record the working day for everyone credited with this session.
-      const credited = (s.instructor_ids && s.instructor_ids.length)
-        ? s.instructor_ids
-        : (s.instructor_id ? [s.instructor_id] : [])
+      // Everyone credited: the lead instructor plus anyone in instructor_ids,
+      // each counted once even when they appear in both.
+      const credited = [...new Set<string>([
+        ...(s.instructor_id ? [s.instructor_id] : []),
+        ...((s.instructor_ids ?? []) as string[]),
+      ])]
+      // Record the working day for each of them — this is what per_km travel
+      // falls back to when nothing was reported.
       for (const iid of credited) {
         if (!workDays[iid]) workDays[iid] = new Set()
         workDays[iid].add(s.session_date)
       }
 
       if (s.type === 'special') {
-        const iids = (s.instructor_ids && s.instructor_ids.length)
-          ? s.instructor_ids
-          : (s.instructor_id ? [s.instructor_id] : [])
-        for (const iid of iids) {
+        for (const iid of credited) {
           items.push({
             key: s.id + iid, name: nameOf[iid] ?? 'מדריך לא ידוע', kind: 'special',
             label: s.activity_name ?? s.class_name, branch: s.branch, date: s.session_date,
@@ -205,22 +213,34 @@ export default function PayrollPage() {
           })
         }
       } else {
-        // Regular lesson: the instructor's per-lesson rate — flat, or the band
-        // this session's attendance falls into. Unassigned sessions pay nobody,
-        // so they carry no amount.
-        const cfg     = s.instructor_id ? lessonCfgOf[s.instructor_id] : undefined
+        // Regular lesson: every credited instructor is paid in full at their own
+        // per-lesson rate — flat, or the band this session's attendance falls into.
         const present = s.present_count ?? 0
-        const rate    = s.instructor_id ? lessonRateFor(cfg, present) : 0
-        // Show which band was picked — the flat model has only one, so it says nothing.
-        const banded  = lessonPayConfigOf(cfg).model === 'by_attendance'
-        items.push({
-          key: s.id, name: s.instructor_id ? (nameOf[s.instructor_id] ?? 'מדריך לא ידוע') : 'ללא מדריך',
-          kind: 'regular',
-          label: banded ? `${s.class_name} · ₪${rate} (${present} נוכחים)` : s.class_name,
-          branch: s.branch, date: s.session_date,
-          present,
-          pay: rate,
-        })
+
+        // A session nobody is assigned to pays nobody, but is still listed so it
+        // is not silently missing from the month.
+        if (credited.length === 0) {
+          items.push({
+            key: s.id, name: 'ללא מדריך', kind: 'regular', label: s.class_name,
+            branch: s.branch, date: s.session_date, present, pay: 0,
+          })
+        }
+
+        for (const iid of credited) {
+          const cfg  = lessonCfgOf[iid]
+          const rate = lessonRateFor(cfg, present)
+          // Show which band was picked — the flat model has only one, so it says nothing.
+          const banded = lessonPayConfigOf(cfg).model === 'by_attendance'
+          items.push({
+            key: s.id + iid,
+            name: nameOf[iid] ?? 'מדריך לא ידוע',
+            kind: 'regular',
+            label: banded ? `${s.class_name} · ₪${rate} (${present} נוכחים)` : s.class_name,
+            branch: s.branch, date: s.session_date,
+            present,
+            pay: rate,
+          })
+        }
       }
     }
 
