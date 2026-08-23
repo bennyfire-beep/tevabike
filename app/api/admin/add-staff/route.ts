@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import {
+  DEFAULT_ATTENDANCE_RATE_LOW, DEFAULT_ATTENDANCE_RATE_HIGH, DEFAULT_ATTENDANCE_THRESHOLD,
+} from '@/lib/lesson-pay'
 
 const VALID_ROLES = ['instructor', 'coordinator', 'accountant'] as const
 type Role = (typeof VALID_ROLES)[number]
@@ -40,6 +43,11 @@ export async function POST(request: NextRequest) {
     // sets a per-lesson rate, the older coordinator staff screen an hourly one.
     ratePerLesson?: string | number | null
     hourlyRate?: string | number | null
+    // Lesson pay model, set on /admin/instructors.
+    lessonModel?: string | null
+    attLow?: string | number | null
+    attHigh?: string | number | null
+    attThreshold?: string | number | null
     // Travel arrangement, set on /admin/instructors.
     travelType?: string | null
     travelKm?: string | number | null
@@ -60,6 +68,15 @@ export async function POST(request: NextRequest) {
     body.hourlyRate != null && body.hourlyRate !== '' ? Number(body.hourlyRate) : null
 
   const num = (v: unknown) => (v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : 0)
+  const numOr = (v: unknown, d: number) =>
+    v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : d
+
+  // Lesson pay: a flat rate per lesson, or two rates banded by attendance.
+  // The bands are stored either way, so switching model later is one click.
+  const lessonModel = body.lessonModel === 'by_attendance' ? 'by_attendance' : 'flat'
+  const attLow      = numOr(body.attLow,       DEFAULT_ATTENDANCE_RATE_LOW)
+  const attHigh     = numOr(body.attHigh,      DEFAULT_ATTENDANCE_RATE_HIGH)
+  const attThresh   = numOr(body.attThreshold, DEFAULT_ATTENDANCE_THRESHOLD)
   const travelType = ['per_km', 'none', 'monthly_fixed'].includes(String(body.travelType))
     ? String(body.travelType)
     : 'none'
@@ -116,7 +133,11 @@ export async function POST(request: NextRequest) {
       .upsert(
         {
           admin_role_id: roleRow.id,
+          lesson_pay_model: lessonModel,
           rate_per_lesson: ratePerLesson,
+          attendance_rate_low: attLow,
+          attendance_rate_high: attHigh,
+          attendance_threshold: attThresh,
           ...(hourlyRate !== null ? { hourly_rate: hourlyRate } : {}),
           travel_type: travelType,
           travel_km: travelKm,

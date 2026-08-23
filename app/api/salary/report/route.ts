@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
 import { computeTravel, TRAVEL_LABEL, travelConfigOf } from '@/lib/travel'
+import { lessonPayFor } from '@/lib/lesson-pay'
 
 // ─── Vercel Cron: runs at 08:00 on the 1st of every month ────────────────────
 // Add to vercel.json:  { "crons": [{ "path": "/api/salary/report", "schedule": "0 6 1 * *" }] }
@@ -144,15 +145,17 @@ export async function GET(request: NextRequest) {
   const [{ data: instructors }, { data: pay }, { data: sessions }, { data: travelRows }] = await Promise.all([
     db.from('admin_roles').select('id, name').eq('role', 'instructor').order('name'),
     db.from('staff_pay')
-      .select('admin_role_id, rate_per_lesson, hourly_rate, travel_type, travel_km, travel_rate, travel_monthly_amount'),
+      .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_high, attendance_threshold, travel_type, travel_km, travel_rate, travel_monthly_amount'),
     db.from('class_sessions')
-      .select('instructor_id, instructor_ids, type, duration, session_date')
+      .select('instructor_id, instructor_ids, type, duration, session_date, present_count')
       .gte('session_date', first).lte('session_date', last),
     db.from('instructor_travel').select('instructor_id, amount').eq('month', month),
   ])
 
   // Tally per instructor; co-taught sessions count for everyone listed.
-  const lessons      = new Map<string, number>()
+  // One entry per ordinary lesson, holding its attendance — the by_attendance
+  // model prices each lesson on its own, so a count is not enough.
+  const lessonPresents = new Map<string, number[]>()
   const specialHours = new Map<string, number>()
   const workDays     = new Map<string, Set<string>>()
   for (const s of sessions ?? []) {
@@ -165,7 +168,8 @@ export async function GET(request: NextRequest) {
       if (s.type === 'special') {
         specialHours.set(id, (specialHours.get(id) ?? 0) + (Number(s.duration) || 0))
       } else {
-        lessons.set(id, (lessons.get(id) ?? 0) + 1)
+        if (!lessonPresents.has(id)) lessonPresents.set(id, [])
+        lessonPresents.get(id)!.push(Number(s.present_count) || 0)
       }
     }
   }
@@ -178,10 +182,11 @@ export async function GET(request: NextRequest) {
     const ratePerLesson = p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson)
     const hourlyRate    = p?.hourly_rate     == null ? DEFAULT_HOURLY_RATE     : Number(p.hourly_rate)
 
-    const n           = lessons.get(inst.id) ?? 0
+    const presents    = lessonPresents.get(inst.id) ?? []
+    const n           = presents.length
     const hours       = Math.round((specialHours.get(inst.id) ?? 0) * 10) / 10
     const workingDays = workDays.get(inst.id)?.size ?? 0
-    const lessonPay   = n * ratePerLesson
+    const lessonPay   = lessonPayFor(p, presents)
     const specialPay  = hours * hourlyRate
     const travelPay   = computeTravel(p, workingDays, overrideOf.has(inst.id) ? overrideOf.get(inst.id)! : null)
 

@@ -2,8 +2,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
-import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
+import { DEFAULT_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
+import { lessonPayConfigOf, lessonRateFor } from '@/lib/lesson-pay'
 import { isSalaryAdmin } from '@/lib/salary-access'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -11,7 +12,10 @@ import { isSalaryAdmin } from '@/lib/salary-access'
 //
 // A person's monthly pay is the sum of three kinds of line item:
 //   • בסיס חודשי  — staff_pay.monthly_base (once per month, if > 0)
-//   • regular sessions   — the instructor's staff_pay.rate_per_lesson, flat
+//   • regular sessions   — the instructor's lesson rate: staff_pay.rate_per_lesson
+//                          when lesson_pay_model is 'flat', or the low/high band
+//                          picked by that session's present_count when it is
+//                          'by_attendance' (see lib/lesson-pay.ts)
 //   • special activities — duration × the instructor's staff_pay.hourly_rate
 //
 // Both session rates are read live from staff_pay rather than from the stored
@@ -36,6 +40,10 @@ type Role = {
   id: string; name: string; role: string
   hourly_rate: number | null
   rate_per_lesson: number | null
+  lesson_pay_model: string | null
+  attendance_rate_low: number | null
+  attendance_rate_high: number | null
+  attendance_threshold: number | null
   monthly_base: number | null
   travel_type: string | null
   travel_km: number | null
@@ -107,7 +115,7 @@ export default function PayrollPage() {
     // Staff: names, both pay rates and monthly base for every role.
     const [{ data: roles }, { data: pay }] = await Promise.all([
       supabase.from('admin_roles').select('id, name, role'),
-      supabase.from('staff_pay').select('admin_role_id, hourly_rate, rate_per_lesson, monthly_base, travel_type, travel_km, travel_rate, travel_monthly_amount'),
+      supabase.from('staff_pay').select('admin_role_id, hourly_rate, rate_per_lesson, lesson_pay_model, attendance_rate_low, attendance_rate_high, attendance_threshold, monthly_base, travel_type, travel_km, travel_rate, travel_monthly_amount'),
     ])
     const payOf: Record<string, any> = {}
     for (const p of (pay ?? []) as any[]) payOf[p.admin_role_id] = p
@@ -116,6 +124,10 @@ export default function PayrollPage() {
       ...r,
       hourly_rate:           payOf[r.id]?.hourly_rate           ?? null,
       rate_per_lesson:       payOf[r.id]?.rate_per_lesson       ?? null,
+      lesson_pay_model:      payOf[r.id]?.lesson_pay_model      ?? null,
+      attendance_rate_low:   payOf[r.id]?.attendance_rate_low   ?? null,
+      attendance_rate_high:  payOf[r.id]?.attendance_rate_high  ?? null,
+      attendance_threshold:  payOf[r.id]?.attendance_threshold  ?? null,
       monthly_base:          payOf[r.id]?.monthly_base          ?? null,
       travel_type:           payOf[r.id]?.travel_type           ?? null,
       travel_km:             payOf[r.id]?.travel_km             ?? null,
@@ -124,12 +136,12 @@ export default function PayrollPage() {
     })) as Role[]
 
     const nameOf: Record<string, string> = {}
-    const rateOf: Record<string, number> = {}        // per hour — special activities
-    const lessonRateOf: Record<string, number> = {}  // per lesson — regular sessions
+    const rateOf: Record<string, number> = {}       // per hour — special activities
+    const lessonCfgOf: Record<string, Role> = {}   // per lesson — flat or banded by attendance
     for (const r of roleRows) {
       nameOf[r.id] = r.name
       rateOf[r.id] = r.hourly_rate == null ? DEFAULT_HOURLY_RATE : Number(r.hourly_rate)
-      lessonRateOf[r.id] = r.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(r.rate_per_lesson)
+      lessonCfgOf[r.id] = r
     }
 
     // Only sessions with saved attendance (present_count populated on save).
@@ -177,13 +189,21 @@ export default function PayrollPage() {
           })
         }
       } else {
-        // Regular lesson: the instructor's flat per-lesson rate. Unassigned
-        // sessions pay nobody, so they carry no amount.
+        // Regular lesson: the instructor's per-lesson rate — flat, or the band
+        // this session's attendance falls into. Unassigned sessions pay nobody,
+        // so they carry no amount.
+        const cfg     = s.instructor_id ? lessonCfgOf[s.instructor_id] : undefined
+        const present = s.present_count ?? 0
+        const rate    = s.instructor_id ? lessonRateFor(cfg, present) : 0
+        // Show which band was picked — the flat model has only one, so it says nothing.
+        const banded  = lessonPayConfigOf(cfg).model === 'by_attendance'
         items.push({
           key: s.id, name: s.instructor_id ? (nameOf[s.instructor_id] ?? 'מדריך לא ידוע') : 'ללא מדריך',
-          kind: 'regular', label: s.class_name, branch: s.branch, date: s.session_date,
-          present: s.present_count ?? 0,
-          pay: s.instructor_id ? (lessonRateOf[s.instructor_id] ?? DEFAULT_RATE_PER_LESSON) : 0,
+          kind: 'regular',
+          label: banded ? `${s.class_name} · ₪${rate} (${present} נוכחים)` : s.class_name,
+          branch: s.branch, date: s.session_date,
+          present,
+          pay: rate,
         })
       }
     }

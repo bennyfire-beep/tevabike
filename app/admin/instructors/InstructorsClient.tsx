@@ -6,6 +6,11 @@ import {
   TRAVEL_TYPES, TRAVEL_LABEL, TRAVEL_HINT, travelConfigOf, type TravelType,
 } from '@/lib/travel'
 import {
+  LESSON_PAY_MODELS, LESSON_PAY_LABEL, LESSON_PAY_HINT, lessonPayConfigOf,
+  DEFAULT_ATTENDANCE_RATE_LOW, DEFAULT_ATTENDANCE_RATE_HIGH, DEFAULT_ATTENDANCE_THRESHOLD,
+  type LessonPayModel,
+} from '@/lib/lesson-pay'
+import {
   ManageShell, Btn, Note, ErrorBox, C, inputStyle, labelStyle,
 } from '@/components/ManageShell'
 
@@ -14,7 +19,11 @@ type Instructor = {
   name: string | null
   branch: string | null
   active: boolean | null
-  ratePerLesson: number // staff_pay.rate_per_lesson — an ordinary weekly lesson
+  lessonModel: LessonPayModel // flat rate per lesson, or banded by attendance
+  ratePerLesson: number // staff_pay.rate_per_lesson — an ordinary weekly lesson, flat model
+  attLow: number        // by_attendance — below the threshold
+  attHigh: number       // by_attendance — at or above the threshold
+  attThreshold: number  // by_attendance — riders present that earn the high rate
   hourlyRate: number    // staff_pay.hourly_rate     — special activities, per hour
   travelType: TravelType
   travelKm: number
@@ -27,10 +36,98 @@ const BRANCHES = ['משגב', 'ביריה', 'מטה אשר', 'פרוד-אמיר�
 
 const emptyForm = {
   name: '', email: '', password: '', branch: 'משגב',
+  lessonModel: 'flat' as LessonPayModel,
   ratePerLesson: String(DEFAULT_RATE_PER_LESSON),
+  attLow: String(DEFAULT_ATTENDANCE_RATE_LOW),
+  attHigh: String(DEFAULT_ATTENDANCE_RATE_HIGH),
+  attThreshold: String(DEFAULT_ATTENDANCE_THRESHOLD),
   hourlyRate: String(DEFAULT_HOURLY_RATE),
   travelType: 'none' as TravelType,
   travelKm: '', travelRate: '', travelMonthly: '',
+}
+
+/** Lesson-pay model picker plus whichever fields that choice needs. */
+function LessonPayFields({
+  model, flat, low, high, threshold, onModel, onFlat, onLow, onHigh, onThreshold,
+}: {
+  model: LessonPayModel; flat: string; low: string; high: string; threshold: string
+  onModel: (m: LessonPayModel) => void
+  onFlat: (v: string) => void
+  onLow: (v: string) => void
+  onHigh: (v: string) => void
+  onThreshold: (v: string) => void
+}) {
+  return (
+    <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 13 }}>
+      <label style={labelStyle}>מודל שכר לשיעור</label>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6, marginBottom: 4 }}>
+        {LESSON_PAY_MODELS.map(m => {
+          const on = model === m
+          return (
+            <button
+              key={m}
+              type="button"
+              onClick={() => onModel(m)}
+              style={{
+                background: on ? C.accent : 'transparent',
+                color: on ? C.bg : C.muted,
+                border: `1px solid ${on ? C.accent : C.border}`,
+                borderRadius: 9, padding: '10px 4px', fontSize: 12.5, fontWeight: 700,
+                fontFamily: 'inherit', cursor: 'pointer', minHeight: 44,
+              }}
+            >
+              {LESSON_PAY_LABEL[m]}
+            </button>
+          )
+        })}
+      </div>
+      <div style={{ color: C.muted, fontSize: 11.5, marginBottom: 10 }}>{LESSON_PAY_HINT[model]}</div>
+
+      {model === 'flat' ? (
+        <div>
+          <label style={labelStyle}>תעריף לשיעור (₪)</label>
+          <input
+            style={inputStyle} type="number" inputMode="numeric" dir="ltr"
+            value={flat} onChange={e => onFlat(e.target.value)}
+            placeholder={String(DEFAULT_RATE_PER_LESSON)}
+          />
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            <div>
+              <label style={labelStyle}>תעריף עד הסף (₪)</label>
+              <input
+                style={inputStyle} type="number" inputMode="numeric" dir="ltr"
+                value={low} onChange={e => onLow(e.target.value)}
+                placeholder={String(DEFAULT_ATTENDANCE_RATE_LOW)}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>תעריף מהסף (₪)</label>
+              <input
+                style={inputStyle} type="number" inputMode="numeric" dir="ltr"
+                value={high} onChange={e => onHigh(e.target.value)}
+                placeholder={String(DEFAULT_ATTENDANCE_RATE_HIGH)}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>סף חניכים</label>
+              <input
+                style={inputStyle} type="number" inputMode="numeric" dir="ltr"
+                value={threshold} onChange={e => onThreshold(e.target.value)}
+                placeholder={String(DEFAULT_ATTENDANCE_THRESHOLD)}
+              />
+            </div>
+          </div>
+          <div style={{ color: C.muted, fontSize: 11.5, marginTop: 5 }}>
+            עד {Math.max(Number(threshold || DEFAULT_ATTENDANCE_THRESHOLD) - 1, 0)} נוכחים → ₪{low || DEFAULT_ATTENDANCE_RATE_LOW} ·
+            {' '}מ־{threshold || DEFAULT_ATTENDANCE_THRESHOLD} נוכחים → ₪{high || DEFAULT_ATTENDANCE_RATE_HIGH}
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
 
 /** Travel-type picker plus whichever fields that choice needs. */
@@ -115,7 +212,11 @@ export default function InstructorsClient() {
 
   // Inline editing — both rates and the travel arrangement together.
   const [editingId,   setEditingId]   = useState<string | null>(null)
+  const [editModel,   setEditModel]   = useState<LessonPayModel>('flat')
   const [editLesson,  setEditLesson]  = useState('')
+  const [editAttLow,  setEditAttLow]  = useState('')
+  const [editAttHigh, setEditAttHigh] = useState('')
+  const [editAttThreshold, setEditAttThreshold] = useState('')
   const [editHourly,  setEditHourly]  = useState('')
   const [editTravelType,    setEditTravelType]    = useState<TravelType>('none')
   const [editTravelKm,      setEditTravelKm]      = useState('')
@@ -136,7 +237,7 @@ export default function InstructorsClient() {
       // Rates and the travel arrangement live here, keyed by admin_roles.id.
       supabase
         .from('staff_pay')
-        .select('admin_role_id, rate_per_lesson, hourly_rate, travel_type, travel_km, travel_rate, travel_monthly_amount'),
+        .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_high, attendance_threshold, travel_type, travel_km, travel_rate, travel_monthly_amount'),
     ])
 
     if (e1 || e2) {
@@ -146,12 +247,17 @@ export default function InstructorsClient() {
       setList((roles ?? []).map(r => {
         const p = payOf.get(r.id)
         const cfg = travelConfigOf(p)
+        const lesson = lessonPayConfigOf(p)
         return {
           id: r.id,
           name: r.name,
           branch: r.branch,
           active: r.active,
-          ratePerLesson: p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson),
+          lessonModel:   lesson.model,
+          ratePerLesson: lesson.flat,
+          attLow:        lesson.low,
+          attHigh:       lesson.high,
+          attThreshold:  lesson.threshold,
           hourlyRate:    p?.hourly_rate     == null ? DEFAULT_HOURLY_RATE     : Number(p.hourly_rate),
           travelType:    cfg.type,
           travelKm:      cfg.km,
@@ -190,7 +296,11 @@ export default function InstructorsClient() {
           password: form.password,
           role: 'instructor',
           branch: form.branch,
+          lessonModel:   form.lessonModel,
           ratePerLesson: form.ratePerLesson || DEFAULT_RATE_PER_LESSON,
+          attLow:        form.attLow        || DEFAULT_ATTENDANCE_RATE_LOW,
+          attHigh:       form.attHigh       || DEFAULT_ATTENDANCE_RATE_HIGH,
+          attThreshold:  form.attThreshold  || DEFAULT_ATTENDANCE_THRESHOLD,
           hourlyRate:    form.hourlyRate    || DEFAULT_HOURLY_RATE,
           travelType:    form.travelType,
           travelKm:      form.travelType === 'per_km'        ? (form.travelKm || 0) : 0,
@@ -214,7 +324,11 @@ export default function InstructorsClient() {
 
   function startEdit(ins: Instructor) {
     setEditingId(ins.id)
+    setEditModel(ins.lessonModel)
     setEditLesson(String(ins.ratePerLesson))
+    setEditAttLow(String(ins.attLow))
+    setEditAttHigh(String(ins.attHigh))
+    setEditAttThreshold(String(ins.attThreshold))
     setEditHourly(String(ins.hourlyRate))
     setEditTravelType(ins.travelType)
     setEditTravelKm(String(ins.travelKm))
@@ -228,6 +342,17 @@ export default function InstructorsClient() {
     const hourly    = Number(editHourly)
     if (!Number.isFinite(perLesson) || perLesson < 0) { setError('תעריף לשיעור לא תקין'); return }
     if (!Number.isFinite(hourly)    || hourly    < 0) { setError('תעריף לשעה לא תקין'); return }
+
+    // The bands are stored whichever model is chosen — zeroing them the way the
+    // travel fields do would make a later switch to "לפי נוכחות" pay ₪0.
+    const attLow  = Number(editAttLow || 0)
+    const attHigh = Number(editAttHigh || 0)
+    const attThr  = Number(editAttThreshold || 0)
+    if (editModel === 'by_attendance') {
+      if (!Number.isFinite(attLow)  || attLow  < 0) { setError('תעריף עד הסף לא תקין'); return }
+      if (!Number.isFinite(attHigh) || attHigh < 0) { setError('תעריף מהסף לא תקין'); return }
+      if (!Number.isInteger(attThr) || attThr  < 1) { setError('סף חניכים לא תקין — מספר שלם מ־1 ומעלה'); return }
+    }
 
     // Only the fields the chosen arrangement uses are validated and stored;
     // the others are zeroed so a stale value cannot resurface after a switch.
@@ -246,7 +371,11 @@ export default function InstructorsClient() {
       .upsert(
         {
           admin_role_id: id,
+          lesson_pay_model: editModel,
           rate_per_lesson: perLesson,
+          attendance_rate_low: attLow,
+          attendance_rate_high: attHigh,
+          attendance_threshold: attThr,
           hourly_rate: hourly,
           travel_type: editTravelType,
           travel_km: km,
@@ -262,7 +391,8 @@ export default function InstructorsClient() {
     setList(prev => prev.map(i =>
       i.id === id
         ? {
-            ...i, ratePerLesson: perLesson, hourlyRate: hourly,
+            ...i, lessonModel: editModel, ratePerLesson: perLesson, hourlyRate: hourly,
+            attLow, attHigh, attThreshold: attThr,
             travelType: editTravelType, travelKm: km, travelRate: rate, travelMonthly: monthly,
             hasPayRow: true,
           }
@@ -285,7 +415,8 @@ export default function InstructorsClient() {
       </div>
 
       <p style={{ color: C.muted, fontSize: 12.5, margin: '0 0 14px', lineHeight: 1.75 }}>
-        השכר מחושב לפי שני תעריפים אישיים: <b style={{ color: C.text }}>תעריף לשיעור</b> עבור אימון שבועי רגיל,
+        השכר מחושב לפי תעריפים אישיים: <b style={{ color: C.text }}>שכר לשיעור</b> עבור אימון שבועי רגיל —
+        קבוע, או <b style={{ color: C.text }}>לפי נוכחות</b> (תעריף נמוך עד הסף, גבוה ממנו ומעלה) —
         ו־<b style={{ color: C.text }}>תעריף לשעה</b> עבור פעילות מיוחדת (מחנה, ימי שיא) — שעות × תעריף.
       </p>
 
@@ -319,22 +450,19 @@ export default function InstructorsClient() {
 
               {editingId === ins.id ? (
                 <div style={{ display: 'grid', gap: 12 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <div>
-                      <label style={labelStyle}>תעריף לשיעור (₪)</label>
-                      <input
-                        style={inputStyle} type="number" inputMode="numeric" dir="ltr" autoFocus
-                        value={editLesson} onChange={e => setEditLesson(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label style={labelStyle}>תעריף לשעה (₪)</label>
-                      <input
-                        style={inputStyle} type="number" inputMode="numeric" dir="ltr"
-                        value={editHourly} onChange={e => setEditHourly(e.target.value)}
-                      />
-                    </div>
+                  <div>
+                    <label style={labelStyle}>★ תעריף לשעה (₪) — פעילות מיוחדת</label>
+                    <input
+                      style={inputStyle} type="number" inputMode="numeric" dir="ltr" autoFocus
+                      value={editHourly} onChange={e => setEditHourly(e.target.value)}
+                    />
                   </div>
+                  <LessonPayFields
+                    model={editModel} flat={editLesson} low={editAttLow}
+                    high={editAttHigh} threshold={editAttThreshold}
+                    onModel={setEditModel} onFlat={setEditLesson} onLow={setEditAttLow}
+                    onHigh={setEditAttHigh} onThreshold={setEditAttThreshold}
+                  />
                   <TravelFields
                     type={editTravelType} km={editTravelKm} rate={editTravelRate} monthly={editTravelMonthly}
                     onType={setEditTravelType} onKm={setEditTravelKm}
@@ -352,8 +480,19 @@ export default function InstructorsClient() {
                 <div style={{ display: 'grid', gap: 9 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9 }}>
                     <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 9, padding: '9px 12px' }}>
-                      <div style={{ color: C.muted, fontSize: 11, marginBottom: 2 }}>לשיעור רגיל</div>
-                      <div style={{ color: C.accent, fontWeight: 800, fontSize: 16 }}>₪{ins.ratePerLesson}</div>
+                      <div style={{ color: C.muted, fontSize: 11, marginBottom: 2 }}>
+                        לשיעור רגיל{ins.lessonModel === 'by_attendance' && ' · לפי נוכחות'}
+                      </div>
+                      <div style={{ color: C.accent, fontWeight: 800, fontSize: 16 }}>
+                        {ins.lessonModel === 'by_attendance'
+                          ? `₪${ins.attLow} / ₪${ins.attHigh}`
+                          : `₪${ins.ratePerLesson}`}
+                      </div>
+                      {ins.lessonModel === 'by_attendance' && (
+                        <div style={{ color: C.muted, fontSize: 10.5, marginTop: 2 }}>
+                          מ־{ins.attThreshold} נוכחים → ₪{ins.attHigh}
+                        </div>
+                      )}
                     </div>
                     <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 9, padding: '9px 12px' }}>
                       <div style={{ color: C.muted, fontSize: 11, marginBottom: 2 }}>★ לשעה (מיוחדת)</div>
@@ -415,24 +554,24 @@ export default function InstructorsClient() {
                 </select>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label style={labelStyle}>תעריף לשיעור (₪)</label>
-                  <input
-                    style={inputStyle} type="number" inputMode="numeric" dir="ltr"
-                    value={form.ratePerLesson} onChange={e => set('ratePerLesson', e.target.value)}
-                    placeholder={String(DEFAULT_RATE_PER_LESSON)}
-                  />
-                </div>
-                <div>
-                  <label style={labelStyle}>תעריף לשעה (₪)</label>
-                  <input
-                    style={inputStyle} type="number" inputMode="numeric" dir="ltr"
-                    value={form.hourlyRate} onChange={e => set('hourlyRate', e.target.value)}
-                    placeholder={String(DEFAULT_HOURLY_RATE)}
-                  />
-                </div>
+              <div>
+                <label style={labelStyle}>★ תעריף לשעה (₪) — פעילות מיוחדת</label>
+                <input
+                  style={inputStyle} type="number" inputMode="numeric" dir="ltr"
+                  value={form.hourlyRate} onChange={e => set('hourlyRate', e.target.value)}
+                  placeholder={String(DEFAULT_HOURLY_RATE)}
+                />
               </div>
+
+              <LessonPayFields
+                model={form.lessonModel} flat={form.ratePerLesson} low={form.attLow}
+                high={form.attHigh} threshold={form.attThreshold}
+                onModel={m => setForm(f => ({ ...f, lessonModel: m }))}
+                onFlat={v => set('ratePerLesson', v)}
+                onLow={v => set('attLow', v)}
+                onHigh={v => set('attHigh', v)}
+                onThreshold={v => set('attThreshold', v)}
+              />
 
               <TravelFields
                 type={form.travelType} km={form.travelKm} rate={form.travelRate} monthly={form.travelMonthly}

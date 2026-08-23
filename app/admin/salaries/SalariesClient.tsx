@@ -1,5 +1,5 @@
 'use client'
-// SalariesClient v2 — עריכת ק״מ ידני לחודש
+// SalariesClient v3 — ק״מ ידני לחודש + שכר שיעור לפי נוכחות
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
@@ -7,15 +7,20 @@ import {
   computeTravel, travelConfigOf, travelDetail, TRAVEL_LABEL, type TravelType,
 } from '@/lib/travel'
 import {
+  attendanceBandDetail, lessonPayConfigOf, lessonPayFor, type LessonPayModel,
+} from '@/lib/lesson-pay'
+import {
   ManageShell, Btn, Note, ErrorBox, C, inputStyle, labelStyle,
 } from '@/components/ManageShell'
 
 type Row = {
   id: string
   name: string
-  // Ordinary weekly lessons — flat rate_per_lesson each.
+  // Ordinary weekly lessons — a flat rate each, or banded by attendance.
   lessons: number
-  ratePerLesson: number
+  lessonModel: LessonPayModel
+  ratePerLesson: number       // the flat rate; unused when lessonModel is by_attendance
+  lessonDetail: string
   lessonPay: number
   // Special activities (camps / ימי שיא) — hours × hourly_rate.
   specialCount: number
@@ -75,10 +80,10 @@ export default function SalariesClient() {
       // Rates and travel arrangement — never on admin_roles.
       supabase
         .from('staff_pay')
-        .select('admin_role_id, rate_per_lesson, hourly_rate, travel_type, travel_km, travel_rate, travel_monthly_amount'),
+        .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_high, attendance_threshold, travel_type, travel_km, travel_rate, travel_monthly_amount'),
       supabase
         .from('class_sessions')
-        .select('id, instructor_id, instructor_ids, type, duration, session_date')
+        .select('id, instructor_id, instructor_ids, type, duration, session_date, present_count')
         .gte('session_date', from)
         .lte('session_date', to),
       // Per-month override — a fixed sum, or manual km for a per_km instructor.
@@ -93,7 +98,9 @@ export default function SalariesClient() {
 
     // Tally per instructor. A session counts for instructor_id and for anyone
     // listed in instructor_ids when it was co-taught.
-    const lessons      = new Map<string, number>()
+    // One entry per ordinary lesson taught, holding that lesson's attendance —
+    // by_attendance prices every lesson on its own, so a count is not enough.
+    const lessonPresents = new Map<string, number[]>()
     const specialCount = new Map<string, number>()
     const specialHours = new Map<string, number>()
     const workDays     = new Map<string, Set<string>>()   // distinct dates actually taught
@@ -111,7 +118,8 @@ export default function SalariesClient() {
           specialCount.set(id, (specialCount.get(id) ?? 0) + 1)
           specialHours.set(id, (specialHours.get(id) ?? 0) + (Number(s.duration) || 0))
         } else {
-          lessons.set(id, (lessons.get(id) ?? 0) + 1)
+          if (!lessonPresents.has(id)) lessonPresents.set(id, [])
+          lessonPresents.get(id)!.push(Number(s.present_count) || 0)
         }
       }
     }
@@ -129,10 +137,12 @@ export default function SalariesClient() {
         const ratePerLesson = p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson)
         const hourlyRate    = p?.hourly_rate     == null ? DEFAULT_HOURLY_RATE     : Number(p.hourly_rate)
 
-        const n           = lessons.get(i.id) ?? 0
+        const presents    = lessonPresents.get(i.id) ?? []
+        const n           = presents.length
         const hours       = specialHours.get(i.id) ?? 0
         const workingDays = workDays.get(i.id)?.size ?? 0
-        const lessonPay   = n * ratePerLesson
+        const lessonModel = lessonPayConfigOf(p).model
+        const lessonPay   = lessonPayFor(p, presents)
         const specialPay  = hours * hourlyRate
 
         const cfg       = travelConfigOf(p)
@@ -148,7 +158,11 @@ export default function SalariesClient() {
           id: i.id,
           name: i.name ?? '—',
           lessons: n,
+          lessonModel,
           ratePerLesson,
+          lessonDetail: lessonModel === 'by_attendance'
+            ? attendanceBandDetail(p, n)
+            : `${n} × ${ils(ratePerLesson)}`,
           lessonPay,
           specialCount: specialCount.get(i.id) ?? 0,
           specialHours: hours,
@@ -245,7 +259,7 @@ export default function SalariesClient() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, paddingBottom: 7, borderBottom: `1px solid ${C.border}` }}>
                     <span style={{ color: C.muted }}>
                       שיעורים רגילים
-                      <span style={{ opacity: 0.75 }}> · {r.lessons} × {ils(r.ratePerLesson)}</span>
+                      <span style={{ opacity: 0.75 }}> · {r.lessonDetail}</span>
                     </span>
                     <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{ils(r.lessonPay)}</span>
                   </div>
