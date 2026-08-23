@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
   // Rates live on staff_pay (admin_roles carries neither), and the lesson log is
   // class_sessions — the previous `instructor_hours` table does not exist, which
   // is why this report came out empty.
-  const [{ data: instructors }, { data: pay }, { data: sessions }, { data: travelRows }] = await Promise.all([
+  const [{ data: instructors }, { data: pay }, { data: sessions }, { data: travelRows }, { data: travelDays }] = await Promise.all([
     db.from('admin_roles').select('id, name').eq('role', 'instructor').order('name'),
     db.from('staff_pay')
       .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_high, attendance_threshold, travel_type, travel_km, travel_rate, travel_monthly_amount'),
@@ -150,6 +150,7 @@ export async function GET(request: NextRequest) {
       .select('instructor_id, instructor_ids, type, duration, session_date, present_count')
       .gte('session_date', first).lte('session_date', last),
     db.from('instructor_travel').select('instructor_id, amount').eq('month', month),
+    db.from('instructor_travel_days').select('instructor_id, km').gte('travel_date', first).lte('travel_date', last),
   ])
 
   // Tally per instructor; co-taught sessions count for everyone listed.
@@ -177,6 +178,13 @@ export async function GET(request: NextRequest) {
   const payOf      = new Map((pay ?? []).map(p => [p.admin_role_id, p]))
   const overrideOf = new Map((travelRows ?? []).map(t => [t.instructor_id, Number(t.amount)]))
 
+  // Km the per_km instructors reported themselves. Absent from the map means
+  // "reported nothing this month" — a reported 0 is a real figure.
+  const reportedOf = new Map<string, number>()
+  for (const d of travelDays ?? []) {
+    reportedOf.set(d.instructor_id, (reportedOf.get(d.instructor_id) ?? 0) + (Number(d.km) || 0))
+  }
+
   const report: ReportRow[] = (instructors ?? []).map(inst => {
     const p             = payOf.get(inst.id)
     const ratePerLesson = p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson)
@@ -188,7 +196,8 @@ export async function GET(request: NextRequest) {
     const workingDays = workDays.get(inst.id)?.size ?? 0
     const lessonPay   = lessonPayFor(p, presents)
     const specialPay  = hours * hourlyRate
-    const travelPay   = computeTravel(p, workingDays, overrideOf.has(inst.id) ? overrideOf.get(inst.id)! : null)
+    const reportedKm  = reportedOf.has(inst.id) ? Math.round(reportedOf.get(inst.id)! * 100) / 100 : null
+    const travelPay   = computeTravel(p, workingDays, overrideOf.has(inst.id) ? overrideOf.get(inst.id)! : null, reportedKm)
 
     return {
       name:        inst.name,

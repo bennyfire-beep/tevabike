@@ -13,6 +13,12 @@ import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
 //
 // Flow:  pick instructor → today's sessions → rider list (✔ / ✖) → save →
 //        confirmation with the present count.
+//
+// Instructors on the per_km travel arrangement also report where they travelled
+// from and how far, once for the day, from the sessions screen. Neither their
+// arrangement nor their rate is readable with the anon key, so that card is
+// driven by two service-role routes (travel-status / travel-save) which return
+// the instructor's own km and nothing else off staff_pay.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Brand palette
@@ -46,6 +52,8 @@ type Session = {
   instructor_ids: string[] | null
 }
 type Rider = { id: string; full_name: string; phone: string | null }
+type TravelDay = { origin: string; km: number }
+type TravelStatus = { is_per_km: boolean; today: TravelDay | null; last: TravelDay | null }
 
 const fmtTime = (t: string | null) => (t ? t.slice(0, 5) : '')
 
@@ -105,6 +113,14 @@ export default function InstructorMobilePage() {
   const [showAddRider, setShowAddRider] = useState(false)
   const [addedMsg, setAddedMsg]         = useState('')
 
+  // Today's travel report — per_km instructors only, once for the whole day.
+  const [travel,        setTravel]        = useState<TravelStatus | null>(null)
+  const [travelOrigin,  setTravelOrigin]  = useState('')
+  const [travelKm,      setTravelKm]      = useState('')
+  const [travelEditing, setTravelEditing] = useState(false)
+  const [travelSaving,  setTravelSaving]  = useState(false)
+  const [travelError,   setTravelError]   = useState('')
+
   // ── Load the active instructors once ──────────────────────────────────────
   // admin_roles isn't anon-readable under RLS (it holds staff PII), so the list
   // comes from a service-role API route rather than a direct client query.
@@ -125,6 +141,26 @@ export default function InstructorMobilePage() {
     setSession(null)
     setConfirmCount(null)
     setLoadingSess(true)
+
+    // Independent of the sessions query — don't hold the list up for it.
+    setTravel(null)
+    setTravelEditing(false)
+    setTravelError('')
+    setTravelOrigin('')
+    setTravelKm('')
+    fetch(`/api/instructor/travel-status?instructor_id=${encodeURIComponent(inst.id)}&date=${today}`)
+      .then(r => r.json())
+      .then((d: TravelStatus) => {
+        if (!d?.is_per_km) return
+        setTravel(d)
+        // Prefill from today's report, or from the last one they filed —
+        // most instructors leave from the same place every week.
+        const prefill = d.today ?? d.last
+        setTravelOrigin(prefill?.origin ?? '')
+        setTravelKm(prefill ? String(prefill.km) : '')
+      })
+      .catch(() => {})
+
     // Include regular sessions the instructor leads AND special activities where
     // they are one of several instructors (instructor_ids array contains them).
     const { data } = await supabase
@@ -232,9 +268,45 @@ export default function InstructorMobilePage() {
     }
   }
 
+  // One row per instructor per day — saving again corrects today's report.
+  async function saveTravelDay() {
+    if (!instructor) return
+    const km = Number(travelKm)
+    if (!travelOrigin.trim()) { setTravelError('צריך למלא מאיפה הגעת'); return }
+    if (travelKm.trim() === '' || !Number.isFinite(km) || km < 0 || km > 1000) {
+      setTravelError('מספר ק״מ לא תקין (0–1000)'); return
+    }
+
+    setTravelSaving(true)
+    setTravelError('')
+    try {
+      const r = await fetch('/api/instructor/travel-save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instructor_id: instructor.id,
+          travel_date: today,
+          origin: travelOrigin.trim(),
+          km,
+        }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setTravelError(d.error ?? 'שמירת הנסיעות נכשלה'); return }
+      setTravel(t => (t ? { ...t, today: d.saved, last: d.saved } : t))
+      setTravelEditing(false)
+    } catch (e) {
+      setTravelError('שמירת הנסיעות נכשלה: ' + (e as Error).message)
+    } finally {
+      setTravelSaving(false)
+    }
+  }
+
   const presentCount = riders.filter(r => attendance[r.id] !== false).length
 
-  const changeInstructor = () => { setInstructor(null); setSession(null); setSessions([]); setConfirmCount(null) }
+  const changeInstructor = () => {
+    setInstructor(null); setSession(null); setSessions([]); setConfirmCount(null)
+    setTravel(null); setTravelEditing(false); setTravelError('')
+  }
 
   // ── 1. Confirmation ────────────────────────────────────────────────────────
   if (confirmCount !== null && session) {
@@ -310,6 +382,89 @@ export default function InstructorMobilePage() {
   if (!session) {
     return (
       <Shell instructor={instructor} onChangeInstructor={changeInstructor} sub={`${instructor.name} · ${todayLabel}`}>
+        {travel?.is_per_km && (
+          <section
+            aria-label="דיווח נסיעות היום"
+            style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: '16px 18px', marginBottom: 20 }}
+          >
+            <h2 style={{ fontSize: 19, fontWeight: 900, margin: '0 0 4px' }}>
+              <span aria-hidden="true">🚗</span> נסיעות היום
+            </h2>
+
+            {travel.today && !travelEditing ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
+                <span style={{ flex: 1, minWidth: 170, color: C.present, fontSize: 18, fontWeight: 800 }}>
+                  ✓ דווח: {travel.today.km} ק״מ מ־{travel.today.origin}
+                </span>
+                <button
+                  onClick={() => {
+                    setTravelEditing(true)
+                    setTravelOrigin(travel.today!.origin)
+                    setTravelKm(String(travel.today!.km))
+                    setTravelError('')
+                  }}
+                  style={{ minHeight: 48, background: C.surface2, border: `1px solid ${C.border}`, color: C.purpleSoft, borderRadius: 14, padding: '0 18px', fontFamily: FONT, fontSize: 16, fontWeight: 800, cursor: 'pointer' }}
+                >
+                  ✎ עריכה
+                </button>
+              </div>
+            ) : (
+              <>
+                <p style={{ color: C.muted, fontSize: 14, margin: '0 0 14px' }}>
+                  {travel.last && !travel.today
+                    ? 'מולא מראש מהדיווח האחרון שלך — עדכן/י אם נסעת מאיפה שהוא אחר.'
+                    : 'דיווח אחד ליום, הלוך-חזור.'}
+                </p>
+
+                <label htmlFor="travel-origin" style={{ display: 'block', color: C.muted, fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
+                  מאיפה הגעת?
+                </label>
+                <input
+                  id="travel-origin"
+                  value={travelOrigin}
+                  onChange={e => setTravelOrigin(e.target.value)}
+                  placeholder="למשל: כרמיאל"
+                  style={{ width: '100%', minHeight: 56, boxSizing: 'border-box', background: C.surface2, border: `1px solid ${C.border}`, color: C.text, borderRadius: 14, padding: '0 16px', fontFamily: FONT, fontSize: 18, marginBottom: 14 }}
+                />
+
+                <label htmlFor="travel-km" style={{ display: 'block', color: C.muted, fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
+                  כמה ק״מ (הלוך-חזור)?
+                </label>
+                <input
+                  id="travel-km"
+                  value={travelKm}
+                  onChange={e => setTravelKm(e.target.value)}
+                  type="number" inputMode="decimal" dir="ltr" placeholder="0"
+                  style={{ width: '100%', minHeight: 56, boxSizing: 'border-box', background: C.surface2, border: `1px solid ${C.border}`, color: C.text, borderRadius: 14, padding: '0 16px', fontFamily: FONT, fontSize: 18 }}
+                />
+
+                {travelError && (
+                  <p role="alert" style={{ color: C.absent, fontSize: 15, margin: '12px 0 0' }}>{travelError}</p>
+                )}
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                  <button
+                    onClick={saveTravelDay}
+                    disabled={travelSaving}
+                    style={{ flex: 1, minHeight: 56, background: travelSaving ? C.surface2 : `linear-gradient(90deg, ${C.purple}, ${C.pink})`, color: travelSaving ? C.muted : '#fff', border: 'none', borderRadius: 16, fontFamily: FONT, fontWeight: 900, fontSize: 18, cursor: travelSaving ? 'default' : 'pointer' }}
+                  >
+                    {travelSaving ? 'שומר...' : '💾 שמור נסיעות'}
+                  </button>
+                  {travel.today && (
+                    <button
+                      onClick={() => { setTravelEditing(false); setTravelError('') }}
+                      disabled={travelSaving}
+                      style={{ minHeight: 56, background: 'transparent', border: `1px solid ${C.border}`, color: C.muted, borderRadius: 16, padding: '0 20px', fontFamily: FONT, fontWeight: 800, fontSize: 16, cursor: 'pointer' }}
+                    >
+                      ביטול
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
         <h1 style={{ fontSize: 24, fontWeight: 900, margin: '0 0 20px' }}>האימונים שלך היום</h1>
         {loadingSess ? (
           <p style={{ color: C.muted, textAlign: 'center', padding: 40, fontSize: 16 }}>טוען...</p>

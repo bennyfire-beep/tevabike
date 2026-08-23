@@ -153,13 +153,29 @@ export default function PayrollPage() {
       .not('present_count', 'is', null)
       .order('session_date')
 
-    // Per-month travel override for the monthly_fixed arrangement.
+    // Per-month travel override, typed into the salary report.
     const { data: travelRows } = await supabase
       .from('instructor_travel')
-      .select('instructor_id, amount')
+      .select('instructor_id, amount, km, mode')
       .eq('month', ym)
     const overrideOf: Record<string, number> = {}
-    for (const t of travelRows ?? []) overrideOf[t.instructor_id] = Number(t.amount)
+    const overrideKmOf: Record<string, number> = {}   // manual km, per_km instructors only
+    for (const t of travelRows ?? []) {
+      overrideOf[t.instructor_id] = Number(t.amount)
+      if (t.mode === 'manual_km') overrideKmOf[t.instructor_id] = Number(t.km ?? 0)
+    }
+
+    // What the per_km instructors reported themselves, one row per day worked.
+    // Absent means "reported nothing" — a reported 0 is a real figure.
+    const { data: travelDays } = await supabase
+      .from('instructor_travel_days')
+      .select('instructor_id, km')
+      .gte('travel_date', first)
+      .lte('travel_date', last)
+    const reportedOf: Record<string, number> = {}
+    for (const d of travelDays ?? []) {
+      reportedOf[d.instructor_id] = (reportedOf[d.instructor_id] ?? 0) + (Number(d.km) || 0)
+    }
 
     // Distinct dates each instructor actually taught — the basis for per_km travel.
     const workDays: Record<string, Set<string>> = {}
@@ -219,12 +235,13 @@ export default function PayrollPage() {
     // Travel line items — one per instructor with a non-zero reimbursement.
     // Working days are the distinct dates they actually taught this month.
     for (const r of roleRows) {
-      const days   = workDays[r.id]?.size ?? 0
-      const amount = computeTravel(r, days, overrideOf[r.id] ?? null)
+      const days     = workDays[r.id]?.size ?? 0
+      const reported = r.id in reportedOf ? Math.round(reportedOf[r.id] * 100) / 100 : null
+      const amount   = computeTravel(r, days, overrideOf[r.id] ?? null, reported)
       if (amount > 0) {
         items.push({
           key: 'travel-' + r.id, name: r.name, kind: 'travel',
-          label: `נסיעות · ${travelDetail(r, days)}`,
+          label: `נסיעות · ${travelDetail(r, days, overrideKmOf[r.id] ?? null, reported)}`,
           branch: null, date: null, present: null, pay: amount,
         })
       }

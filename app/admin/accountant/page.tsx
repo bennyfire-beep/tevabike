@@ -117,11 +117,18 @@ export default function AccountantPage() {
       .from('staff_pay')
       .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_high, attendance_threshold, travel_type, travel_km, travel_rate, travel_monthly_amount')
 
-    // Per-month travel override for the monthly_fixed arrangement.
+    // Per-month travel override, typed into the salary report.
     const { data: travelRows } = await supabase
       .from('instructor_travel')
       .select('instructor_id, amount')
       .eq('month', month)
+
+    // What the per_km instructors reported themselves, one row per day worked.
+    const { data: travelDays } = await supabase
+      .from('instructor_travel_days')
+      .select('instructor_id, km')
+      .gte('travel_date', firstDay)
+      .lte('travel_date', lastDay)
 
     // `duration` (not duration_hours) is the real column on class_sessions.
     const { data: sessions } = await supabase
@@ -155,6 +162,12 @@ export default function AccountantPage() {
     const payOf      = new Map((pay ?? []).map(p => [p.admin_role_id, p]))
     const overrideOf = new Map((travelRows ?? []).map(t => [t.instructor_id, Number(t.amount)]))
 
+    // Absent from the map means "reported nothing" — a reported 0 is a real figure.
+    const reportedOf = new Map<string, number>()
+    for (const d of travelDays ?? []) {
+      reportedOf.set(d.instructor_id, (reportedOf.get(d.instructor_id) ?? 0) + (Number(d.km) || 0))
+    }
+
     const summaries: InstructorSummary[] = roles.map(r => {
       const p             = payOf.get(r.id)
       const ratePerLesson = p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson)
@@ -166,7 +179,8 @@ export default function AccountantPage() {
       const workingDays = workDays.get(r.id)?.size ?? 0
       const lessonPay   = lessonPayFor(p, presents)
       const specialPay  = hours * hourlyRate
-      const travelPay   = computeTravel(p, workingDays, overrideOf.has(r.id) ? overrideOf.get(r.id)! : null)
+      const reportedKm  = reportedOf.has(r.id) ? Math.round(reportedOf.get(r.id)! * 100) / 100 : null
+      const travelPay   = computeTravel(p, workingDays, overrideOf.has(r.id) ? overrideOf.get(r.id)! : null, reportedKm)
 
       return {
         adminRoleId: r.id,

@@ -1,5 +1,5 @@
 'use client'
-// SalariesClient v3 — ק״מ ידני לחודש + שכר שיעור לפי נוכחות
+// SalariesClient v4 — ק״מ ידני לחודש + שכר לפי נוכחות + ק״מ שדיווח המדריך
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
@@ -75,6 +75,7 @@ export default function SalariesClient() {
       { data: pay,         error: e2 },
       { data: sessions,    error: e3 },
       { data: travelRows,  error: e4 },
+      { data: travelDays,  error: e5 },
     ] = await Promise.all([
       supabase.from('admin_roles').select('id, name').eq('role', 'instructor').order('name'),
       // Rates and travel arrangement — never on admin_roles.
@@ -88,10 +89,12 @@ export default function SalariesClient() {
         .lte('session_date', to),
       // Per-month override — a fixed sum, or manual km for a per_km instructor.
       supabase.from('instructor_travel').select('instructor_id, amount, km, mode').eq('month', month),
+      // What the per_km instructors reported themselves, one row per day worked.
+      supabase.from('instructor_travel_days').select('instructor_id, km').gte('travel_date', from).lte('travel_date', to),
     ])
 
-    if (e1 || e2 || e3 || e4) {
-      setError('הטעינה נכשלה: ' + (e1?.message ?? e2?.message ?? e3?.message ?? e4?.message))
+    if (e1 || e2 || e3 || e4 || e5) {
+      setError('הטעינה נכשלה: ' + (e1?.message ?? e2?.message ?? e3?.message ?? e4?.message ?? e5?.message))
       setLoading(false)
       return
     }
@@ -131,6 +134,13 @@ export default function SalariesClient() {
       mode:   (t.mode ?? null) as string | null,
     }]))
 
+    // Reported km, added up per instructor. Absent from the map means "reported
+    // nothing this month" — a reported 0 is a real figure and stays 0.
+    const reportedOf = new Map<string, number>()
+    for (const d of travelDays ?? []) {
+      reportedOf.set(d.instructor_id, (reportedOf.get(d.instructor_id) ?? 0) + (Number(d.km) || 0))
+    }
+
     setRows(
       (instructors ?? []).map(i => {
         const p             = payOf.get(i.id)
@@ -152,7 +162,10 @@ export default function SalariesClient() {
         const overrideKm = override && cfg.type === 'per_km' && override.mode === 'manual_km'
           ? override.km
           : null
-        const travelPay = computeTravel(p, workingDays, override ? override.amount : null)
+        const reportedKm = cfg.type === 'per_km' && reportedOf.has(i.id)
+          ? Math.round(reportedOf.get(i.id)! * 100) / 100
+          : null
+        const travelPay = computeTravel(p, workingDays, override ? override.amount : null, reportedKm)
 
         return {
           id: i.id,
@@ -171,7 +184,7 @@ export default function SalariesClient() {
           travelType: cfg.type,
           travelRate: cfg.rate,
           workingDays,
-          travelDetail: travelDetail(p, workingDays, overrideKm),
+          travelDetail: travelDetail(p, workingDays, overrideKm, reportedKm),
           travelPay,
           travelIsOverride: override !== null,
           overrideKm,
