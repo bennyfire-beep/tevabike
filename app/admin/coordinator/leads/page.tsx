@@ -1,4 +1,5 @@
 'use client'
+// leads/page.tsx — v2: notes column added (editable by coordinators)
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
@@ -15,8 +16,11 @@ type Lead = {
   message: string | null
   status: string
   handled_by: string | null
+  notes: string | null
   created_at: string
 }
+
+const GRID = '105px 1fr 120px 165px 95px 105px 1fr 110px 95px 1.3fr'
 
 const fmtDateTime = (iso: string) =>
   new Date(iso).toLocaleString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -28,12 +32,13 @@ export default function LeadsPage() {
   const [statusFilter, setStatusFilter]     = useState('all')
   const [interestFilter, setInterestFilter] = useState('all')
   const [savingId, setSavingId]   = useState<string | null>(null)
+  const [savedNoteId, setSavedNoteId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
       .from('leads')
-      .select('id, full_name, phone, interest, branch, source, utm_campaign, message, status, handled_by, created_at')
+      .select('id, full_name, phone, interest, branch, source, utm_campaign, message, status, handled_by, notes, created_at')
       .order('created_at', { ascending: false })
     setLeads((data ?? []) as Lead[])
     setLoading(false)
@@ -53,6 +58,16 @@ export default function LeadsPage() {
     setSavingId(null)
   }
 
+  async function saveNotes(lead: Lead, notes: string) {
+    const trimmed = notes.trim()
+    if ((lead.notes ?? '') === trimmed) return
+    const { error } = await supabase.from('leads').update({ notes: trimmed || null }).eq('id', lead.id)
+    if (error) { alert(error.message); return }
+    setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, notes: trimmed || null } : l))
+    setSavedNoteId(lead.id)
+    setTimeout(() => setSavedNoteId(id => (id === lead.id ? null : id)), 1500)
+  }
+
   if (!user) return null
 
   const filtered = leads.filter(l =>
@@ -67,7 +82,7 @@ export default function LeadsPage() {
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
+    <div style={{ padding: 24, maxWidth: 1250, margin: '0 auto' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <div>
@@ -96,8 +111,8 @@ export default function LeadsPage() {
 
       {/* Table */}
       <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '115px 1fr 125px 175px 110px 120px 1fr 115px 105px', gap: 8, padding: '11px 16px', borderBottom: '1px solid #252b27', fontSize: 11, color: '#7a8f7d', fontWeight: 700 }}>
-          <span>תאריך</span><span>שם</span><span>טלפון</span><span>תחום עניין</span><span>הודעה</span><span>סטטוס</span><span>טופל ע"י</span>
+        <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 8, padding: '11px 16px', borderBottom: '1px solid #252b27', fontSize: 11, color: '#7a8f7d', fontWeight: 700 }}>
+          <span>תאריך</span><span>שם</span><span>טלפון</span><span>תחום עניין</span><span>סניף</span><span>מקור</span><span>הודעה</span><span>סטטוס</span><span>טופל ע"י</span><span>הערות</span>
         </div>
 
         {loading ? (
@@ -111,7 +126,7 @@ export default function LeadsPage() {
           filtered.map((l, i) => {
             const ic = INTEREST_COLOR[l.interest] ?? '#7a8f7d'
             return (
-              <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '115px 1fr 125px 175px 110px 120px 1fr 115px 105px', gap: 8, padding: '13px 16px', borderBottom: i < filtered.length - 1 ? '1px solid #1a1e1c' : 'none', alignItems: 'center', fontSize: 13 }}>
+              <div key={l.id} style={{ display: 'grid', gridTemplateColumns: GRID, gap: 8, padding: '13px 16px', borderBottom: i < filtered.length - 1 ? '1px solid #1a1e1c' : 'none', alignItems: 'center', fontSize: 13 }}>
                 <span style={{ color: '#7a8f7d', fontSize: 12 }}>{fmtDateTime(l.created_at)}</span>
                 <span style={{ fontWeight: 700 }}>{l.full_name}</span>
                 <a href={`tel:${l.phone}`} dir="ltr" style={{ color: '#81d4fa', textDecoration: 'none', textAlign: 'right' }}>{l.phone}</a>
@@ -141,6 +156,24 @@ export default function LeadsPage() {
                   </select>
                 </span>
                 <span style={{ color: l.handled_by ? '#b5e853' : '#4a544c', fontSize: 12 }}>{l.handled_by || '—'}</span>
+                <span style={{ position: 'relative' }}>
+                  <textarea
+                    aria-label={`הערות עבור ${l.full_name}`}
+                    defaultValue={l.notes ?? ''}
+                    placeholder="הוסף הערה..."
+                    rows={2}
+                    onBlur={e => saveNotes(l, e.target.value)}
+                    style={{
+                      width: '100%', boxSizing: 'border-box', resize: 'vertical', minHeight: 38,
+                      background: '#0d0f0e', border: '1px solid #252b27', borderRadius: 8,
+                      color: '#e8efe9', fontFamily: 'Heebo, Arial, sans-serif', fontSize: 12,
+                      padding: '6px 9px', outline: 'none', lineHeight: 1.4,
+                    }}
+                  />
+                  {savedNoteId === l.id && (
+                    <span style={{ position: 'absolute', bottom: -14, right: 2, color: '#b5e853', fontSize: 10, fontWeight: 700 }}>נשמר ✓</span>
+                  )}
+                </span>
               </div>
             )
           })
