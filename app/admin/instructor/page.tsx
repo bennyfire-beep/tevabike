@@ -1,4 +1,5 @@
 'use client'
+// instructor/page.tsx — v2: fixed blank-screen crash (travel.today non-null assertions removed)
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import RiderForm from '@/components/RiderForm'
@@ -398,9 +399,11 @@ export default function InstructorMobilePage() {
                 </span>
                 <button
                   onClick={() => {
+                    const t = travel.today ?? null
+                    if (!t) return
                     setTravelEditing(true)
-                    setTravelOrigin(travel.today!.origin)
-                    setTravelKm(String(travel.today!.km))
+                    setTravelOrigin(t.origin)
+                    setTravelKm(String(t.km))
                     setTravelError('')
                   }}
                   style={{ minHeight: 48, background: C.surface2, border: `1px solid ${C.border}`, color: C.purpleSoft, borderRadius: 14, padding: '0 18px', fontFamily: FONT, fontSize: 16, fontWeight: 800, cursor: 'pointer' }}
