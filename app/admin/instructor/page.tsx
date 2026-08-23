@@ -5,13 +5,15 @@ import { supabase } from '@/lib/supabase'
 import RiderForm from '@/components/RiderForm'
 import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
 import { clearAdminSession } from '@/lib/auth-actions'
+import { today as localToday, monthLabel as fmtMonth } from '@/lib/month'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Instructor screen — for a SIGNED-IN instructor.
 //
-// There is no "who is teaching today?" name picker here any more. The
-// instructor is identified by their login: admin_roles.user_id = auth.uid().
-// (The old no-login pick-your-name flow lives on the legacy attendance page.)
+// There is no "who is teaching today?" name picker any more, here or anywhere
+// else — it was retired deliberately, not moved. The instructor is identified
+// by their login: admin_roles.user_id = auth.uid(). Everything below assumes a
+// signed-in user and the page redirects to /admin/login when there isn't one.
 //
 // Mobile-first, big thumb-friendly targets, purple / black / pink branding,
 // built to WCAG 2.1: real <button> elements for keyboard nav, aria labels /
@@ -141,16 +143,9 @@ const fmtMoney = (n: number) => `₪${n.toLocaleString('he-IL')}`
 // Noon, so the date can't slide a day when the string is read as UTC.
 const fmtDay = (d: string) =>
   new Date(d + 'T12:00:00').toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })
-const fmtMonth = (ym: string) => {
-  const [y, m] = ym.split('-').map(Number)
-  return new Date(y, m - 1, 1).toLocaleDateString('he-IL', { month: 'long', year: 'numeric' })
-}
-/** Today where the instructor is standing, not in UTC. */
-function localToday(): string {
-  const d = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
+// Month naming and "what day is it" come from lib/month.ts — the same helpers
+// the pay routes and the coordinator report use, so no screen can disagree with
+// another about where a month starts or ends.
 function groupDays(g: Group): string {
   const dow = g.days_of_week
   if (dow && dow.length > 0) {

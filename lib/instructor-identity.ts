@@ -80,19 +80,7 @@ export async function resolveCaller(authHeader: string | null): Promise<Identity
   }
 }
 
-/** The month the server is in, as YYYY-MM. Never taken from the request. */
-export function currentMonth(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
-/** First and last calendar day of a YYYY-MM month, as YYYY-MM-DD. */
-export function monthBounds(ym: string): { first: string; last: string } {
-  const [y, m] = ym.split('-').map(Number)
-  const lastDay = new Date(y, m, 0)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return {
-    first: `${ym}-01`,
-    last:  `${lastDay.getFullYear()}-${pad(lastDay.getMonth() + 1)}-${pad(lastDay.getDate())}`,
-  }
-}
+// Month arithmetic lives in lib/month.ts so the browser pay screens and the
+// server routes cannot disagree about where a month starts and ends. The month
+// a route reports on is still the server's own — never taken from the request.
+export { currentMonth, monthBounds } from './month'

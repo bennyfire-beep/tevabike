@@ -6,6 +6,7 @@ import { DEFAULT_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
 import { lessonPayConfigOf, lessonRateFor } from '@/lib/lesson-pay'
 import { isSalaryAdmin } from '@/lib/salary-access'
+import { currentMonth, monthBounds } from '@/lib/month'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Monthly pay report (coordinator).
@@ -90,10 +91,7 @@ type PersonGroup = {
   totalPay: number
 }
 
-const currentYm = () => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
+const currentYm = currentMonth
 const ymLabel = (ym: string) =>
   new Date(Number(ym.split('-')[0]), Number(ym.split('-')[1]) - 1, 1)
     .toLocaleDateString('he-IL', { month: 'long', year: 'numeric' })
@@ -115,9 +113,12 @@ export default function PayrollPage() {
   const load = useCallback(async (ym: string) => {
     setLoading(true)
     setEmailMsg('')
-    const [y, m] = ym.split('-').map(Number)
-    const first  = `${ym}-01`
-    const last   = new Date(y, m, 0).toISOString().split('T')[0]
+    // Both ends come from lib/month.ts, which formats the local date rather
+    // than routing it through toISOString(). The old inline version rendered a
+    // local midnight as UTC, so east of Greenwich the last day of the month
+    // came out one day early and every lesson taught on it fell out of the
+    // report.
+    const { first, last } = monthBounds(ym)
 
     // Staff: names, both pay rates and monthly base for every role.
     const [{ data: roles }, { data: pay }] = await Promise.all([
