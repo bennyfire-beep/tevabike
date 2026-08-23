@@ -1,4 +1,5 @@
 'use client'
+// registrations/page.tsx — v2: admin_notes (הערות צוות) editable field added to each card
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
@@ -28,6 +29,7 @@ type Registration = {
   city: string | null
   class_type: string | null
   notes: string | null
+  admin_notes: string | null
   status: string
   group_name: string | null
   arbox_sent_at: string | null
@@ -55,6 +57,7 @@ export default function RegistrationsPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
   const [showAdd, setShowAdd] = useState(false)
+  const [savedNoteId, setSavedNoteId] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -70,6 +73,19 @@ export default function RegistrationsPage() {
   useEffect(() => {
     load()
   }, [])
+
+  async function saveAdminNotes(reg: Registration, value: string) {
+    const trimmed = value.trim()
+    if ((reg.admin_notes ?? '') === trimmed) return
+    const { error } = await supabase
+      .from('registrations')
+      .update({ admin_notes: trimmed || null })
+      .eq('id', reg.id)
+    if (error) { alert(error.message); return }
+    setRegs((prev) => prev.map((r) => (r.id === reg.id ? { ...r, admin_notes: trimmed || null } : r)))
+    setSavedNoteId(reg.id)
+    setTimeout(() => setSavedNoteId((id) => (id === reg.id ? null : id)), 1500)
+  }
 
   async function approve(reg: Registration) {
     const groupId = picked[reg.id]
@@ -241,6 +257,20 @@ export default function RegistrationsPage() {
                     )}
                   </div>
                 )}
+
+                <div className="mt-3 relative">
+                  <textarea
+                    aria-label={`הערות צוות עבור ${reg.child_name || reg.full_name}`}
+                    defaultValue={reg.admin_notes ?? ''}
+                    placeholder="✏️ הערות צוות…"
+                    rows={2}
+                    onBlur={(e) => saveAdminNotes(reg, e.target.value)}
+                    className="w-full bg-stone-950 border border-stone-800 focus:border-lime-700 rounded-lg px-3 py-2 text-sm text-stone-200 placeholder-stone-600 outline-none resize-y"
+                  />
+                  {savedNoteId === reg.id && (
+                    <span className="absolute -bottom-4 right-1 text-lime-400 text-xs font-semibold">נשמר ✓</span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
