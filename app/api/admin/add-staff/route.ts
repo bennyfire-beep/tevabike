@@ -26,13 +26,17 @@ export async function POST(request: NextRequest) {
   if (callerErr || !caller?.user)
     return NextResponse.json({ error: 'ההזדהות נכשלה, התחבר מחדש' }, { status: 401 })
 
-  const { data: callerRole } = await admin
+  // All of their rows: admin_roles is one per job and some people hold several.
+  // `.single()` errors on two matches, so a coordinator who also instructs was
+  // refused permission they actually held. Holding an extra role must never
+  // take one away — the test is "is coordinator or admin among their roles".
+  const { data: callerRoles } = await admin
     .from('admin_roles')
     .select('role')
     .eq('user_id', caller.user.id)
-    .single()
 
-  if (!callerRole || !['coordinator', 'admin'].includes(callerRole.role))
+  const roles = (callerRoles ?? []).map(r => r.role)
+  if (!roles.some(r => r === 'coordinator' || r === 'admin'))
     return NextResponse.json({ error: 'אין לך הרשאה להוסיף אנשי צוות' }, { status: 403 })
 
   // ── 2. Parse + validate input ──

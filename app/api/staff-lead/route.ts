@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { primaryRow } from '@/lib/roles'
 
 // v1 — ליד שנפתח על ידי צוות (מדריך או רכזת) מתוך טופס "חניך חדש".
 //
@@ -100,13 +101,15 @@ export async function POST(req: NextRequest) {
   if (callerErr || !caller?.user)
     return NextResponse.json({ ok: false, error: 'ההזדהות נכשלה, התחבר מחדש' }, { status: 401 })
 
-  const { data: roleRow } = await admin
+  // כל השורות. admin_roles היא שורה אחת לכל תפקיד, ויש מי שמחזיק כמה —
+  // .limit(1) החזירה שורה שרירותית, כלומר גם השם ב"הוזן על ידי" היה מקרי.
+  // primaryRow בוחר לפי עדיפות קבועה, ולכן אותו אדם יופיע תמיד אותו דבר.
+  const { data: roleRows } = await admin
     .from('admin_roles')
     .select('role, name')
     .eq('user_id', caller.user.id)
-    .limit(1)
-    .maybeSingle()
 
+  const roleRow = primaryRow(roleRows)
   if (!roleRow)
     return NextResponse.json({ ok: false, error: 'אין לך הרשאה' }, { status: 403 })
 

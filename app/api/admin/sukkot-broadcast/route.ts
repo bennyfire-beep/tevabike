@@ -44,14 +44,16 @@ async function guard(req: NextRequest, db: Db) {
   if (error || !caller?.user)
     return NextResponse.json({ ok: false, error: 'ההזדהות נכשלה, התחבר מחדש' }, { status: 401 })
 
-  const { data: roleRow } = await db
+  // Every row — admin_roles is one per job and some people hold several, which
+  // `.single()` turns into an error rather than a row. Holding an extra role
+  // must not remove a permission, so the test is "is it among their roles".
+  const { data: roleRows } = await db
     .from('admin_roles')
     .select('role')
     .eq('user_id', caller.user.id)
-    .single()
 
-  const role = (roleRow as { role?: string } | null)?.role
-  if (!role || !['coordinator', 'admin'].includes(role))
+  const roles = ((roleRows ?? []) as Array<{ role?: string }>).map(r => r.role)
+  if (!roles.some(r => r === 'coordinator' || r === 'admin'))
     return NextResponse.json({ ok: false, error: 'אין לך הרשאה לשלוח הודעות' }, { status: 403 })
 
   return null

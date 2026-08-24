@@ -19,10 +19,25 @@ const ADMIN_PUBLIC_PATHS = [
   '/admin/instructor',
 ]
 
+// The role-gated areas. Kept in step with ROLE_HOME in lib/roles.ts — not
+// imported, because the Edge bundle for the proxy stays dependency-free.
 const ROLE_PREFIXES: Record<string, string> = {
+  admin:       '/admin',
   instructor:  '/admin/instructor',
   coordinator: '/admin/coordinator',
   accountant:  '/admin/accountant',
+}
+
+// Strongest first, matching ROLE_PRIORITY in lib/roles.ts.
+const ROLE_ORDER = ['admin', 'coordinator', 'instructor', 'accountant']
+
+// The role cookie holds every role the person has, comma separated, because
+// admin_roles is one row per job and some people hold several. Older cookies
+// still in browsers carry a single value, which parses to a one-item list.
+function rolesFromCookie(value: string | undefined): string[] {
+  if (!value) return []
+  const held = value.split(',').map(s => s.trim()).filter(r => r in ROLE_PREFIXES)
+  return ROLE_ORDER.filter(r => held.includes(r))
 }
 
 // Screens that show pay, rates or travel. Only the salary admins may open them.
@@ -95,17 +110,26 @@ export function proxy(request: NextRequest): NextResponse {
     if (!payload || isExpired(payload)) return clearAndRedirect(loginUrl)
 
     // No role cookie
-    if (!userRole || !(userRole in ROLE_PREFIXES)) return clearAndRedirect(loginUrl)
+    const roles = rolesFromCookie(userRole)
+    if (roles.length === 0) return clearAndRedirect(loginUrl)
 
-    // Role-path enforcement: instructor cannot reach /admin/coordinator etc.
+    // Where this person lands when they are somewhere they may not be.
+    const home = ROLE_PREFIXES[roles[0]] ?? ADMIN_LOGIN
+
+    // Role-path enforcement: an instructor cannot reach /admin/coordinator.
     // Compared segment-wise, not by raw prefix — a plain startsWith() would
     // treat /admin/instructors (the staff roster, open to every admin) as if it
     // were the instructor-only /admin/instructor area and bounce coordinators.
+    //
+    // Holding several roles widens access rather than narrowing it: the area is
+    // allowed if ANY held role owns it. Checking only the strongest role would
+    // shut a coordinator+instructor out of /admin/instructor — their own area,
+    // refused by their own cookie.
     const isOnWrongRolePath = ['/admin/instructor', '/admin/coordinator', '/admin/accountant']
-      .some(p => isUnder(pathname, p) && !isUnder(pathname, ROLE_PREFIXES[userRole]!))
+      .some(p => isUnder(pathname, p) && !roles.some(r => isUnder(pathname, ROLE_PREFIXES[r])))
 
     if (isOnWrongRolePath) {
-      return NextResponse.redirect(new URL(ROLE_PREFIXES[userRole]!, request.url))
+      return NextResponse.redirect(new URL(home, request.url))
     }
 
     // Pay screens: only the salary admins, checked at the edge from the email
@@ -115,7 +139,7 @@ export function proxy(request: NextRequest): NextResponse {
     if (SALARY_PATHS.some(p => isUnder(pathname, p))) {
       const email = (payload.email ?? '').toLowerCase()
       if (!SALARY_ADMIN_EMAILS.includes(email)) {
-        return NextResponse.redirect(new URL(ROLE_PREFIXES[userRole]!, request.url))
+        return NextResponse.redirect(new URL(home, request.url))
       }
     }
 

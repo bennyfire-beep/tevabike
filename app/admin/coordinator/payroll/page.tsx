@@ -107,6 +107,8 @@ export default function PayrollPage() {
   const [groups, setGroups]     = useState<PersonGroup[]>([])
   const [loading, setLoading]   = useState(true)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  // Taught this month but has no staff_pay row, so is not in the figures above.
+  const [notOnPayroll, setNotOnPayroll] = useState<string[]>([])
   const [emailing, setEmailing] = useState(false)
   const [emailMsg, setEmailMsg] = useState('')
 
@@ -142,6 +144,15 @@ export default function PayrollPage() {
       travel_rate:           payOf[r.id]?.travel_rate           ?? null,
       travel_monthly_amount: payOf[r.id]?.travel_monthly_amount ?? null,
     })) as Role[]
+
+    // No staff_pay row at all = not on the payroll. A volunteer, a parent
+    // helping out, or someone not set up yet. They are skipped entirely rather
+    // than priced at the DEFAULT_ fallback rates (which would invent a wage) or
+    // listed at ₪0 (which reads as an unpaid debt). Their names are collected
+    // so the screen can say who was left out — an instructor missing from
+    // payroll because nobody configured them is a mistake worth seeing.
+    const hasPay = new Set(Object.keys(payOf))
+    const skipped = new Set<string>()
 
     const nameOf: Record<string, string> = {}
     const rateOf: Record<string, number> = {}       // per hour — special activities
@@ -194,10 +205,19 @@ export default function PayrollPage() {
     for (const s of (sessions ?? []) as SessionRow[]) {
       // Everyone credited: the lead instructor plus anyone in instructor_ids,
       // each counted once even when they appear in both.
-      const credited = [...new Set<string>([
+      const allCredited = [...new Set<string>([
         ...(s.instructor_id ? [s.instructor_id] : []),
         ...((s.instructor_ids ?? []) as string[]),
       ])]
+
+      // Anyone with no staff_pay row is not on the payroll and drops out here,
+      // before they can produce a line item.
+      const credited = allCredited.filter(iid => {
+        if (hasPay.has(iid)) return true
+        if (nameOf[iid]) skipped.add(nameOf[iid])
+        return false
+      })
+
       // Record the working day for each of them — this is what per_km travel
       // falls back to when nothing was reported.
       for (const iid of credited) {
@@ -218,9 +238,12 @@ export default function PayrollPage() {
         // per-lesson rate — flat, or the band this session's attendance falls into.
         const present = s.present_count ?? 0
 
-        // A session nobody is assigned to pays nobody, but is still listed so it
-        // is not silently missing from the month.
-        if (credited.length === 0) {
+        // A session nobody is assigned to pays nobody, but is still listed so
+        // it is not silently missing from the month. Tested against the full
+        // list, not the filtered one: a session whose instructor is off-payroll
+        // is genuinely assigned, and must drop out entirely rather than
+        // resurface here mislabelled "ללא מדריך".
+        if (allCredited.length === 0) {
           items.push({
             key: s.id, name: 'ללא מדריך', kind: 'regular', label: s.class_name,
             branch: s.branch, date: s.session_date, present, pay: 0,
@@ -246,7 +269,9 @@ export default function PayrollPage() {
     }
 
     // Monthly base line items (one per admin_roles row with monthly_base > 0).
+    // A row with no staff_pay has no base to read anyway; the guard states it.
     for (const r of roleRows) {
+      if (!hasPay.has(r.id)) continue
       const base = Number(r.monthly_base ?? 0)
       if (base > 0) {
         items.push({ key: 'base-' + r.id, name: r.name, kind: 'base', label: 'בסיס חודשי', branch: null, date: null, present: null, pay: base })
@@ -256,6 +281,7 @@ export default function PayrollPage() {
     // Travel line items — one per instructor with a non-zero reimbursement.
     // Working days are the distinct dates they actually taught this month.
     for (const r of roleRows) {
+      if (!hasPay.has(r.id)) continue
       const days     = workDays[r.id]?.size ?? 0
       const reported = r.id in reportedOf ? Math.round(reportedOf[r.id] * 100) / 100 : null
       const amount   = computeTravel(r, days, overrideOf[r.id] ?? null, reported)
@@ -288,6 +314,7 @@ export default function PayrollPage() {
     }
 
     setGroups(Object.values(map).sort((a, b) => b.totalPay - a.totalPay))
+    setNotOnPayroll([...skipped].sort((a, b) => a.localeCompare(b, 'he')))
     setLoading(false)
   }, [])
 
@@ -474,6 +501,17 @@ export default function PayrollPage() {
           </div>
         )}
       </div>
+
+      {/* Who is missing and why. Not an error — some people genuinely aren't
+          paid — but an instructor left out because nobody set up their pay is a
+          mistake, and a report that just omits them hides it. */}
+      {!loading && notOnPayroll.length > 0 && (
+        <p style={{ marginTop: 14, background: '#231a12', border: '1px solid #ff8f6b44', color: '#ff8f6b', borderRadius: 10, padding: '11px 15px', fontSize: 12.5, lineHeight: 1.8 }}>
+          <b>לא בדוח:</b> {notOnPayroll.join(', ')} — העבירו אימונים החודש אבל אין להם הסדר שכר מוגדר
+          (<span style={{ direction: 'ltr', display: 'inline-block' }}>staff_pay</span>).
+          אם זו טעות, אפשר להגדיר להם תעריף במסך המדריכים.
+        </p>
+      )}
     </div>
   )
 }

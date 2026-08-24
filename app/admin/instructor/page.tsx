@@ -6,6 +6,7 @@ import RiderForm from '@/components/RiderForm'
 import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
 import { clearAdminSession } from '@/lib/auth-actions'
 import { today as localToday, monthLabel as fmtMonth } from '@/lib/month'
+import { rowForRole } from '@/lib/roles'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Instructor screen — for a SIGNED-IN instructor.
@@ -129,6 +130,8 @@ type PayItem = {
 }
 type PayReport = {
   month: string
+  /** False when this instructor has no staff_pay row — no wage arranged. */
+  hasPay: boolean
   items: PayItem[]
   lessonCount: number
   specialCount: number
@@ -391,6 +394,19 @@ function SalarySection({
         </div>
       ) : loading || !report ? (
         <p style={{ color: C.muted, textAlign: 'center', padding: 40, fontSize: 16 }}>טוען שכר...</p>
+      ) : !report.hasPay ? (
+        // No staff_pay row: no wage was ever arranged for this person. Showing
+        // ₪0 would read as "you earned nothing", which is a different and
+        // alarming claim.
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: '36px 24px', textAlign: 'center' }}>
+          <div style={{ fontSize: 44, marginBottom: 12 }} aria-hidden="true">🗒️</div>
+          <h2 style={{ fontSize: 19, fontWeight: 900, margin: '0 0 8px' }}>לא מוגדר לך שכר במערכת</h2>
+          <p style={{ color: C.muted, fontSize: 15, margin: 0, lineHeight: 1.8 }}>
+            {report.lessonCount + report.specialCount > 0
+              ? `רשומים לך ${report.lessonCount + report.specialCount} אימונים החודש, אבל אין הסדר שכר מוגדר — דברו עם ההנהלה.`
+              : 'אין הסדר שכר מוגדר עבורך. אם זו טעות, דברו עם ההנהלה.'}
+          </p>
+        </div>
       ) : (
         <>
           <div style={{ background: C.surface, border: `1px solid ${C.purple}`, borderRadius: 20, padding: '24px 20px', textAlign: 'center', marginBottom: 16 }}>
@@ -511,6 +527,13 @@ export default function InstructorPage() {
   // admin_roles.user_id is the link between the Supabase login and the staff
   // row. This read only drives the UI; every API route re-resolves the same
   // link server-side from the access token and trusts nothing sent from here.
+  //
+  // Specifically the INSTRUCTOR row: admin_roles is one row per job, and Benny
+  // is coordinator + instructor. `.maybeSingle()` errored on two rows (so the
+  // screen said "not linked to an instructor record" to an actual instructor),
+  // and taking whichever row came first would hand the coordinator row's
+  // admin_roles.id to the sessions and pay queries — an id that owns neither,
+  // so everything would just look empty.
   useEffect(() => {
     let cancelled = false
     async function identify() {
@@ -518,13 +541,13 @@ export default function InstructorPage() {
       if (cancelled) return
       if (!supaUser) { router.replace('/admin/login'); return }
 
-      const { data: rd } = await supabase
+      const { data: rows } = await supabase
         .from('admin_roles')
         .select('id, name, branch, role')
         .eq('user_id', supaUser.id)
-        .maybeSingle()
       if (cancelled) return
 
+      const rd = rowForRole(rows, 'instructor')
       if (!rd) { setAuthState('no-role'); return }
       setAccount({ id: rd.id, name: rd.name, branch: rd.branch ?? null, role: rd.role })
       setAuthState('ok')

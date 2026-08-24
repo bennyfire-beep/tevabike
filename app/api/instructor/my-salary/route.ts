@@ -62,7 +62,7 @@ type SessionRow = {
 const round2 = (n: number) => Math.round(n * 100) / 100
 
 export async function GET(req: NextRequest) {
-  const auth = await resolveCaller(req.headers.get('authorization'))
+  const auth = await resolveCaller(req.headers.get('authorization'), 'instructor')
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
   const { db, adminRoleId, name } = auth.identity
 
@@ -102,7 +102,29 @@ export async function GET(req: NextRequest) {
 
   const pay      = payRes.data ?? null
   const sessions = (sessRes.data ?? []) as SessionRow[]
-  const hourly   = pay?.hourly_rate == null ? DEFAULT_HOURLY_RATE : Number(pay.hourly_rate)
+
+  // No staff_pay row at all means this instructor is not on the payroll — a
+  // volunteer, a parent helping out, someone not set up yet. Answering with a
+  // priced report built on the DEFAULT_ rates would invent a wage nobody
+  // agreed to, and answering ₪0 would read as "you earned nothing this month".
+  // Say plainly that there is no pay arrangement instead, and let the screen
+  // phrase it.
+  if (!pay) {
+    return NextResponse.json({
+      month,
+      name,
+      hasPay: false,
+      items: [],
+      lessonCount: sessions.filter(s => s.type !== 'special').length,
+      specialCount: sessions.filter(s => s.type === 'special').length,
+      workDays: new Set(sessions.map(s => s.session_date)).size,
+      totalPresent: sessions.reduce((sum, s) => sum + Number(s.present_count ?? 0), 0),
+      total: 0,
+      payModel: lessonPayConfigOf(null),
+    })
+  }
+
+  const hourly   = pay.hourly_rate == null ? DEFAULT_HOURLY_RATE : Number(pay.hourly_rate)
   const banded   = lessonPayConfigOf(pay).model === 'by_attendance'
 
   const items: LineItem[] = []
@@ -185,6 +207,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     month,
     name,
+    hasPay: true,
     items,
     lessonCount,
     specialCount,

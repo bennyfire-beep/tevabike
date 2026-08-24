@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { setAdminSession } from '@/lib/auth-actions'
+import { rolesOf, homeFor } from '@/lib/roles'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -22,15 +23,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/admin/reset-password`)
   }
 
-  const { data: rd } = await supabase.from('admin_roles').select('role').eq('user_id', data.session.user.id).single()
-  const role = rd?.role ?? ''
-  await setAdminSession(data.session.access_token, role)
+  // Every role row — admin_roles is one per job and some people hold several,
+  // which `.single()` turned into an error and so into a bounce back to login.
+  const { data: rd } = await supabase
+    .from('admin_roles')
+    .select('role')
+    .eq('user_id', data.session.user.id)
 
-  const dest: Record<string, string> = {
-    instructor: '/admin/instructor',
-    coordinator: '/admin/coordinator',
-    accountant: '/admin/accountant',
-    admin: '/admin',
-  }
-  return NextResponse.redirect(`${origin}${dest[role] ?? '/admin/login'}`)
+  const roles = rolesOf(rd)
+  await setAdminSession(data.session.access_token, roles)
+
+  return NextResponse.redirect(`${origin}${roles.length > 0 ? homeFor(roles) : '/admin/login'}`)
 }

@@ -47,7 +47,7 @@ const daysAgo = (n: number) => {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await resolveCaller(req.headers.get('authorization'))
+  const auth = await resolveCaller(req.headers.get('authorization'), 'instructor')
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
   const { db, adminRoleId } = auth.identity
 

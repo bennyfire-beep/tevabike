@@ -17,11 +17,22 @@ const COOKIE_BASE = {
  * Called after a successful Supabase admin login.
  * Sets httpOnly cookies that proxy.ts reads for route protection.
  * The access token is the Supabase JWT (already signed by Supabase).
+ *
+ * `roles` takes EVERY role the person holds, comma-joined, because admin_roles
+ * is one row per job and some people hold several. Storing only one used to
+ * fence a coordinator+instructor out of /admin/instructor at the edge — their
+ * own area, refused by their own cookie. A bare string is still accepted, for
+ * the single-role callers and for the empty value the password-reset flow
+ * writes.
  */
-export async function setAdminSession(accessToken: string, role: string): Promise<void> {
+export async function setAdminSession(
+  accessToken: string,
+  roles: string | readonly string[],
+): Promise<void> {
   const jar = await cookies()
+  const value = Array.isArray(roles) ? roles.join(',') : String(roles)
   jar.set('sb_auth_token', accessToken, COOKIE_BASE)
-  jar.set('sb_user_role',  role,        COOKIE_BASE)
+  jar.set('sb_user_role',  value,       COOKIE_BASE)
 }
 
 /**

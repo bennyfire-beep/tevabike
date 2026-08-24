@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { rolesOf, homeFor } from '@/lib/roles'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -25,23 +26,17 @@ export default function LoginPage() {
       return
     }
 
-    // קח תפקיד מ-admin_roles
-    const { data: adminRole } = await supabase
+    // התפקידים מ-admin_roles — שורה אחת לכל תפקיד, ויש מי שמחזיק כמה.
+    // כאן עמדה .single(), שמחזירה שגיאה (לא שורה) כששתי שורות מתאימות, ולכן
+    // בעל שני תפקידים נזרק לפורטל החניך במקום למערכת הניהול. שולפים הכל
+    // ובוחרים לפי סדר העדיפות ב-lib/roles.ts: admin › רכז › מדריך › רו״ח.
+    const { data: adminRoles } = await supabase
       .from('admin_roles')
       .select('role')
       .eq('user_id', data.user.id)
-      .single()
 
-    const role = adminRole?.role || 'trainee'
-    const redirects: Record<string, string> = {
-      admin: '/admin',
-      coordinator: '/admin/coordinator',
-      instructor: '/admin/instructor',
-      accountant: '/admin/accountant',
-      trainee: '/student',
-    }
-
-    router.push(redirects[role] || '/student')
+    const roles = rolesOf(adminRoles)
+    router.push(roles.length > 0 ? homeFor(roles) : '/student')
     router.refresh()
   }
 

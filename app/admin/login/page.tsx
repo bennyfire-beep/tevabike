@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { setAdminSession, checkRateLimit, resetRateLimit } from '@/lib/auth-actions'
+import { rolesOf, homeFor, ROLE_LABEL } from '@/lib/roles'
 
 const S = {
   page: {
@@ -38,12 +39,13 @@ const S = {
   label: { fontSize: 12, color: '#7a8f7d', display: 'block', marginBottom: 4 },
 }
 
-// Roles that exist in the system. A login is only valid if admin_roles.role
-// matches one of these keys — otherwise there is no dashboard to land on.
+// Just the footer list of who the system is for. Which roles are actually
+// valid, and which one a person lands on, is lib/roles.ts's job — 'admin' is
+// omitted here because it isn't a job anyone signs up as.
 const ROLE_LABELS: Record<string, string> = {
-  instructor:  'מדריך',
-  coordinator: 'רכז סניף',
-  accountant:  'רואה חשבון',
+  instructor:  ROLE_LABEL.instructor,
+  coordinator: ROLE_LABEL.coordinator,
+  accountant:  ROLE_LABEL.accountant,
 }
 
 // useSearchParams must live inside a <Suspense> boundary to allow static export
@@ -68,8 +70,13 @@ export default function AdminLoginPage() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
-      supabase.from('admin_roles').select('role').eq('user_id', user.id).single()
-        .then(({ data }) => { if (data?.role) router.replace(`/admin/${data.role}`) })
+      // Every role row, not `.single()` — someone who is both coordinator and
+      // instructor has two, and `.single()` errors on two rather than choosing.
+      supabase.from('admin_roles').select('role').eq('user_id', user.id)
+        .then(({ data }) => {
+          const roles = rolesOf(data)
+          if (roles.length > 0) router.replace(homeFor(roles))
+        })
     })
   }, [router])
 
@@ -96,14 +103,14 @@ export default function AdminLoginPage() {
       return
     }
 
-    // ── Look up this user's admin role ───────────────────────────────────────
-    // maybeSingle() → no row comes back as data: null instead of an error,
-    // so "no permissions" and "query failed" get distinct messages.
+    // ── Look up this user's admin roles ──────────────────────────────────────
+    // All of them: admin_roles is one row per job and a few people hold more
+    // than one. No .single() here — it errors on two matches, which is exactly
+    // how a coordinator+instructor used to be locked out of their own login.
     const { data: rd, error: roleErr } = await supabase
       .from('admin_roles')
       .select('role, name')
       .eq('user_id', data.user.id)
-      .maybeSingle()
 
     if (roleErr) {
       await supabase.auth.signOut()
@@ -112,8 +119,8 @@ export default function AdminLoginPage() {
       return
     }
 
-    const role = rd?.role as string | undefined
-    if (!role || !(role in ROLE_LABELS)) {
+    const roles = rolesOf(rd)
+    if (roles.length === 0) {
       await supabase.auth.signOut()
       setError('לחשבון זה אין הרשאות גישה למערכת הניהול. פנה למנהל המערכת')
       setLoading(false)
@@ -121,15 +128,24 @@ export default function AdminLoginPage() {
     }
 
     // ── Set httpOnly auth cookies (read by proxy.ts) ─────────────────────────
-    await setAdminSession(data.session!.access_token, role)
+    // The cookie carries every role, so holding two does not fence the user out
+    // of one of their own areas at the edge.
+    const session = data.session
+    if (!session) {
+      await supabase.auth.signOut()
+      setError('ההתחברות לא הושלמה. נסה שוב')
+      setLoading(false)
+      return
+    }
+    await setAdminSession(session.access_token, roles)
     // Reset rate limit counter on success
     await resetRateLimit(email.toLowerCase(), 'login')
 
-    // Redirect directly to the role-specific dashboard (bypasses the hub).
+    // Land on the strongest role's dashboard (bypasses the hub).
     // refresh() after push re-runs proxy.ts and the server render with the
     // cookies that were just set — without it the client router can replay a
     // cached pre-login payload and the page appears stuck.
-    router.push(`/admin/${role}`)
+    router.push(homeFor(roles))
     router.refresh()
   }
 
