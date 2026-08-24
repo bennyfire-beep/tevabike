@@ -37,9 +37,11 @@ import { rowForRole } from '@/lib/roles'
 // instructor can read another instructor's pay, and there is no request shape
 // that would return it.
 //
-// "➕ חניך חדש" is RiderForm's existing contract, unchanged: the rider is saved
-// with payment_status='unpaid', a lead is opened in "מתעניינים", and Tal gets
-// the email — see /api/staff-lead.
+// "➕ חניך חדש" is RiderForm's contract: מבוגר/ילד at the top (defaulted from
+// the open group's own kind), payment_status='unpaid', a lead opened in
+// "מתעניינים", Tal's email — see /api/staff-lead — and a post-save WhatsApp
+// welcome screen (manual send, the API isn't approved yet). Adding a rider
+// updates this screen's own attendance list immediately, without leaving it.
 //
 // Instructors on the per_km travel arrangement also report where they travelled
 // from and how far, once for the day. Neither their arrangement nor their rate
@@ -95,6 +97,9 @@ type Group = {
   days_of_week: number[] | null
   start_time: string | null
   level: string | null
+  // 'adults' | 'kids' | null — used only to default RiderForm's מבוגר/ילד
+  // toggle to whichever this group actually is.
+  type: 'adults' | 'kids' | null
 }
 type Rider = {
   id: string
@@ -580,7 +585,7 @@ export default function InstructorPage() {
           .order('start_time', { nullsFirst: true }),
         supabase
           .from('groups')
-          .select('id, name, branch, days, days_of_week, start_time, level')
+          .select('id, name, branch, days, days_of_week, start_time, level, type')
           .eq('is_active', true)
           .order('branch')
           .order('name'),
@@ -1082,8 +1087,12 @@ export default function InstructorPage() {
 
   // ── 3. Attendance ─────────────────────────────────────────────────────────
   const openGroupId = session.group_id
+  // Looked up from the board's group list so RiderForm can default its
+  // מבוגר/ילד toggle to what this group actually is; null for legacy sessions
+  // whose group isn't in that list (RiderForm then falls back to "ילד").
+  const openGroupType = openGroupId ? groups.find(g => g.id === openGroupId)?.type ?? null : null
   const formGroups = openGroupId
-    ? [{ id: openGroupId, name: session.class_name, branch: session.branch }]
+    ? [{ id: openGroupId, name: session.class_name, branch: session.branch, type: openGroupType }]
     : []
 
   return (
@@ -1100,6 +1109,19 @@ export default function InstructorPage() {
             📍 {session.branch}{session.start_time ? ` · 🕒 ${fmtTime(session.start_time)}` : ''}
           </p>
         </div>
+        {/* Same spot as the coordinator attendance screen's "➕ הוסף חניך" — a
+            compact pill in the session header, not a full-width CTA below it. */}
+        {openGroupId && (
+          <button
+            onClick={() => setShowAddRider(true)}
+            style={{ marginInlineStart: 'auto', minHeight: 40, background: `${C.purple}22`,
+                     border: `1px solid ${C.purple}55`, color: C.purpleSoft, borderRadius: 20,
+                     padding: '8px 16px', fontFamily: FONT, fontWeight: 800, fontSize: 14,
+                     cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            ➕ חניך חדש
+          </button>
+        )}
       </div>
 
       {addedMsg && (
@@ -1107,17 +1129,6 @@ export default function InstructorPage() {
                       borderRadius: 14, padding: '11px 16px', marginBottom: 14, fontSize: 15, lineHeight: 1.6 }}>
           {addedMsg}
         </div>
-      )}
-
-      {openGroupId && (
-        <button
-          onClick={() => setShowAddRider(true)}
-          style={{ width: '100%', minHeight: 52, marginBottom: 16, background: C.surface,
-                   border: `1px dashed ${C.border}`, color: C.purpleSoft, borderRadius: 16,
-                   fontFamily: FONT, fontWeight: 800, fontSize: 16, cursor: 'pointer' }}
-        >
-          ➕ חניך חדש
-        </button>
       )}
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
@@ -1184,9 +1195,16 @@ export default function InstructorPage() {
         </div>
       )}
 
-      {/* RiderForm already carries the whole "new rider" contract: the rider is
-          saved with payment_status='unpaid', a lead is opened in "מתעניינים"
-          via /api/staff-lead, and Tal gets the email. Nothing to add here. */}
+      {/* RiderForm already carries the whole "new rider" contract: מבוגר/ילד,
+          payment_status='unpaid', a lead opened in "מתעניינים" via
+          /api/staff-lead, the email to Tal, and its own post-save WhatsApp
+          screen. Nothing to add here beyond wiring onSaved.
+          onSaved fires the instant the rider is saved — well before the user
+          dismisses RiderForm's success screen — so the register refreshes
+          (and the new rider defaults to present, same as any rider not yet in
+          the attendance map) without waiting on that dialog to close. The
+          dialog itself is left open; RiderForm's own "סגור"/"הוסף עוד" buttons
+          call onClose, which is the only thing that unmounts it now. */}
       {showAddRider && openGroupId && (
         <RiderForm
           rider={null}
@@ -1195,10 +1213,9 @@ export default function InstructorPage() {
           groups={formGroups}
           onClose={() => setShowAddRider(false)}
           onSaved={name => {
-            setShowAddRider(false)
-            setAddedMsg(`${name} נוסף/ה לקבוצה כ״לא שולם״ — נפתח ליד ב״מתעניינים״ ונשלח מייל לטל.`)
+            setAddedMsg(`${name} נוסף/ה לקבוצה כ״לא שולם״ ומסומן/ת נוכח/ת — נפתח ליד ב״מתעניינים״ ונשלח מייל לטל.`)
             openSession(session)
-            setTimeout(() => setAddedMsg(''), 8000)
+            setTimeout(() => setAddedMsg(''), 10000)
           }}
         />
       )}

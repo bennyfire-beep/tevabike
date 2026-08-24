@@ -2,14 +2,29 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
-// v3 — טופס חניך: יצירה ועריכה. משמש גם רכזות (עמוד תלמידים) וגם מדריכים (מסך נוכחות).
+// v4 — טופס חניך: יצירה ועריכה. משמש גם רכזות (עמוד תלמידים) וגם מדריכים
+// (מסך נוכחות, כולל הוספה תוך כדי אימון פתוח).
 //
-// שדות חובה ביצירה: שם פרטי ומשפחה של החניך, שם פרטי ומשפחה של ההורה,
-// טלפון הורה וטלפון החניך.
+// יצירה מתחילה בבחירת קטגוריה — מבוגר / ילד — שקובעת אילו שדות מוצגים:
+//   ילד:    שם/כינוי הרוכב עצמו (★, לתצוגה בנוכחות) · שם פרטי+משפחה של ההורה (★)
+//           · טלפון הורה (★) · אימייל (לא חובה)
+//   מבוגר:  שם פרטי+משפחה (★) · טלפון (★) · אימייל (לא חובה)
+// ברירת המחדל לקטגוריה נגזרת מה-`type` של הקבוצה שנבחרה מראש (groups.type
+// 'adults'/'kids'), כשזו זמינה; אחרת נופלת ל"ילד".
 //
 // חניך חדש נשמר תמיד עם payment_status = 'unpaid' (מסומן בצבע כתום ברשימת
-// התלמידים) ובמקביל נפתחת עבורו שורה ב"מתעניינים" ונשלח מייל לטל — דרך
-// /api/staff-lead. פתיחת הליד היא best-effort: אם היא נכשלת החניך עדיין נשמר.
+// התלמידים ובנוכחות) ובמקביל נפתחת עבורו שורה ב"מתעניינים" ונשלח מייל לטל —
+// דרך /api/staff-lead. פתיחת הליד היא best-effort: אם היא נכשלת החניך עדיין
+// נשמר, וההודעה מוצגת במסך ההצלחה.
+//
+// אחרי שמירה מוצלחת של חניך חדש (לא עריכה) הטופס לא נסגר מעצמו: הוא עובר
+// למסך "נוסף בהצלחה" עם כפתור וואטסאפ (פותח wa.me עם הודעת ברירת מחדל, ידני —
+// ה-API הרשמי עדיין לא מאושר) וכפתור "הוסף עוד", כדי לתמוך בהוספת כמה חניכים
+// ברצף מבלי לצאת מהמסך. `onSaved` עדיין נקרא מיד עם השמירה (כדי שהעמוד הקורא
+// ירענן את הרשימה — למשל יוסיף את החניך לנוכחות הפתוחה ויסמן אותו נוכח), אבל
+// הקורא לא סוגר את הדיאלוג בעצמו יותר עבור יצירה — הסגירה קורית רק כש-onClose
+// נקרא (כפתור X, ביטול, או "סגור" ממסך ההצלחה). בעריכה שום דבר לא השתנה:
+// onSaved נקרא ומיד נסגר, בדיוק כמו קודם.
 //
 // חשוב: אין להשתמש כאן ב-`rider!.id`. React Compiler (reactCompiler: true)
 // הפיל את הקומפוננטה עם "Cannot read properties of null (reading 'id')" כשהיא
@@ -33,7 +48,8 @@ export type RiderRecord = {
   payment_status?: string | null
 }
 
-type GroupOpt = { id: string; name: string; branch: string | null }
+type GroupOpt = { id: string; name: string; branch: string | null; type?: 'adults' | 'kids' | null }
+type Kind = 'adult' | 'child'
 
 const BG = '#0d0f0e', PANEL = '#141716', BORDER = '#252b27'
 const TEXT = '#e8efe9', MUTED = '#7a8f7d', LIME = '#b5e853'
@@ -45,6 +61,29 @@ const splitName = (full?: string | null) => {
   const parts = (full ?? '').trim().split(/\s+/)
   return { first: parts[0] ?? '', last: parts.slice(1).join(' ') }
 }
+
+/** Israeli local number → international, digits only. Same rule everywhere in the app. */
+const toIntl = (phone: string) => phone.replace(/\D/g, '').replace(/^0/, '972')
+
+/** The one-time welcome message, sent manually (the WhatsApp API isn't approved yet). */
+function waWelcomeLink(phone: string, riderDisplayName: string): string {
+  const msg = `היי! שמחנו לארח אותך/את ${riderDisplayName} היום בטבע בייק 🚵 כדי להמשיך ולהירשם לחוג, ההרשמה כאן: tevabike.com`
+  return `https://wa.me/${toIntl(phone)}?text=${encodeURIComponent(msg)}`
+}
+
+/** Which category a new rider should start on, from the pre-selected group's kind. */
+function defaultKindFor(groups: GroupOpt[], groupId: string | null | undefined): Kind {
+  const g = groups.find(x => x.id === groupId)
+  return g?.type === 'adults' ? 'adult' : 'child'
+}
+
+const blankCreateFields = (keepGroupId: string) => ({
+  riderFirst: '', riderLast: '', parentFirst: '', parentLast: '',
+  parentPhone: '', riderPhone: '', riderNickname: '',
+  email: '', age: '', bikeType: '',
+  groupId: keepGroupId,
+  notes: '',
+})
 
 export default function RiderForm({
   rider, groups, defaultGroupId, onClose, onSaved, allowDelete = true,
@@ -62,11 +101,13 @@ export default function RiderForm({
   const rn = splitName(rider?.full_name)
   const pn = splitName(rider?.parent_name)
 
+  const [kind, setKind] = useState<Kind>(() => defaultKindFor(groups, rider?.group_id ?? defaultGroupId))
   const [f, setF] = useState({
     riderFirst: rn.first, riderLast: rn.last,
     parentFirst: pn.first, parentLast: pn.last,
     parentPhone: rider?.parent_phone ?? '',
     riderPhone: rider?.phone ?? '',
+    riderNickname: '',   // רק ב"ילד" ביצירה — שם/כינוי לתצוגה בנוכחות
     email: rider?.email ?? '',
     age: rider?.age ? String(rider.age) : '',
     bikeType: rider?.bike_type ?? '',
@@ -77,8 +118,10 @@ export default function RiderForm({
   const [payStatus, setPayStatus] = useState(rider?.payment_status ?? '')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
-  const [warn, setWarn] = useState('')
+  const [warn, setWarn] = useState('')          // אזהרת "הליד לא נפתח" — מוצגת במסך ההצלחה
   const [confirmDel, setConfirmDel] = useState(false)
+  // מוגדר רק אחרי יצירה מוצלחת (לא עריכה) — מחליף את הטופס במסך "נוסף בהצלחה".
+  const [savedRider, setSavedRider] = useState<{ name: string; phone: string } | null>(null)
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -91,8 +134,33 @@ export default function RiderForm({
   const riderName  = `${f.riderFirst.trim()} ${f.riderLast.trim()}`.trim()
   const parentName = `${f.parentFirst.trim()} ${f.parentLast.trim()}`.trim()
 
+  /** מה חסר, לפי isEdit/kind. null = תקין. */
+  function validate(): string | null {
+    if (isEdit) {
+      if (!f.riderFirst.trim() || !f.riderLast.trim()) return 'שם פרטי ומשפחה של החניך הם שדות חובה'
+      if (!f.parentFirst.trim() || !f.parentLast.trim()) return 'שם פרטי ומשפחה של ההורה הם שדות חובה'
+      if (!f.parentPhone.trim()) return 'טלפון הורה הוא שדה חובה'
+      return null
+    }
+    if (kind === 'child') {
+      if (!f.riderNickname.trim()) return 'שם/כינוי הרוכב הוא שדה חובה'
+      if (!f.parentFirst.trim() || !f.parentLast.trim()) return 'שם פרטי ומשפחה של ההורה הם שדות חובה'
+      if (!f.parentPhone.trim()) return 'טלפון הורה הוא שדה חובה'
+      return null
+    }
+    // adult
+    if (!f.riderFirst.trim() || !f.riderLast.trim()) return 'שם פרטי ומשפחה הם שדות חובה'
+    if (!f.riderPhone.trim()) return 'טלפון הוא שדה חובה'
+    return null
+  }
+
   // פותח ליד ב"מתעניינים" ושולח מייל לטל. best-effort — לא מפיל את השמירה.
-  async function openLead(branch: string | null, groupName: string | null) {
+  // מקבל את השדות במפורש (לא קורא מ-f. ישירות) כדי שמעבר בין מבוגר↔ילד לא
+  // ידליף שדה שהוסתר בטופס (למשל טלפון הורה שהוקלד לפני מעבר ל"מבוגר").
+  async function openLead(args: {
+    riderName: string; parentName: string; parentPhone: string; riderPhone: string
+    branch: string | null; groupName: string | null
+  }): Promise<string> {
     const { data } = await supabase.auth.getSession()
     const token = data.session?.access_token
     if (!token) return 'הליד לא נפתח (אין הרשאה) — צריך לפתוח אותו ידנית'
@@ -101,12 +169,12 @@ export default function RiderForm({
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        rider_name: riderName,
-        parent_name: parentName,
-        parent_phone: f.parentPhone.trim(),
-        rider_phone: f.riderPhone.trim(),
-        branch,
-        group_name: groupName,
+        rider_name: args.riderName,
+        parent_name: args.parentName,
+        parent_phone: args.parentPhone,
+        rider_phone: args.riderPhone,
+        branch: args.branch,
+        group_name: args.groupName,
         notes: f.notes.trim() || null,
       }),
     })
@@ -117,33 +185,67 @@ export default function RiderForm({
 
   async function save() {
     setErr('')
-    setWarn('')
-    if (!f.riderFirst.trim() || !f.riderLast.trim()) { setErr('שם פרטי ומשפחה של החניך הם שדות חובה'); return }
-    if (!f.parentFirst.trim() || !f.parentLast.trim()) { setErr('שם פרטי ומשפחה של ההורה הם שדות חובה'); return }
-    if (!f.parentPhone.trim()) { setErr('טלפון הורה הוא שדה חובה'); return }
-    if (!isEdit && !f.riderPhone.trim()) { setErr('טלפון החניך הוא שדה חובה'); return }
+    const problem = validate()
+    if (problem) { setErr(problem); return }
 
     setSaving(true)
     const g = groups.find(x => x.id === f.groupId) ?? null
-    const payload: Record<string, unknown> = {
-      full_name: riderName,
-      parent_name: parentName,
-      parent_phone: f.parentPhone.trim(),
-      phone: f.riderPhone.trim() || null,
-      email: f.email.trim() || null,
-      age: f.age ? parseInt(f.age) : null,
-      bike_type: f.bikeType.trim() || null,
-      notes: f.notes.trim() || null,
-      group_id: f.groupId || null,
-      group_name: g?.name ?? null,
-      branch: g?.branch ?? null,
-    }
+
+    let payload: Record<string, unknown>
+    let displayName: string
+    let waPhone = ''
+
     if (isEdit) {
-      payload.payment_status = payStatus || null
+      displayName = riderName
+      payload = {
+        full_name: riderName,
+        parent_name: parentName,
+        parent_phone: f.parentPhone.trim(),
+        phone: f.riderPhone.trim() || null,
+        email: f.email.trim() || null,
+        age: f.age ? parseInt(f.age) : null,
+        bike_type: f.bikeType.trim() || null,
+        notes: f.notes.trim() || null,
+        group_id: f.groupId || null,
+        group_name: g?.name ?? null,
+        branch: g?.branch ?? null,
+        payment_status: payStatus || null,
+      }
+    } else if (kind === 'child') {
+      displayName = f.riderNickname.trim()
+      waPhone = f.parentPhone.trim()
+      payload = {
+        full_name: displayName,
+        parent_name: parentName,
+        parent_phone: f.parentPhone.trim(),
+        phone: null,
+        email: f.email.trim() || null,
+        notes: f.notes.trim() || null,
+        group_id: f.groupId || null,
+        group_name: g?.name ?? null,
+        branch: g?.branch ?? null,
+        is_regular: !!f.groupId,
+        active: true,
+        payment_status: 'unpaid',
+      }
     } else {
-      payload.is_regular = !!f.groupId
-      payload.active = true
-      payload.payment_status = 'unpaid'   // חניך חדש — עדיין לא שולם
+      // adult, create
+      displayName = riderName
+      waPhone = f.riderPhone.trim()
+      payload = {
+        full_name: displayName,
+        parent_name: null,
+        parent_phone: null,
+        phone: f.riderPhone.trim(),
+        email: f.email.trim() || null,
+        notes: f.notes.trim() || null,
+        group_id: f.groupId || null,
+        group_name: g?.name ?? null,
+        branch: g?.branch ?? null,
+        is_regular: !!f.groupId,
+        active: true,
+        payment_status: 'unpaid',
+      }
     }
 
     const { error } = isEdit && riderId
@@ -152,21 +254,40 @@ export default function RiderForm({
 
     if (error) { setSaving(false); setErr(error.message); return }
 
-    // רק בהוספה — פתיחת ליד ומייל לטל.
-    if (!isEdit) {
-      let problem = ''
-      try { problem = await openLead(g?.branch ?? null, g?.name ?? null) }
-      catch { problem = 'החניך נשמר, אבל פתיחת הליד נכשלה (בעיית רשת)' }
-      if (problem) {
-        setSaving(false)
-        setWarn(problem)
-        setTimeout(() => onSaved(riderName), 2500)
-        return
-      }
+    if (isEdit) {
+      setSaving(false)
+      onSaved(displayName)
+      return
+    }
+
+    // יצירה: פתיחת ליד (best-effort), ואז מסך "נוסף בהצלחה" — לא סגירה אוטומטית.
+    let problemMsg = ''
+    try {
+      problemMsg = await openLead({
+        riderName: displayName,
+        parentName: kind === 'child' ? parentName : '',
+        parentPhone: kind === 'child' ? f.parentPhone.trim() : '',
+        riderPhone: kind === 'adult' ? f.riderPhone.trim() : '',
+        branch: g?.branch ?? null,
+        groupName: g?.name ?? null,
+      })
+    } catch {
+      problemMsg = 'החניך נשמר, אבל פתיחת הליד נכשלה (בעיית רשת)'
     }
 
     setSaving(false)
-    onSaved(riderName)
+    setWarn(problemMsg)
+    setSavedRider({ name: displayName, phone: waPhone })
+    // נקרא מיד — לא ממתין לסגירת הדיאלוג — כדי שהעמוד הקורא ירענן את הרשימה
+    // (למשל יוסיף את החניך לנוכחות הפתוחה ויסמן אותו נוכח) בלי לצאת מהמסך.
+    onSaved(displayName)
+  }
+
+  function addAnother() {
+    setSavedRider(null)
+    setWarn('')
+    setErr('')
+    setF(p => blankCreateFields(p.groupId))
   }
 
   async function remove() {
@@ -179,9 +300,8 @@ export default function RiderForm({
   }
 
   const waParent = () => {
-    const clean = f.parentPhone.replace(/\D/g, '').replace(/^0/, '972')
     const msg = `היי ${f.parentFirst || ''}, זה בני מטבע בייק 🚵\nכדי להשלים את ההרשמה של ${f.riderFirst || 'הילד'} אפשר למלא כאן:\nhttps://www.tevabike.com/#register`
-    return `https://wa.me/${clean}?text=${encodeURIComponent(msg)}`
+    return `https://wa.me/${toIntl(f.parentPhone)}?text=${encodeURIComponent(msg)}`
   }
 
   const input: React.CSSProperties = {
@@ -191,9 +311,11 @@ export default function RiderForm({
   const label: React.CSSProperties = { display: 'block', color: MUTED, fontSize: 12, marginBottom: 5, fontWeight: 600 }
   const row: React.CSSProperties = { display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', marginBottom: 14 }
 
+  const title = isEdit ? 'עריכת חניך' : savedRider ? 'נוסף בהצלחה' : 'חניך חדש'
+
   return (
     <div
-      role="dialog" aria-modal="true" aria-label={isEdit ? 'עריכת חניך' : 'חניך חדש'}
+      role="dialog" aria-modal="true" aria-label={title}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       style={{
         position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.72)',
@@ -207,11 +329,50 @@ export default function RiderForm({
         fontFamily: 'Heebo, Arial, sans-serif', color: TEXT,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20 }}>
-          <h3 style={{ margin: 0, fontSize: 19, fontWeight: 800 }}>{isEdit ? 'עריכת חניך' : 'חניך חדש'}</h3>
+          <h3 style={{ margin: 0, fontSize: 19, fontWeight: 800 }}>{title}</h3>
           <button onClick={onClose} aria-label="סגירה"
             style={{ marginRight: 'auto', background: 'transparent', border: 'none', color: MUTED, fontSize: 26, cursor: 'pointer', lineHeight: 1 }}>×</button>
         </div>
 
+        {/* ── מסך הצלחה (יצירה בלבד) — מחליף את הטופס אחרי שמירה ────────────── */}
+        {savedRider ? (
+          <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+            <div style={{ fontSize: 46, marginBottom: 10 }} aria-hidden="true">✅</div>
+            <h4 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 800 }}>{savedRider.name} נוסף/ה בהצלחה</h4>
+            <p style={{ color: MUTED, fontSize: 13, margin: '0 0 18px', lineHeight: 1.7 }}>
+              מסומן/ת כ״לא שולם״ ונוסף/ה לנוכחות. נפתח עבורו/ה ליד ב״מתעניינים״ ונשלח מייל לטל.
+            </p>
+
+            {warn && (
+              <div style={{ background: '#231a12', border: `1px solid ${AMBER}`, color: AMBER,
+                            borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, textAlign: 'start' }}>{warn}</div>
+            )}
+
+            {waPhoneOf(savedRider.phone) ? (
+              <a href={waWelcomeLink(savedRider.phone, savedRider.name)} target="_blank" rel="noopener noreferrer"
+                style={{ display: 'block', background: '#1a2114', color: LIME, border: '1px solid #2f4020',
+                         borderRadius: 10, padding: '13px', fontSize: 15, fontWeight: 800, textDecoration: 'none', marginBottom: 14 }}>
+                💬 שלח וואטסאפ
+              </a>
+            ) : (
+              <p style={{ color: MUTED, fontSize: 12.5, margin: '0 0 14px' }}>אין מספר טלפון לשליחת הודעה</p>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button onClick={addAnother}
+                style={{ flex: 1, minWidth: 150, background: BG, color: LIME, border: `1px solid ${BORDER}`, borderRadius: 10,
+                         padding: '12px', fontSize: 14, fontWeight: 800, fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer' }}>
+                ➕ הוסף חניך נוסף
+              </button>
+              <button onClick={onClose}
+                style={{ flex: 1, minWidth: 150, background: LIME, color: BG, border: 'none', borderRadius: 10,
+                         padding: '12px', fontSize: 14, fontWeight: 800, fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer' }}>
+                סגור
+              </button>
+            </div>
+          </div>
+        ) : (
+        <>
         <p style={{ color: MUTED, fontSize: 12.5, margin: '0 0 16px' }}>שדות עם ★ הם חובה</p>
 
         {!isEdit && (
@@ -221,68 +382,139 @@ export default function RiderForm({
           </div>
         )}
 
-        <div style={row}>
-          <div><label style={label}>שם פרטי — חניך ★</label><input style={input} value={f.riderFirst} onChange={e => set('riderFirst', e.target.value)} /></div>
-          <div><label style={label}>שם משפחה — חניך ★</label><input style={input} value={f.riderLast} onChange={e => set('riderLast', e.target.value)} /></div>
-        </div>
+        {/* ── יצירה: בחירת קטגוריה ואז שדות ממוקדים לפיה ──────────────────── */}
+        {!isEdit && (
+          <>
+            <div role="group" aria-label="קטגוריית חניך" style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
+              {([['adult', '🧑 מבוגר/ת'], ['child', '🧒 ילד/ה']] as const).map(([k, lbl]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setKind(k)}
+                  aria-pressed={kind === k}
+                  style={{
+                    flex: 1, padding: '12px', borderRadius: 10, fontWeight: 800, fontSize: 14,
+                    fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer',
+                    border: `2px solid ${kind === k ? LIME : BORDER}`,
+                    background: kind === k ? '#1a2114' : BG,
+                    color: kind === k ? LIME : MUTED,
+                  }}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
 
-        <div style={row}>
-          <div><label style={label}>שם פרטי — הורה ★</label><input style={input} value={f.parentFirst} onChange={e => set('parentFirst', e.target.value)} /></div>
-          <div><label style={label}>שם משפחה — הורה ★</label><input style={input} value={f.parentLast} onChange={e => set('parentLast', e.target.value)} /></div>
-        </div>
+            {kind === 'child' ? (
+              <>
+                <div style={{ marginBottom: 14 }}>
+                  <label style={label}>שם/כינוי הרוכב/ת ★</label>
+                  <input style={input} value={f.riderNickname} onChange={e => set('riderNickname', e.target.value)}
+                         placeholder="לתצוגה ברשימת הנוכחות" />
+                </div>
+                <div style={row}>
+                  <div><label style={label}>שם פרטי — הורה ★</label><input style={input} value={f.parentFirst} onChange={e => set('parentFirst', e.target.value)} /></div>
+                  <div><label style={label}>שם משפחה — הורה ★</label><input style={input} value={f.parentLast} onChange={e => set('parentLast', e.target.value)} /></div>
+                </div>
+                <div style={row}>
+                  <div><label style={label}>טלפון הורה ★</label><input style={input} type="tel" inputMode="tel" value={f.parentPhone} onChange={e => set('parentPhone', e.target.value)} /></div>
+                  <div><label style={label}>אימייל</label><input style={input} type="email" placeholder="לא חובה" value={f.email} onChange={e => set('email', e.target.value)} /></div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={row}>
+                  <div><label style={label}>שם פרטי ★</label><input style={input} value={f.riderFirst} onChange={e => set('riderFirst', e.target.value)} /></div>
+                  <div><label style={label}>שם משפחה ★</label><input style={input} value={f.riderLast} onChange={e => set('riderLast', e.target.value)} /></div>
+                </div>
+                <div style={row}>
+                  <div><label style={label}>טלפון ★</label><input style={input} type="tel" inputMode="tel" value={f.riderPhone} onChange={e => set('riderPhone', e.target.value)} /></div>
+                  <div><label style={label}>אימייל</label><input style={input} type="email" placeholder="לא חובה" value={f.email} onChange={e => set('email', e.target.value)} /></div>
+                </div>
+              </>
+            )}
 
-        <div style={row}>
-          <div><label style={label}>טלפון הורה ★</label><input style={input} type="tel" inputMode="tel" value={f.parentPhone} onChange={e => set('parentPhone', e.target.value)} /></div>
-          <div>
-            <label style={label}>טלפון החניך {isEdit ? '' : '★'}</label>
-            <input style={input} type="tel" inputMode="tel" placeholder={isEdit ? 'לא חובה' : ''} value={f.riderPhone} onChange={e => set('riderPhone', e.target.value)} />
-          </div>
-        </div>
+            <div style={row}>
+              <div>
+                <label style={label}>קבוצה</label>
+                <select aria-label="קבוצה" style={input} value={f.groupId} onChange={e => set('groupId', e.target.value)}>
+                  <option value="">ללא שיוך</option>
+                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}{g.branch ? ` · ${g.branch}` : ''}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={label}>הערות</label>
+                <input style={input} placeholder="לא חובה" value={f.notes} onChange={e => set('notes', e.target.value)} />
+              </div>
+            </div>
+          </>
+        )}
 
-        <div style={row}>
-          <div><label style={label}>אימייל</label><input style={input} type="email" placeholder="לא חובה" value={f.email} onChange={e => set('email', e.target.value)} /></div>
-          <div><label style={label}>גיל</label><input style={input} type="number" inputMode="numeric" placeholder="לא חובה" value={f.age} onChange={e => set('age', e.target.value)} /></div>
-        </div>
-
-        <div style={row}>
-          <div>
-            <label style={label}>סוג אופניים</label>
-            <input style={input} list="bike-types" placeholder="לא חובה" value={f.bikeType} onChange={e => set('bikeType', e.target.value)} />
-            <datalist id="bike-types">{BIKE_TYPES.map(b => <option key={b} value={b} />)}</datalist>
-          </div>
-          <div>
-            <label style={label}>קבוצה</label>
-            <select aria-label="קבוצה" style={input} value={f.groupId} onChange={e => set('groupId', e.target.value)}>
-              <option value="">ללא שיוך</option>
-              {groups.map(g => <option key={g.id} value={g.id}>{g.name}{g.branch ? ` · ${g.branch}` : ''}</option>)}
-            </select>
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={label}>הערות</label>
-          <input style={input} placeholder="מגבלה רפואית, רמה, כל דבר שחשוב לדעת" value={f.notes} onChange={e => set('notes', e.target.value)} />
-        </div>
-
+        {/* ── עריכה: הטופס המלא, ללא שינוי ────────────────────────────────── */}
         {isEdit && (
-          <div style={{ marginBottom: 16 }}>
-            <label style={label}>סטטוס תשלום</label>
-            <select
-              aria-label="סטטוס תשלום"
-              value={payStatus}
-              onChange={e => setPayStatus(e.target.value)}
-              style={{
-                ...input,
-                borderColor: payStatus === 'unpaid' ? AMBER + '77' : payStatus === 'paid' ? LIME + '77' : BORDER,
-                color: payStatus === 'unpaid' ? AMBER : payStatus === 'paid' ? LIME : TEXT,
-                fontWeight: payStatus ? 700 : 400,
-              }}
-            >
-              <option value="">לא ידוע</option>
-              <option value="unpaid">לא שולם</option>
-              <option value="paid">שולם</option>
-            </select>
-          </div>
+          <>
+            <div style={row}>
+              <div><label style={label}>שם פרטי — חניך ★</label><input style={input} value={f.riderFirst} onChange={e => set('riderFirst', e.target.value)} /></div>
+              <div><label style={label}>שם משפחה — חניך ★</label><input style={input} value={f.riderLast} onChange={e => set('riderLast', e.target.value)} /></div>
+            </div>
+
+            <div style={row}>
+              <div><label style={label}>שם פרטי — הורה ★</label><input style={input} value={f.parentFirst} onChange={e => set('parentFirst', e.target.value)} /></div>
+              <div><label style={label}>שם משפחה — הורה ★</label><input style={input} value={f.parentLast} onChange={e => set('parentLast', e.target.value)} /></div>
+            </div>
+
+            <div style={row}>
+              <div><label style={label}>טלפון הורה ★</label><input style={input} type="tel" inputMode="tel" value={f.parentPhone} onChange={e => set('parentPhone', e.target.value)} /></div>
+              <div>
+                <label style={label}>טלפון החניך</label>
+                <input style={input} type="tel" inputMode="tel" placeholder="לא חובה" value={f.riderPhone} onChange={e => set('riderPhone', e.target.value)} />
+              </div>
+            </div>
+
+            <div style={row}>
+              <div><label style={label}>אימייל</label><input style={input} type="email" placeholder="לא חובה" value={f.email} onChange={e => set('email', e.target.value)} /></div>
+              <div><label style={label}>גיל</label><input style={input} type="number" inputMode="numeric" placeholder="לא חובה" value={f.age} onChange={e => set('age', e.target.value)} /></div>
+            </div>
+
+            <div style={row}>
+              <div>
+                <label style={label}>סוג אופניים</label>
+                <input style={input} list="bike-types" placeholder="לא חובה" value={f.bikeType} onChange={e => set('bikeType', e.target.value)} />
+                <datalist id="bike-types">{BIKE_TYPES.map(b => <option key={b} value={b} />)}</datalist>
+              </div>
+              <div>
+                <label style={label}>קבוצה</label>
+                <select aria-label="קבוצה" style={input} value={f.groupId} onChange={e => set('groupId', e.target.value)}>
+                  <option value="">ללא שיוך</option>
+                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}{g.branch ? ` · ${g.branch}` : ''}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={label}>הערות</label>
+              <input style={input} placeholder="מגבלה רפואית, רמה, כל דבר שחשוב לדעת" value={f.notes} onChange={e => set('notes', e.target.value)} />
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={label}>סטטוס תשלום</label>
+              <select
+                aria-label="סטטוס תשלום"
+                value={payStatus}
+                onChange={e => setPayStatus(e.target.value)}
+                style={{
+                  ...input,
+                  borderColor: payStatus === 'unpaid' ? AMBER + '77' : payStatus === 'paid' ? LIME + '77' : BORDER,
+                  color: payStatus === 'unpaid' ? AMBER : payStatus === 'paid' ? LIME : TEXT,
+                  fontWeight: payStatus ? 700 : 400,
+                }}
+              >
+                <option value="">לא ידוע</option>
+                <option value="unpaid">לא שולם</option>
+                <option value="paid">שולם</option>
+              </select>
+            </div>
+          </>
         )}
 
         {f.parentPhone.trim() && (
@@ -296,10 +528,6 @@ export default function RiderForm({
         {err && (
           <div style={{ background: '#3a1a1a', border: '1px solid #7f2d2d', color: '#fca5a5',
                         borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13.5 }}>{err}</div>
-        )}
-        {warn && (
-          <div style={{ background: '#231a12', border: `1px solid ${AMBER}`, color: AMBER,
-                        borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13.5 }}>{warn}</div>
         )}
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -340,7 +568,14 @@ export default function RiderForm({
             </p>
           </div>
         )}
+        </>
+        )}
       </div>
     </div>
   )
+}
+
+/** Guard against an empty/whitespace phone reaching wa.me with nothing to send to. */
+function waPhoneOf(phone: string): string {
+  return phone.trim()
 }

@@ -445,13 +445,17 @@ export default function StudentsPage() {
       {formRider !== undefined && (
         <RiderForm
           rider={formRider}
-          groups={groups.map(g => ({ id: g.id, name: g.name, branch: g.branch }))}
+          groups={groups.map(g => ({ id: g.id, name: g.name, branch: g.branch, type: g.type }))}
           onClose={() => setFormRider(undefined)}
           onSaved={name => {
             const wasNew = formRider === null
-            setFormRider(undefined)
+            // A new rider isn't done with the dialog yet — RiderForm shows its
+            // own success/WhatsApp screen and closes itself via onClose when
+            // the user is ready. Editing has no such screen, so it still
+            // closes here exactly as before.
+            if (!wasNew) setFormRider(undefined)
             setToast(wasNew
-              ? `${name} נוסף כ״לא שולם״ · נפתח ליד ב״מתעניינים״ ונשלח מייל לטל`
+              ? `${name} נוסף/ה כ״לא שולם״ · נפתח ליד ב״מתעניינים״ ונשלח מייל לטל`
               : `${name} נשמר בהצלחה`)
             reloadRiders()
             setTimeout(() => setToast(''), 4000)
