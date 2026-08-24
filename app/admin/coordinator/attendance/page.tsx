@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
 import { saveAttendance as persistAttendance } from '@/lib/attendance'
 import { useCoordinator } from '@/lib/coordinator-context'
+import RiderForm from '@/components/RiderForm'
 
 const BRANCH_COLOR: Record<string, string> = {
   'משגב':  '#b5e853',
@@ -30,7 +31,7 @@ type Session = {
 }
 type Rider       = { id: string; full_name: string; phone: string | null }
 type Instructor  = { id: string; name: string; active: boolean }
-type Group       = { id: string; name: string; branch: string; start_time: string | null; end_time: string | null }
+type Group       = { id: string; name: string; branch: string; start_time: string | null; end_time: string | null; type: 'adults' | 'kids' | null }
 
 const fmtTime = (t: string | null) => (t ? t.slice(0, 5) : '')
 function hoursBetween(start: string | null, end: string | null): number | null {
@@ -68,6 +69,11 @@ export default function AttendancePage() {
   const [searching, setSearching] = useState(false)
   const [makePermanent, setMakePermanent] = useState(false)
 
+  // "➕ חניך חדש לגמרי" — a rider who doesn't exist in the system at all yet,
+  // as opposed to the search above (which only finds existing ones).
+  const [showBrandNewRider, setShowBrandNewRider] = useState(false)
+  const [addedRiderMsg, setAddedRiderMsg]         = useState('')
+
   const [groups, setGroups]           = useState<Group[]>([])
   const [showNew, setShowNew]         = useState(false)
   const [newGroupId, setNewGroupId]   = useState('')
@@ -92,7 +98,7 @@ export default function AttendancePage() {
     // names; the selection dropdown filters to active only.
     supabase.from('admin_roles').select('id, name, active').eq('role', 'instructor').order('name')
       .then(({ data }) => setInst((data ?? []) as Instructor[]))
-    supabase.from('groups').select('id, name, branch, start_time, end_time').eq('is_active', true).order('branch').order('name')
+    supabase.from('groups').select('id, name, branch, start_time, end_time, type').eq('is_active', true).order('branch').order('name')
       .then(({ data }) => setGroups((data ?? []) as Group[]))
   }, [user])
 
@@ -579,7 +585,18 @@ export default function AttendancePage() {
                     </div>
                   ))}
                   {!searching && searchQ.trim().length >= 2 && searchRes.length === 0 && (
-                    <div style={{ color: '#7a8f7d', fontSize: 12 }}>לא נמצאו רוכבים תואמים (ייתכן שכבר ברשימה)</div>
+                    <div style={{ color: '#7a8f7d', fontSize: 12, marginBottom: 10 }}>לא נמצאו רוכבים תואמים (ייתכן שכבר ברשימה)</div>
+                  )}
+
+                  {/* מי שלא נמצא כי הוא בכלל לא במערכת עדיין */}
+                  <button
+                    onClick={() => setShowBrandNewRider(true)}
+                    style={{ width: '100%', marginTop: 10, background: 'transparent', border: '1px dashed #b5e85355', color: '#b5e853', borderRadius: 8, padding: '9px', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+                  >
+                    ➕ חניך חדש לגמרי (לא קיים במערכת)
+                  </button>
+                  {addedRiderMsg && (
+                    <div style={{ color: '#4cdb7a', fontSize: 12, fontWeight: 600, marginTop: 8 }}>{addedRiderMsg}</div>
                   )}
                 </div>
               )}
@@ -639,6 +656,27 @@ export default function AttendancePage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* "➕ חניך חדש לגמרי" — RiderForm's full create flow (מבוגר/ילד, unpaid,
+          לידים, וואטסאפ). onCreated מוסיף אותו מיד לנוכחות הפתוחה ומסמן נוכח,
+          בדיוק כמו addRider() לחניך קיים — ללא רענון וללא תלות ברישום
+          rider_groups (שגם אותו RiderForm כותב, best-effort). */}
+      {showBrandNewRider && selected && (
+        <RiderForm
+          rider={null}
+          allowDelete={false}
+          defaultGroupId={selected.type === 'special' ? undefined : (selected.group_id ?? undefined)}
+          groups={selected.type === 'special' ? [] : groups.map(g => ({ id: g.id, name: g.name, branch: g.branch, type: g.type }))}
+          onClose={() => setShowBrandNewRider(false)}
+          onCreated={r => {
+            setRiders(p => [...p, { id: r.id, full_name: r.full_name, phone: r.phone }])
+            setAtt(p => ({ ...p, [r.id]: true }))
+            setAddedRiderMsg(`${r.full_name} נוסף/ה לנוכחות ✓`)
+            setTimeout(() => setAddedRiderMsg(''), 5000)
+          }}
+          onSaved={() => {}}
+        />
       )}
     </div>
   )

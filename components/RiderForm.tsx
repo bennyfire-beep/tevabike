@@ -86,13 +86,19 @@ const blankCreateFields = (keepGroupId: string) => ({
 })
 
 export default function RiderForm({
-  rider, groups, defaultGroupId, onClose, onSaved, allowDelete = true,
+  rider, groups, defaultGroupId, onClose, onSaved, onCreated, allowDelete = true,
 }: {
   rider?: RiderRecord | null
   groups: GroupOpt[]
   defaultGroupId?: string | null
   onClose: () => void
   onSaved: (savedName: string) => void
+  // Fires once, only on a successful CREATE (never edit), with the row as it
+  // now exists in the DB. onSaved only ever carried a display name — not
+  // enough for a caller that wants to splice the new rider straight into an
+  // already-loaded roster (an open attendance screen, say) without waiting on
+  // a server round trip. Optional: callers happy to just refetch can ignore it.
+  onCreated?: (rider: { id: string; full_name: string; phone: string | null }) => void
   allowDelete?: boolean
 }) {
   const riderId = rider?.id ?? null
@@ -248,9 +254,9 @@ export default function RiderForm({
       }
     }
 
-    const { error } = isEdit && riderId
-      ? await supabase.from('riders').update(payload).eq('id', riderId)
-      : await supabase.from('riders').insert(payload)
+    const { data: savedRow, error } = isEdit && riderId
+      ? await supabase.from('riders').update(payload).eq('id', riderId).select('id, full_name, phone').maybeSingle()
+      : await supabase.from('riders').insert(payload).select('id, full_name, phone').single()
 
     if (error) { setSaving(false); setErr(error.message); return }
 
@@ -258,6 +264,19 @@ export default function RiderForm({
       setSaving(false)
       onSaved(displayName)
       return
+    }
+
+    // Group membership lives in rider_groups (see lib/rider-groups.ts) — the
+    // `group_id` column just written above is denormalised back-compat, read
+    // only by sessions with no group_id of their own. Every roster query that
+    // matters (an open register's, in particular) reads rider_groups, so
+    // without this row a rider created here with a real group selected would
+    // save fine and then simply not appear anywhere that lists that group.
+    if (savedRow && f.groupId) {
+      const { error: linkErr } = await supabase
+        .from('rider_groups')
+        .upsert({ rider_id: savedRow.id, group_id: f.groupId }, { onConflict: 'rider_id,group_id' })
+      if (linkErr) console.error('[RiderForm] rider_groups link failed:', linkErr.message)
     }
 
     // יצירה: פתיחת ליד (best-effort), ואז מסך "נוסף בהצלחה" — לא סגירה אוטומטית.
@@ -278,8 +297,11 @@ export default function RiderForm({
     setSaving(false)
     setWarn(problemMsg)
     setSavedRider({ name: displayName, phone: waPhone })
-    // נקרא מיד — לא ממתין לסגירת הדיאלוג — כדי שהעמוד הקורא ירענן את הרשימה
-    // (למשל יוסיף את החניך לנוכחות הפתוחה ויסמן אותו נוכח) בלי לצאת מהמסך.
+    // שני ה-callbacks נקראים מיד — לא ממתינים לסגירת הדיאלוג — כדי שהעמוד הקורא
+    // יעדכן את התצוגה (למשל יוסיף את החניך לנוכחות הפתוחה ויסמן אותו נוכח)
+    // בלי לצאת מהמסך. onCreated נושא את הרשומה עצמה למי שרוצה לעדכן מקומית
+    // בלי סבב שרת נוסף; onSaved (שם בלבד) ממשיך לשרת גם קוראים ישנים יותר.
+    if (savedRow) onCreated?.(savedRow)
     onSaved(displayName)
   }
 

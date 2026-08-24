@@ -1212,9 +1212,19 @@ export default function InstructorPage() {
           defaultGroupId={openGroupId}
           groups={formGroups}
           onClose={() => setShowAddRider(false)}
+          // A direct local splice, not a reload: group membership lives in
+          // rider_groups, and RiderForm's best-effort write to it may or may
+          // not succeed under an instructor's RLS grants (unverified either
+          // way). Re-fetching the register would silently overwrite this
+          // splice back out the moment that write didn't land — so instead
+          // this appends the exact row RiderForm just created, the same way
+          // addRider() does for an existing rider on the coordinator screen.
+          onCreated={r => {
+            setRiders(p => [...p, { id: r.id, full_name: r.full_name, phone: r.phone, payment_status: 'unpaid' }])
+            setAttendance(p => ({ ...p, [r.id]: true }))
+          }}
           onSaved={name => {
             setAddedMsg(`${name} נוסף/ה לקבוצה כ״לא שולם״ ומסומן/ת נוכח/ת — נפתח ליד ב״מתעניינים״ ונשלח מייל לטל.`)
-            openSession(session)
             setTimeout(() => setAddedMsg(''), 10000)
           }}
         />
