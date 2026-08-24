@@ -90,6 +90,9 @@ type PersonGroup = {
   totalPresent: number
   totalPay: number
 }
+// Taught this month but has no staff_pay row — shown separately, never folded
+// into the totals above: there is no rate to price them at.
+type NoPayRow = { name: string; sessions: number; present: number }
 
 const currentYm = currentMonth
 const ymLabel = (ym: string) =>
@@ -108,7 +111,7 @@ export default function PayrollPage() {
   const [loading, setLoading]   = useState(true)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   // Taught this month but has no staff_pay row, so is not in the figures above.
-  const [notOnPayroll, setNotOnPayroll] = useState<string[]>([])
+  const [notOnPayroll, setNotOnPayroll] = useState<NoPayRow[]>([])
   const [emailing, setEmailing] = useState(false)
   const [emailMsg, setEmailMsg] = useState('')
 
@@ -152,7 +155,7 @@ export default function PayrollPage() {
     // so the screen can say who was left out — an instructor missing from
     // payroll because nobody configured them is a mistake worth seeing.
     const hasPay = new Set(Object.keys(payOf))
-    const skipped = new Set<string>()
+    const skipped: Record<string, NoPayRow> = {}
 
     const nameOf: Record<string, string> = {}
     const rateOf: Record<string, number> = {}       // per hour — special activities
@@ -211,10 +214,16 @@ export default function PayrollPage() {
       ])]
 
       // Anyone with no staff_pay row is not on the payroll and drops out here,
-      // before they can produce a line item.
+      // before they can produce a line item — counted separately instead, so
+      // they show up in their own sub-list rather than vanishing outright.
       const credited = allCredited.filter(iid => {
         if (hasPay.has(iid)) return true
-        if (nameOf[iid]) skipped.add(nameOf[iid])
+        if (nameOf[iid]) {
+          const row = skipped[iid] ?? { name: nameOf[iid], sessions: 0, present: 0 }
+          row.sessions++
+          row.present += s.present_count ?? 0
+          skipped[iid] = row
+        }
         return false
       })
 
@@ -314,7 +323,7 @@ export default function PayrollPage() {
     }
 
     setGroups(Object.values(map).sort((a, b) => b.totalPay - a.totalPay))
-    setNotOnPayroll([...skipped].sort((a, b) => a.localeCompare(b, 'he')))
+    setNotOnPayroll(Object.values(skipped).sort((a, b) => a.name.localeCompare(b.name, 'he')))
     setLoading(false)
   }, [])
 
@@ -502,15 +511,34 @@ export default function PayrollPage() {
         )}
       </div>
 
-      {/* Who is missing and why. Not an error — some people genuinely aren't
-          paid — but an instructor left out because nobody set up their pay is a
-          mistake, and a report that just omits them hides it. */}
+      {/* Separate sub-list — never folded into totalPay/grandPay above, because
+          there is no rate to price these people at. Not necessarily an error
+          (a volunteer has no wage on purpose), but an instructor missing pay
+          because nobody configured them is a mistake, and a report that just
+          omits them hides it. */}
       {!loading && notOnPayroll.length > 0 && (
-        <p style={{ marginTop: 14, background: '#231a12', border: '1px solid #ff8f6b44', color: '#ff8f6b', borderRadius: 10, padding: '11px 15px', fontSize: 12.5, lineHeight: 1.8 }}>
-          <b>לא בדוח:</b> {notOnPayroll.join(', ')} — העבירו אימונים החודש אבל אין להם הסדר שכר מוגדר
-          (<span style={{ direction: 'ltr', display: 'inline-block' }}>staff_pay</span>).
-          אם זו טעות, אפשר להגדיר להם תעריף במסך המדריכים.
-        </p>
+        <div style={{ marginTop: 20, background: '#1c140d', border: '1px solid #ff8f6b33', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '13px 16px', borderBottom: '1px solid #ff8f6b22' }}>
+            <span style={{ fontWeight: 800, fontSize: 14, color: '#ff8f6b' }}>⚠ מדריכים ללא שכר</span>
+            <p style={{ margin: '4px 0 0', color: '#c9a08e', fontSize: 12, lineHeight: 1.7 }}>
+              העבירו אימונים החודש אך אין להם הסדר שכר מוגדר (staff_pay) — לא נכללים בסכומים שלמעלה.
+              אם זו טעות, אפשר להגדיר להם תעריף במסך המדריכים.
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 110px', padding: '9px 16px', fontSize: 11, color: '#a8887a', fontWeight: 700 }}>
+            <span>שם</span><span>פעילויות</span><span>נוכחים</span>
+          </div>
+          {notOnPayroll.map((r, i) => (
+            <div
+              key={r.name}
+              style={{ display: 'grid', gridTemplateColumns: '1fr 90px 110px', padding: '10px 16px', fontSize: 13, borderTop: i === 0 ? 'none' : '1px solid #2a1e15', color: '#e8efe9' }}
+            >
+              <span style={{ fontWeight: 600 }}>{r.name}</span>
+              <span style={{ color: '#81d4fa' }}>{r.sessions}</span>
+              <span style={{ color: '#b5e853' }}>{r.present}</span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )

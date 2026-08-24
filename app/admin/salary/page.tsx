@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useAdminAuth } from '@/lib/use-admin-auth'
 import { isSalaryAdmin } from '@/lib/salary-access'
+import { monthBounds, monthLabel as ymLabel } from '@/lib/month'
 
 // ─── Brand ────────────────────────────────────────────────────────────────────
 const PINK  = '#D4288A'
@@ -43,18 +44,14 @@ function monthOptions() {
   })
 }
 
-function monthLabel(ym: string) {
-  const [y, m] = ym.split('-')
-  return new Date(parseInt(y), parseInt(m) - 1, 1)
-    .toLocaleDateString('he-IL', { month: 'long', year: 'numeric' })
-}
-
-function firstLastDay(ym: string) {
-  const [y, m] = ym.split('-').map(Number)
-  const first = `${ym}-01`
-  const last  = new Date(y, m, 0).toISOString().split('T')[0]
-  return { first, last }
-}
+// Month naming and boundaries come from lib/month.ts. The end of the month used
+// to be computed here as `new Date(y, m, 0).toISOString()` — midnight LOCAL
+// rendered as UTC — which in Israel subtracts the offset and lands on the day
+// before. August ended on the 30th as far as this screen was concerned, so
+// every lesson taught on the 31st was missing from the report and from the
+// payslips printed off it. Same bug, same fix, as the coordinator report.
+const monthLabel = ymLabel
+const firstLastDay = monthBounds
 
 // ─── Print payslip ────────────────────────────────────────────────────────────
 function printPayslip(row: InstructorRow, ym: string) {
