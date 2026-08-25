@@ -20,6 +20,7 @@ const NAV = [
   { href: '/admin/coordinator/payroll',    label: 'שכר',      exact: false, salaryOnly: true },
   { href: LEADS_HREF,                       label: 'מתעניינים', exact: false },
   { href: '/admin/coordinator/staff',      label: 'צוות',     exact: false },
+  { href: '/admin/coordinator/gemini',     label: 'ניתוח AI', exact: false },
   { href: '/admin/coordinator/camp', label: 'ימי שיא', exact: false },
   { href: '/admin/coordinator/camp-sukkot', label: 'מחנה סוכות', exact: false },
   { href: '/admin/coordinator/registrations', label: 'הרשמות', exact: false },
