@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import {
   DEFAULT_ATTENDANCE_RATE_LOW, DEFAULT_ATTENDANCE_RATE_HIGH, DEFAULT_ATTENDANCE_THRESHOLD,
 } from '@/lib/lesson-pay'
+import { analyzeUrlWithGemini } from '@/lib/gemini'
 
 const VALID_ROLES = ['instructor', 'coordinator', 'accountant'] as const
 type Role = (typeof VALID_ROLES)[number]
@@ -59,6 +60,10 @@ export async function POST(request: NextRequest) {
     travelKm?: string | number | null
     travelRate?: string | number | null
     travelMonthly?: string | number | null
+    // Set on the coordinator staff screen (/admin/coordinator/staff).
+    birthDate?: string | null
+    idNumber?: string | null
+    certificateUrl?: string | null
   }
   try { body = await request.json() }
   catch { return NextResponse.json({ error: 'בקשה לא תקינה' }, { status: 400 }) }
@@ -68,6 +73,9 @@ export async function POST(request: NextRequest) {
   const password = String(body.password || '')
   const role = String(body.role || '') as Role
   const branch = body.branch ? String(body.branch).trim() : null
+  const birthDate = body.birthDate ? String(body.birthDate).trim() : null
+  const idNumber = body.idNumber ? String(body.idNumber).trim() : null
+  const certificateUrl = body.certificateUrl ? String(body.certificateUrl).trim() : null
   const ratePerLesson =
     body.ratePerLesson != null && body.ratePerLesson !== '' ? Number(body.ratePerLesson) : 150
   const hourlyRate =
@@ -117,6 +125,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `יצירת המשתמש נכשלה: ${msg}` }, { status: 500 })
   }
 
+  // ── 3b. Read the instructor certificate through Gemini (never blocks the hire) ──
+  // The file itself already left the request — the staff screen uploads it straight
+  // to Supabase Storage and only hands us the public URL — so we fetch that URL and
+  // send it to Gemini the same way every other document/image/video in the app is read.
+  let certificateGeminiText: string | null = null
+  if (role === 'instructor' && certificateUrl) {
+    try {
+      certificateGeminiText = await analyzeUrlWithGemini(
+        certificateUrl,
+        'זוהי תעודת הסמכה להדרכה. חלץ את שם בעל התעודה, סוג ההסמכה וארגון המנפיק, ותאריך תוקף אם קיים. כתוב בעברית בקצרה.'
+      )
+    } catch (geminiErr) {
+      console.error('gemini certificate analysis failed:', geminiErr)
+    }
+  }
+
   // ── 4. Link the role (admin_roles row) ──
   // Pay lives in staff_pay, not here — admin_roles has no rate column.
   const { data: roleRow, error: roleErr } = await admin
@@ -126,6 +150,10 @@ export async function POST(request: NextRequest) {
       role,
       name,
       branch: role === 'instructor' ? branch : null,
+      birth_date: birthDate,
+      id_number: idNumber,
+      certificate_url: role === 'instructor' ? certificateUrl : null,
+      certificate_gemini_text: role === 'instructor' ? certificateGeminiText : null,
     })
     .select('id')
     .single()
