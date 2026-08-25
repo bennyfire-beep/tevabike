@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
+import { analyzeFileWithGemini } from '@/lib/gemini'
 
 // ============================================================
 // נתיב: app/api/trip/register/route.ts
@@ -111,6 +112,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ---- read the passport through Gemini (never blocks the registration) ----
+    let passportGeminiText: string | null = null
+    if (file instanceof File && file.size > 0) {
+      try {
+        passportGeminiText = await analyzeFileWithGemini(
+          file,
+          'זהו צילום דרכון או תעודת זהות. חלץ שם מלא, מספר דרכון/ת.ז ותאריך תוקף אם קיים. כתוב בעברית בקצרה.'
+        )
+      } catch (geminiErr) {
+        console.error('gemini passport analysis failed:', geminiErr)
+      }
+    }
+
     // ---- insert ----
     const { data: reg, error: insErr } = await db
       .from('trip_registrations')
@@ -124,6 +138,7 @@ export async function POST(req: NextRequest) {
         passport_number: s('passport_number'),
         passport_expiry: s('passport_expiry'),
         passport_file: passportPath,
+        passport_gemini_text: passportGeminiText,
         shirt_size: s('shirt_size'),
         wants_rental: wantsRental,
         rental_height_cm: wantsRental && s('rental_height_cm')
