@@ -84,7 +84,7 @@ export default function SukkotCampPage() {
             נשאר רק לשלם — המקום נשמר אחרי התשלום.
           </p>
           <div style={{ background: BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 18, marginBottom: 22 }}>
-            <div style={{ color: MUTED, fontSize: 13 }}>מחנה סוכות · 5 ימים</div>
+            <div style={{ color: MUTED, fontSize: 13 }}>מחנה סוכות · 4 ימים</div>
             <div style={{ fontSize: 34, fontWeight: 800, color: LIME }}>{done.total} ₪</div>
           </div>
           <a href={done.paymentLink} target="_blank" rel="noopener noreferrer"
@@ -106,7 +106,7 @@ export default function SukkotCampPage() {
 
         <img
           src="/camp-sukkot-banner.png"
-          alt="מחנה סוכות — מחנה רכיבה משמר העמק, 27.09–01.10"
+          alt="מחנה סוכות — מחנה רכיבה משמר העמק, 27.09–30.09"
           style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 14, marginBottom: 26 }}
         />
 
@@ -115,10 +115,10 @@ export default function SukkotCampPage() {
         </h1>
 
         <p style={{ color: TEXT, fontSize: 15, lineHeight: 1.8, margin: '0 0 8px' }}>
-          חמישה ימי רכיבה במשמר העמק — אנדורו, הקפצות, פאמפטרק ואייר באג. המחנה כולל ארוחות ולינה.
+          ארבעה ימי רכיבה במשמר העמק — אנדורו, הקפצות, פאמפטרק ואייר באג. המחנה כולל ארוחות ולינה.
         </p>
         <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.9, margin: '0 0 24px' }}>
-          מיועד לכיתות ו&apos; ומעלה · 2,900 ₪ למשתתף · מינימום 8 משתתפים לפתיחת המחנה.<br />
+          מיועד לכיתות ו&apos; ומעלה · 2,450 ₪ למשתתף · מינימום 10 משתתפים לפתיחת המחנה.<br />
           רוכבים שאינם חברי טבע בייק — נדרש אישור בני או טל לפני ההרשמה.
         </p>
 
@@ -207,7 +207,7 @@ export default function SukkotCampPage() {
           <b style={{ color: TEXT }}>מדיניות ביטול</b><br />
           ביטול עד 14 יום לפני תחילת המחנה — החזר של 50%.<br />
           ביטול פחות מ־3 ימים לפני — ללא החזר.<br />
-          המחנה ייפתח בכפוף למינימום 8 משתתפים.
+          המחנה ייפתח בכפוף למינימום 10 משתתפים.
         </div>
 
         {error && (
@@ -224,8 +224,8 @@ export default function SukkotCampPage() {
         display: 'flex', alignItems: 'center', gap: 16, justifyContent: 'center', flexWrap: 'wrap',
       }}>
         <div style={{ minWidth: 130 }}>
-          <div style={{ color: MUTED, fontSize: 12 }}>מחנה סוכות · 5 ימים</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: LIME }}>2,900 ₪</div>
+          <div style={{ color: MUTED, fontSize: 12 }}>מחנה סוכות · 4 ימים</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: LIME }}>2,450 ₪</div>
         </div>
         <button
           onClick={submit}
