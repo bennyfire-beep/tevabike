@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveCaller, currentMonth, monthBounds } from '@/lib/instructor-identity'
 import { DEFAULT_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
-import { lessonPayConfigOf, lessonRateFor } from '@/lib/lesson-pay'
+import { lessonPayConfigOf, lessonRateFor, coTaughtPresent } from '@/lib/lesson-pay'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "המשכורת שלי" — this month's pay for the signed-in instructor, and nobody
@@ -57,6 +57,10 @@ type SessionRow = {
   present_count: number | null
   duration: number | null
   type: 'regular' | 'special' | null
+  // Needed only to count how many instructors this lesson was credited to,
+  // for coTaughtPresent — not shown to the instructor.
+  instructor_id: string | null
+  instructor_ids: string[] | null
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100
@@ -78,7 +82,7 @@ export async function GET(req: NextRequest) {
       .eq('admin_role_id', adminRoleId)
       .maybeSingle(),
     db.from('class_sessions')
-      .select('id, class_name, activity_name, branch, session_date, present_count, duration, type')
+      .select('id, class_name, activity_name, branch, session_date, present_count, duration, type, instructor_id, instructor_ids')
       .or(credited)
       .gte('session_date', first)
       .lte('session_date', last)
@@ -158,7 +162,13 @@ export async function GET(req: NextRequest) {
       })
     } else {
       lessonCount++
-      const rate = lessonRateFor(pay, present)
+      // Band lookup only, divided by everyone who taught it — see
+      // coTaughtPresent. Pay itself stays full; only the band shifts.
+      const taughtBy = new Set<string>()
+      if (s.instructor_id) taughtBy.add(s.instructor_id)
+      for (const extra of s.instructor_ids ?? []) taughtBy.add(extra)
+      const bandPresent = coTaughtPresent(present, taughtBy.size || 1)
+      const rate = lessonRateFor(pay, bandPresent)
       items.push({
         key: 'ls-' + s.id,
         kind: 'regular',

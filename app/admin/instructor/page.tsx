@@ -501,6 +501,7 @@ export default function InstructorPage() {
   const [groups, setGroups]           = useState<Group[]>([])
   const [myGroupIds, setMyGroupIds]   = useState<Set<string>>(new Set())
   const [instructorNames, setInstructorNames] = useState<Record<string, string>>({})
+  const [activeInstructors, setActiveInstructors] = useState<{ id: string; name: string }[]>([])
   const [loadingBoard, setLoadingBoard] = useState(true)
   const [opening, setOpening]         = useState<string | null>(null)
   const [boardError, setBoardError]   = useState('')
@@ -523,6 +524,13 @@ export default function InstructorPage() {
   const [searchRes, setSearchRes]         = useState<Rider[]>([])
   const [searching, setSearching]         = useState(false)
   const [makePermanent, setMakePermanent] = useState(false)
+
+  // Co-instructor for this session — "לעבודה משותפת": lets the instructor
+  // credit a colleague as co-teaching this specific lesson (instructor_ids).
+  // Splits which pay band the lesson falls into for both of them — see
+  // coTaughtPresent in lib/lesson-pay.ts — but never splits the pay itself.
+  const [showCoPicker, setShowCoPicker] = useState(false)
+  const [coSaving, setCoSaving]         = useState(false)
 
   // ── Today's travel report — per_km instructors only ───────────────────────
   const [travel,        setTravel]        = useState<TravelStatus | null>(null)
@@ -604,7 +612,7 @@ export default function InstructorPage() {
           .order('name'),
         supabase
           .from('admin_roles')
-          .select('id, name')
+          .select('id, name, active')
           .eq('role', 'instructor'),
         // Which groups are usually mine — used only to float them to the top.
         supabase
@@ -623,6 +631,8 @@ export default function InstructorPage() {
       const names: Record<string, string> = {}
       for (const s of (staffRes.data ?? []) as Array<{ id: string; name: string }>) names[s.id] = s.name
       setInstructorNames(names)
+      setActiveInstructors(((staffRes.data ?? []) as Array<{ id: string; name: string; active: boolean | null }>)
+        .filter(s => s.active))
 
       const mine = new Set<string>()
       for (const r of (mineRes.data ?? []) as Array<{ group_id: string | null }>) {
@@ -667,6 +677,7 @@ export default function InstructorPage() {
     setAdding(false)
     setSearchQ('')
     setSearchRes([])
+    setShowCoPicker(false)
     setLoadingRiders(true)
 
     // Special activities aren't group-bound — their participants live in the
@@ -776,6 +787,30 @@ export default function InstructorPage() {
     }
     setRiders(p => p.filter(x => x.id !== rider.id))
     setAttendance(p => { const n = { ...p }; delete n[rider.id]; return n })
+  }
+
+  // ── Co-instructor for this session ("לעבודה משותפת") ───────────────────────
+  async function addCoInstructor(id: string) {
+    const s = session
+    if (!s || coSaving) return
+    setCoSaving(true)
+    const nextIds = [...new Set([...(s.instructor_ids ?? []), id])]
+    const { error } = await supabase.from('class_sessions').update({ instructor_ids: nextIds }).eq('id', s.id)
+    if (!error) {
+      setSession({ ...s, instructor_ids: nextIds })
+      setShowCoPicker(false)
+    }
+    setCoSaving(false)
+  }
+
+  async function removeCoInstructor(id: string) {
+    const s = session
+    if (!s || coSaving) return
+    setCoSaving(true)
+    const nextIds = (s.instructor_ids ?? []).filter(x => x !== id)
+    const { error } = await supabase.from('class_sessions').update({ instructor_ids: nextIds }).eq('id', s.id)
+    if (!error) setSession({ ...s, instructor_ids: nextIds })
+    setCoSaving(false)
   }
 
   // Picking a group rather than a scheduled session: the server finds today's
@@ -1183,18 +1218,76 @@ export default function InstructorPage() {
         </div>
         {/* Same spot as the coordinator attendance screen's "➕ הוסף חניך" — a
             compact pill in the session header, not a full-width CTA below it. */}
-        {openGroupId && (
-          <button
-            onClick={() => setAdding(p => !p)}
-            style={{ marginInlineStart: 'auto', minHeight: 40, background: adding ? C.surface2 : `${C.purple}22`,
-                     border: `1px solid ${C.purple}55`, color: C.purpleSoft, borderRadius: 20,
-                     padding: '8px 16px', fontFamily: FONT, fontWeight: 800, fontSize: 14,
-                     cursor: 'pointer', whiteSpace: 'nowrap' }}
-          >
-            {adding ? '✕ סגור' : '➕ הוסף חניך'}
-          </button>
+        {(openGroupId || session.type === 'special') && (
+          <div style={{ marginInlineStart: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {session.type !== 'special' && (
+              <button
+                onClick={() => { setShowCoPicker(p => !p); setAdding(false) }}
+                style={{ minHeight: 40, background: showCoPicker ? C.surface2 : `${C.pink}1f`,
+                         border: `1px solid ${C.pink}55`, color: C.pinkSoft, borderRadius: 20,
+                         padding: '8px 16px', fontFamily: FONT, fontWeight: 800, fontSize: 14,
+                         cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                {showCoPicker ? '✕ סגור' : '🤝 מדריך שותף'}
+              </button>
+            )}
+            {openGroupId && (
+              <button
+                onClick={() => { setAdding(p => !p); setShowCoPicker(false) }}
+                style={{ minHeight: 40, background: adding ? C.surface2 : `${C.purple}22`,
+                         border: `1px solid ${C.purple}55`, color: C.purpleSoft, borderRadius: 20,
+                         padding: '8px 16px', fontFamily: FONT, fontWeight: 800, fontSize: 14,
+                         cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                {adding ? '✕ סגור' : '➕ הוסף חניך'}
+              </button>
+            )}
+          </div>
         )}
       </div>
+
+      {/* Co-instructor for this session ("לעבודה משותפת") — credits a colleague
+          on instructor_ids so they're paid for it too. Splits which pay band
+          the lesson falls into for both (see coTaughtPresent), never the pay
+          itself, and needs no coordinator involvement. */}
+      {(session.instructor_ids ?? []).length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: showCoPicker ? 10 : 16 }}>
+          {(session.instructor_ids ?? []).map(id => (
+            <span key={id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: C.surface2,
+                                     border: `1px solid ${C.border}`, borderRadius: 16, padding: '5px 6px 5px 12px', fontSize: 13 }}>
+              🤝 {instructorNames[id] ?? '...'}
+              <button
+                onClick={() => removeCoInstructor(id)}
+                aria-label={`הסר את ${instructorNames[id] ?? ''} מהאימון`}
+                style={{ minWidth: 24, minHeight: 24, borderRadius: '50%', border: 'none', background: 'transparent', color: C.muted, cursor: 'pointer', fontSize: 14 }}
+              >✕</button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {showCoPicker && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 16, marginBottom: 16 }}>
+          <p style={{ margin: '0 0 10px', fontSize: 13, color: C.muted }}>
+            מי לימד איתך את האימון הזה? השכר שלו יחושב לפי זה בנפרד — שלכם לא מתחלק.
+          </p>
+          {activeInstructors
+            .filter(i => i.id !== account?.id && !(session.instructor_ids ?? []).includes(i.id))
+            .map(i => (
+              <div
+                key={i.id}
+                onClick={() => addCoInstructor(i.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, cursor: coSaving ? 'default' : 'pointer', opacity: coSaving ? 0.6 : 1, background: C.surface2, marginBottom: 6 }}
+              >
+                <span style={{ fontWeight: 800, fontSize: 14 }}>{i.name}</span>
+                <span style={{ marginInlineStart: 'auto', color: C.pinkSoft, fontSize: 20, fontWeight: 800, lineHeight: 1 }}>＋</span>
+              </div>
+            ))}
+          {activeInstructors.filter(i => i.id !== account?.id && !(session.instructor_ids ?? []).includes(i.id)).length === 0 && (
+            <div style={{ color: C.muted, fontSize: 13 }}>אין עוד מדריכים פעילים להוספה</div>
+          )}
+        </div>
+      )}
 
       {/* Search-existing-rider panel — same contract as the coordinator
           attendance screen: search first, "קבע כחבר קבוע" checkbox pins the

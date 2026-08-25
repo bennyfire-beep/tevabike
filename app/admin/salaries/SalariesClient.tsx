@@ -7,7 +7,7 @@ import {
   computeTravel, travelConfigOf, travelDetail, TRAVEL_LABEL, type TravelType,
 } from '@/lib/travel'
 import {
-  attendanceBandDetail, lessonPayConfigOf, lessonPayFor, type LessonPayModel,
+  attendanceBandDetail, lessonPayConfigOf, lessonPayFor, coTaughtPresent, type LessonPayModel,
 } from '@/lib/lesson-pay'
 import {
   ManageShell, Btn, Note, ErrorBox, C, inputStyle, labelStyle,
@@ -112,6 +112,8 @@ export default function SalariesClient() {
       const ids = new Set<string>()
       if (s.instructor_id) ids.add(s.instructor_id)
       for (const extra of (s.instructor_ids ?? []) as string[]) ids.add(extra)
+      // Band lookup only, divided by everyone who taught it — see coTaughtPresent.
+      const bandPresent = coTaughtPresent(s.present_count, ids.size)
 
       for (const id of ids) {
         if (!workDays.has(id)) workDays.set(id, new Set())
@@ -122,7 +124,7 @@ export default function SalariesClient() {
           specialHours.set(id, (specialHours.get(id) ?? 0) + (Number(s.duration) || 0))
         } else {
           if (!lessonPresents.has(id)) lessonPresents.set(id, [])
-          lessonPresents.get(id)!.push(Number(s.present_count) || 0)
+          lessonPresents.get(id)!.push(bandPresent)
         }
       }
     }

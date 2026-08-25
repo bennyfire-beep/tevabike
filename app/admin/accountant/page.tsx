@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAdminAuth } from '@/lib/use-admin-auth'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
 import { computeTravel, travelConfigOf, TRAVEL_LABEL } from '@/lib/travel'
-import { lessonPayFor } from '@/lib/lesson-pay'
+import { lessonPayFor, coTaughtPresent } from '@/lib/lesson-pay'
 
 type InstructorSummary = {
   adminRoleId:   string
@@ -147,6 +147,8 @@ export default function AccountantPage() {
       const ids = new Set<string>()
       if (s.instructor_id) ids.add(s.instructor_id)
       for (const extra of (s.instructor_ids ?? []) as string[]) ids.add(extra)
+      // Band lookup only, divided by everyone who taught it — see coTaughtPresent.
+      const bandPresent = coTaughtPresent(s.present_count, ids.size)
       for (const id of ids) {
         if (!workDays.has(id)) workDays.set(id, new Set())
         workDays.get(id)!.add(s.session_date)
@@ -154,7 +156,7 @@ export default function AccountantPage() {
           specialHours.set(id, (specialHours.get(id) ?? 0) + (Number(s.duration) || 0))
         } else {
           if (!lessonPresents.has(id)) lessonPresents.set(id, [])
-          lessonPresents.get(id)!.push(Number(s.present_count) || 0)
+          lessonPresents.get(id)!.push(bandPresent)
         }
       }
     }

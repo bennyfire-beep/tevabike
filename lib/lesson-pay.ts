@@ -66,10 +66,30 @@ export function lessonPayConfigOf(row: Partial<LessonPayFields> | undefined | nu
 }
 
 /**
+ * When a lesson is co-taught, each credited instructor's band is judged
+ * against present ÷ number of instructors credited (rounded up), not the
+ * raw headcount — two instructors sharing 15 riders are each judged as if
+ * they'd taught 8, not 15. This only changes which band a lesson falls
+ * into; pay is never split, each credited instructor still gets their own
+ * full per-lesson rate at whatever band that adjusted number lands on.
+ * A solo-taught lesson (instructorCount <= 1) is unaffected.
+ */
+export function coTaughtPresent(
+  presentCount: number | null | undefined,
+  instructorCount: number,
+): number {
+  const p = Number(presentCount) || 0
+  const n = Math.max(1, Math.trunc(instructorCount) || 1)
+  return n <= 1 ? p : Math.ceil(p / n)
+}
+
+/**
  * What one ordinary lesson pays this instructor.
  *
- * `presentCount` — riders marked present in that lesson. Null (attendance was
- *                  never saved) counts as none present, i.e. the low rate.
+ * `presentCount` — riders marked present in that lesson, already adjusted by
+ *                  coTaughtPresent() if the lesson was co-taught. Null
+ *                  (attendance was never saved) counts as none present, i.e.
+ *                  the low rate.
  */
 export function lessonRateFor(
   row: Partial<LessonPayFields> | undefined | null,

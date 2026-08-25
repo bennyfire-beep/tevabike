@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
 import { computeTravel, TRAVEL_LABEL, travelConfigOf } from '@/lib/travel'
-import { lessonPayFor } from '@/lib/lesson-pay'
+import { lessonPayFor, coTaughtPresent } from '@/lib/lesson-pay'
 
 // ─── Vercel Cron: runs at 08:00 on the 1st of every month ────────────────────
 // Add to vercel.json:  { "crons": [{ "path": "/api/salary/report", "schedule": "0 6 1 * *" }] }
@@ -163,6 +163,8 @@ export async function GET(request: NextRequest) {
     const ids = new Set<string>()
     if (s.instructor_id) ids.add(s.instructor_id)
     for (const extra of (s.instructor_ids ?? []) as string[]) ids.add(extra)
+    // Band lookup only, divided by everyone who taught it — see coTaughtPresent.
+    const bandPresent = coTaughtPresent(s.present_count, ids.size)
     for (const id of ids) {
       if (!workDays.has(id)) workDays.set(id, new Set())
       workDays.get(id)!.add(s.session_date)
@@ -170,7 +172,7 @@ export async function GET(request: NextRequest) {
         specialHours.set(id, (specialHours.get(id) ?? 0) + (Number(s.duration) || 0))
       } else {
         if (!lessonPresents.has(id)) lessonPresents.set(id, [])
-        lessonPresents.get(id)!.push(Number(s.present_count) || 0)
+        lessonPresents.get(id)!.push(bandPresent)
       }
     }
   }

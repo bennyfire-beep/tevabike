@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { DEFAULT_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
-import { lessonPayConfigOf, lessonRateFor } from '@/lib/lesson-pay'
+import { lessonPayConfigOf, lessonRateFor, coTaughtPresent } from '@/lib/lesson-pay'
 import { isSalaryAdmin } from '@/lib/salary-access'
 import { currentMonth, monthBounds } from '@/lib/month'
 
@@ -259,9 +259,14 @@ export default function PayrollPage() {
           })
         }
 
+        // Band lookup only — co-taught lessons pay each credited instructor
+        // in full, only which band they fall into shifts. Divided by everyone
+        // who actually taught (allCredited), not just those on payroll, so an
+        // unpaid co-instructor (e.g. Benny) still lightens the paid one's band.
+        const bandPresent = coTaughtPresent(present, allCredited.length)
         for (const iid of credited) {
           const cfg  = lessonCfgOf[iid]
-          const rate = lessonRateFor(cfg, present)
+          const rate = lessonRateFor(cfg, bandPresent)
           // Show which band was picked — the flat model has only one, so it says nothing.
           const banded = lessonPayConfigOf(cfg).model === 'by_attendance'
           items.push({
