@@ -1,4 +1,4 @@
-// app/shop/page.tsx — דף חנות טבע בייק (גרסה 1 — MVP להדגמה בפגישה)
+// app/shop/page.tsx — דף חנות טבע בייק (גרסה 2 — תמונות אמיתיות + מלאי פתיחה)
 "use client";
 
 import { useState } from "react";
@@ -21,7 +21,7 @@ type Product = {
   marketPrice: number;
   variantLabel: string;
   variants: string[];
-  icon: string;
+  image: string;
 };
 
 const PRODUCTS: Product[] = [
@@ -29,23 +29,23 @@ const PRODUCTS: Product[] = [
     slug: "spank-spoon-35",
     brand: "SPANK",
     name: "כידון ספון 35",
-    spec: 'קוטר 35 מ"מ · רוחב 800 מ"מ · ניתן לקצר עד 740 מ"מ',
+    spec: 'קוטר 35 מ"מ · רוחב 800 מ"מ · שחור בלבד',
     price: 399,
     marketPrice: 450,
     variantLabel: "רייז",
     variants: ["25mm", "40mm", "60mm"],
-    icon: "🚵",
+    image: "/spoon35m.webp",
   },
   {
     slug: "spank-spike-33-grip",
     brand: "SPANK",
     name: "גריפים ספייק 33",
-    spec: 'קוטר 33 מ"מ · Interlocking Column · אחיזה ל-אול-מאונטיין ואנדורו',
+    spec: 'קוטר 33 מ"מ · Interlocking Column',
     price: 139,
     marketPrice: 149,
     variantLabel: "צבע",
-    variants: ["שחור", "אדום", "ירוק", "סגול"],
-    icon: "✊",
+    variants: ["שחור", "קרם"],
+    image: "/SPIKE33MAIN123.webp",
   },
   {
     slug: "spank-spoon-pedals",
@@ -55,8 +55,8 @@ const PRODUCTS: Product[] = [
     price: 449,
     marketPrice: 495,
     variantLabel: "צבע",
-    variants: ["שחור", "כחול", "אדום", "ירוק ליים"],
-    icon: "🦶",
+    variants: ["שחור", "בורדו", "כחול", "ירוק ליים", "סגול", "כתום", "זהב", "לבן"],
+    image: "/spank%20pedal.webp",
   },
 ];
 
@@ -162,10 +162,11 @@ export default function ShopPage() {
               style={{ background: C.green, borderColor: C.greenMid }}
             >
               <div
-                className="text-5xl mb-4 mx-auto flex items-center justify-center rounded-xl"
-                style={{ width: 96, height: 96, background: C.dark }}
+                className="mb-4 mx-auto rounded-xl overflow-hidden flex items-center justify-center"
+                style={{ width: "100%", aspectRatio: "1 / 1", background: C.dark }}
               >
-                {p.icon}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.image} alt={p.name} className="w-full h-full object-contain" />
               </div>
               <p className="text-xs font-bold tracking-widest mb-1" style={{ color: C.brand }}>
                 {p.brand}
