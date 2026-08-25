@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// מחנה סוכות — משמר העמק, 27.09–01.10
+// מחנה סוכות — משמר העמק, 27.09–30.09
 //
 // GET  → כמה נרשמו / כמה מקומות נשארו
 // POST → שומר הרשמה, שולח מייל אישור להורה + התראה לבני, ומחזיר קישור תשלום
@@ -11,9 +11,9 @@ export const dynamic = 'force-dynamic'
 const ADMIN_EMAILS = ['bennyfire@gmail.com', 'talmatoki@gmail.com']
 const FROM = 'טבע בייק <info@mail.tevabike.com>'
 
-const PRICE = 2900
+const PRICE = 2450
 const CAPACITY = 20            // ← שנה כאן את מספר המקומות במחנה
-const MIN_PARTICIPANTS = 8
+const MIN_PARTICIPANTS = 10
 const PAY_URL = 'https://arbox.link/yYdvre3J'
 
 function db() {
@@ -158,10 +158,10 @@ export async function POST(req: NextRequest) {
     `נרשמת למחנה סוכות — ${riderFirstName} ${riderLastName}`,
     `<div dir="rtl" style="font-family:Heebo,Arial,sans-serif;color:#1a1a1a;max-width:600px">
       <h2 style="margin:0 0 4px">ההרשמה נקלטה 🚵</h2>
-      <p style="margin:0 0 18px;color:#555">מחנה סוכות — משמר העמק, 27.09–01.10</p>
+      <p style="margin:0 0 18px;color:#555">מחנה סוכות — משמר העמק, 27.09–30.09</p>
 
       <p><b>רוכב:</b> ${riderFirstName} ${riderLastName}</p>
-      <p><b>המחנה כולל:</b> חמישה ימי רכיבה, ארוחות ולינה.</p>
+      <p><b>המחנה כולל:</b> ארבעה ימי רכיבה, ארוחות ולינה.</p>
 
       <p style="font-size:18px"><b>סה"כ לתשלום: ${PRICE} ₪</b></p>
       <p style="margin:18px 0">
@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
         <li>בקבוק מים / שלוקר</li>
         <li>פנימית ספייר, משאבה או CO₂, מולטי־טול</li>
         <li>שק שינה ומזרן, כלי רחצה ומגבת</li>
-        <li>בגדים להחלפה לחמישה ימים, בגד ים</li>
+        <li>בגדים להחלפה לארבעה ימים, בגד ים</li>
         <li>כובע, קרם הגנה, תכשיר נגד יתושים</li>
       </ul>
       <p style="color:#666;font-size:13px">מומלץ בנוסף: מגן חזה/גב, פנס ראש.</p>
