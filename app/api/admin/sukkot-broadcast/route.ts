@@ -12,7 +12,7 @@ export const maxDuration = 60
 
 const FROM = 'טבע בייק <info@mail.tevabike.com>'
 const CAMP_NAME = 'מחנה סוכות — משמר העמק'
-const CAMP_DATES = '27.09–01.10'
+const CAMP_DATES = '27.09–30.09'
 const PAY_URL = 'https://arbox.link/yYdvre3J'
 
 type Audience = 'all' | 'paid' | 'pending'
