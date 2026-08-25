@@ -5,7 +5,7 @@ import { useCoordinator } from '@/lib/coordinator-context'
 import { DEFAULT_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
 import { lessonPayConfigOf, lessonRateFor, coTaughtPresent } from '@/lib/lesson-pay'
-import { isSalaryAdmin } from '@/lib/salary-access'
+import { isSalaryAdmin, isBenny } from '@/lib/salary-access'
 import { currentMonth, monthBounds } from '@/lib/month'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -112,6 +112,7 @@ const SALARY_ADMINS = ['bennyfire@gmail.com', 'shirkobi8@gmail.com']
 export default function PayrollPage() {
   const user = useCoordinator()
   const canSeeSalary = isSalaryAdmin(user?.email)
+  const canDelete = isBenny(user?.email)
   const [month, setMonth]       = useState(currentYm)
   const [groups, setGroups]     = useState<PersonGroup[]>([])
   const [loading, setLoading]   = useState(true)
@@ -354,6 +355,10 @@ export default function PayrollPage() {
   // whose band this session's headcount was feeding into) recomputes.
   const [deletingSession, setDeletingSession] = useState<string | null>(null)
   async function deleteSessionRow(id: string, label: string, date: string | null) {
+    // The button is already hidden for anyone but Benny; this guards the
+    // function itself in case it's ever called another way. The real
+    // enforcement is the class_sessions DELETE RLS policy (is_benny()).
+    if (!canDelete) return
     const when = date ? new Date(date + 'T12:00:00').toLocaleDateString('he-IL') : ''
     if (!window.confirm(`למחוק את האימון "${label}" ${when}?\nהפעולה תמחק גם את כל הנוכחות שסומנה בו, ולא ניתן לבטל.`)) return
     setDeletingSession(id)
@@ -530,7 +535,7 @@ export default function PayrollPage() {
                         <span style={{ color: '#b5e853' }}>{it.present ?? '—'}</span>
                         <span style={{ color: '#4cdb7a', fontWeight: 700 }}>₪{it.pay.toLocaleString()}</span>
                         <span>
-                          {sessionId && (
+                          {sessionId && canDelete && (
                             <button
                               onClick={() => deleteSessionRow(sessionId, it.label, it.date)}
                               disabled={deletingSession === sessionId}

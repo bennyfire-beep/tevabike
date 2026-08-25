@@ -20,3 +20,13 @@ export function isSalaryAdmin(email: string | null | undefined): boolean {
   if (!email) return false
   return (SALARY_ADMINS as readonly string[]).includes(email.trim().toLowerCase())
 }
+
+// Destructive actions (deleting a session, e.g. one opened by mistake) are
+// restricted to Benny specifically, even though Shir sees the same payroll
+// numbers as a salary admin. This mirrors the class_sessions DELETE RLS
+// policy (is_benny() in Postgres) — that's the real enforcement; this is
+// just what decides whether the UI shows the button at all.
+export function isBenny(email: string | null | undefined): boolean {
+  if (!email) return false
+  return email.trim().toLowerCase() === 'bennyfire@gmail.com'
+}

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
 import { saveAttendance as persistAttendance } from '@/lib/attendance'
 import { useCoordinator } from '@/lib/coordinator-context'
+import { isBenny } from '@/lib/salary-access'
 import RiderForm from '@/components/RiderForm'
 
 const BRANCH_COLOR: Record<string, string> = {
@@ -50,6 +51,7 @@ const inp: React.CSSProperties = {
 
 export default function AttendancePage() {
   const user  = useCoordinator()
+  const canDelete = isBenny(user?.email)
   const today = new Date().toISOString().split('T')[0]
 
   const [date, setDate]         = useState(today)
@@ -332,7 +334,7 @@ export default function AttendancePage() {
   // deletes the one class_sessions row, not the group itself.
   const [deleting, setDeleting] = useState(false)
   async function deleteSession() {
-    if (!selected) return
+    if (!selected || !canDelete) return
     const label = selected.type === 'special' ? (selected.activity_name ?? selected.class_name) : selected.class_name
     if (!window.confirm(`למחוק את האימון "${label}" (${new Date(selected.session_date + 'T12:00:00').toLocaleDateString('he-IL')})?\nהפעולה תמחק גם את כל הנוכחות שסומנה בו, ולא ניתן לבטל.`)) return
     setDeleting(true)
@@ -581,14 +583,16 @@ export default function AttendancePage() {
                   </button>
                   <span style={{ background: '#4cdb7a22', color: '#4cdb7a', border: '1px solid #4cdb7a44', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>✓ {presentCount}</span>
                   <span style={{ background: '#ff4f4f22', color: '#ff8080', border: '1px solid #ff4f4f44', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>✗ {riders.length - presentCount}</span>
-                  <button
-                    onClick={deleteSession}
-                    disabled={deleting}
-                    title="מחק אימון זה (למשל אם נפתח בטעות)"
-                    style={{ background: 'transparent', color: '#ff8080', border: '1px solid #ff4f4f44', borderRadius: 20, padding: '5px 10px', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 12, cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.6 : 1 }}
-                  >
-                    🗑 {deleting ? 'מוחק...' : 'מחק אימון'}
-                  </button>
+                  {canDelete && (
+                    <button
+                      onClick={deleteSession}
+                      disabled={deleting}
+                      title="מחק אימון זה (למשל אם נפתח בטעות)"
+                      style={{ background: 'transparent', color: '#ff8080', border: '1px solid #ff4f4f44', borderRadius: 20, padding: '5px 10px', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 12, cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.6 : 1 }}
+                    >
+                      🗑 {deleting ? 'מוחק...' : 'מחק אימון'}
+                    </button>
+                  )}
                 </div>
               </div>
 
