@@ -1,4 +1,8 @@
 'use client'
+// app/admin/instructor/page.tsx — v4: add-existing-rider search + "קבע כחבר
+// קבוע" checkbox + 🗑 remove-from-group, synced from the coordinator
+// attendance screen ("➕ הוסף חניך" now opens a search panel; "➕ חניך חדש"
+// moved inside it as the fallback for someone truly new to the system)
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -511,6 +515,15 @@ export default function InstructorPage() {
   const [showAddRider, setShowAddRider]   = useState(false)
   const [addedMsg, setAddedMsg]           = useState('')
 
+  // Add-existing-rider search — same contract as the coordinator attendance
+  // screen's "➕ הוסף חניך": search riders already in the system, optionally
+  // pin them to the group so they show up automatically next time.
+  const [adding, setAdding]               = useState(false)
+  const [searchQ, setSearchQ]             = useState('')
+  const [searchRes, setSearchRes]         = useState<Rider[]>([])
+  const [searching, setSearching]         = useState(false)
+  const [makePermanent, setMakePermanent] = useState(false)
+
   // ── Today's travel report — per_km instructors only ───────────────────────
   const [travel,        setTravel]        = useState<TravelStatus | null>(null)
   const [travelOrigin,  setTravelOrigin]  = useState('')
@@ -651,6 +664,9 @@ export default function InstructorPage() {
     setRiders([])
     setAttendance({})
     setAddedMsg('')
+    setAdding(false)
+    setSearchQ('')
+    setSearchRes([])
     setLoadingRiders(true)
 
     // Special activities aren't group-bound — their participants live in the
@@ -705,6 +721,62 @@ export default function InstructorPage() {
     setAttendance(map)
     setLoadingRiders(false)
   }, [])
+
+  // ── Add an existing rider from the system (search, not "חניך חדש") ────────
+  async function searchRiders(q: string) {
+    setSearchQ(q)
+    if (q.trim().length < 2) { setSearchRes([]); return }
+    setSearching(true)
+    const { data } = await supabase
+      .from('riders')
+      .select('id, full_name, phone, payment_status')
+      .ilike('full_name', `%${q.trim()}%`)
+      .order('full_name')
+      .limit(15)
+    const existing = new Set(riders.map(r => r.id))
+    setSearchRes(((data ?? []) as Rider[]).filter(r => !existing.has(r.id)))
+    setSearching(false)
+  }
+
+  async function addRider(r: Rider) {
+    setRiders(p => [...p, r])
+    setAttendance(p => ({ ...p, [r.id]: true }))
+    setSearchQ('')
+    setSearchRes([])
+    setAdding(false)
+    if (makePermanent && session) {
+      const gid = await resolveGroupId(session.group_id, session.class_name, session.branch)
+      if (gid) {
+        await supabase.from('rider_groups').upsert({ rider_id: r.id, group_id: gid }, { onConflict: 'rider_id,group_id' })
+      }
+      const patch: Record<string, unknown> = {
+        group_name: session.class_name,
+        branch:     session.branch,
+        is_regular: true,
+      }
+      if (gid) patch.group_id = gid
+      await supabase.from('riders').update(patch).eq('id', r.id)
+    }
+  }
+
+  async function removeFromGroup(rider: Rider) {
+    if (!session) return
+    if (session.type === 'special') {
+      if (!window.confirm(`להסיר את ${rider.full_name} מהפעילות?`)) return
+      await supabase.from('attendance').delete().eq('session_id', session.id).eq('rider_id', rider.id)
+      setRiders(p => p.filter(x => x.id !== rider.id))
+      setAttendance(p => { const n = { ...p }; delete n[rider.id]; return n })
+      return
+    }
+    if (!window.confirm(`להסיר את ${rider.full_name} מהקבוצה?\nהוא יישאר במערכת, אבל לא יופיע יותר אוטומטית באימוני קבוצה זו.`)) return
+    if (session.group_id) {
+      await supabase.from('rider_groups').delete().eq('rider_id', rider.id).eq('group_id', session.group_id)
+    } else {
+      await supabase.from('riders').update({ is_regular: false }).eq('id', rider.id)
+    }
+    setRiders(p => p.filter(x => x.id !== rider.id))
+    setAttendance(p => { const n = { ...p }; delete n[rider.id]; return n })
+  }
 
   // Picking a group rather than a scheduled session: the server finds today's
   // register for that group or opens one. It never reassigns an existing
@@ -1113,16 +1185,59 @@ export default function InstructorPage() {
             compact pill in the session header, not a full-width CTA below it. */}
         {openGroupId && (
           <button
-            onClick={() => setShowAddRider(true)}
-            style={{ marginInlineStart: 'auto', minHeight: 40, background: `${C.purple}22`,
+            onClick={() => setAdding(p => !p)}
+            style={{ marginInlineStart: 'auto', minHeight: 40, background: adding ? C.surface2 : `${C.purple}22`,
                      border: `1px solid ${C.purple}55`, color: C.purpleSoft, borderRadius: 20,
                      padding: '8px 16px', fontFamily: FONT, fontWeight: 800, fontSize: 14,
                      cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
-            ➕ חניך חדש
+            {adding ? '✕ סגור' : '➕ הוסף חניך'}
           </button>
         )}
       </div>
+
+      {/* Search-existing-rider panel — same contract as the coordinator
+          attendance screen: search first, "קבע כחבר קבוע" checkbox pins the
+          rider to the group for next time, and a fallback button at the
+          bottom opens RiderForm for a rider who isn't in the system yet. */}
+      {adding && openGroupId && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 16, marginBottom: 16 }}>
+          <input
+            autoFocus
+            value={searchQ}
+            onChange={e => searchRiders(e.target.value)}
+            placeholder="חיפוש חניך לפי שם..."
+            style={{ width: '100%', boxSizing: 'border-box', background: C.bg, border: `1px solid ${C.border}`,
+                     borderRadius: 10, color: C.text, fontFamily: FONT, fontSize: 15, padding: '11px 14px', outline: 'none' }}
+          />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: makePermanent ? C.present : C.muted, fontSize: 13, margin: '12px 0', cursor: 'pointer' }}>
+            <input type="checkbox" checked={makePermanent} onChange={e => setMakePermanent(e.target.checked)} style={{ width: 18, height: 18, accentColor: C.present, cursor: 'pointer' }} />
+            קבע כחבר קבוע בקבוצה (יופיע אוטומטית באימונים הבאים)
+          </label>
+          {searching && <div style={{ color: C.muted, fontSize: 13 }}>מחפש...</div>}
+          {searchRes.map(r => (
+            <div
+              key={r.id}
+              onClick={() => addRider(r)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, cursor: 'pointer', background: C.surface2, marginBottom: 6 }}
+            >
+              <span style={{ fontWeight: 800, fontSize: 14 }}>{r.full_name}</span>
+              {r.phone && <span style={{ color: C.muted, fontSize: 13 }}>📞 {r.phone}</span>}
+              <span style={{ marginInlineStart: 'auto', color: C.present, fontSize: 20, fontWeight: 800, lineHeight: 1 }}>＋</span>
+            </div>
+          ))}
+          {!searching && searchQ.trim().length >= 2 && searchRes.length === 0 && (
+            <div style={{ color: C.muted, fontSize: 13, marginBottom: 10 }}>לא נמצאו רוכבים תואמים (ייתכן שכבר ברשימה)</div>
+          )}
+          <button
+            onClick={() => setShowAddRider(true)}
+            style={{ width: '100%', marginTop: 10, background: 'transparent', border: `1px dashed ${C.purple}66`,
+                     color: C.purpleSoft, borderRadius: 10, padding: '10px', fontFamily: FONT, fontWeight: 800, fontSize: 13.5, cursor: 'pointer' }}
+          >
+            ➕ חניך חדש לגמרי (לא קיים במערכת)
+          </button>
+        </div>
+      )}
 
       {addedMsg && (
         <div style={{ background: `${C.present}1f`, border: `1px solid ${C.present}66`, color: C.present,
@@ -1177,6 +1292,11 @@ export default function InstructorPage() {
                   aria-pressed={!present}
                   style={{ minWidth: 56, minHeight: 56, borderRadius: 14, border: `2px solid ${C.absent}`, cursor: 'pointer', fontSize: 24, fontWeight: 900, background: !present ? C.absent : 'transparent', color: !present ? '#0d0b10' : C.absent }}
                 >✖</button>
+                <button
+                  onClick={() => removeFromGroup(r)}
+                  aria-label={`הסר את ${r.full_name} מהקבוצה`}
+                  style={{ minWidth: 44, minHeight: 44, borderRadius: 14, border: `1px solid ${C.border}`, cursor: 'pointer', fontSize: 18, background: 'transparent', color: C.muted }}
+                >🗑</button>
               </div>
             )
           })}
