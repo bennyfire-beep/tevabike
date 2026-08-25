@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
 
   const [payRes, sessRes, travelRes, daysRes] = await Promise.all([
     db.from('staff_pay')
-      .select('hourly_rate, rate_per_lesson, lesson_pay_model, attendance_rate_low, attendance_rate_high, attendance_threshold, monthly_base, travel_type, travel_km, travel_rate, travel_monthly_amount')
+      .select('hourly_rate, rate_per_lesson, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, monthly_base, travel_type, travel_km, travel_rate, travel_monthly_amount')
       .eq('admin_role_id', adminRoleId)
       .maybeSingle(),
     db.from('class_sessions')

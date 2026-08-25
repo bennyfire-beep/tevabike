@@ -22,8 +22,10 @@ type Instructor = {
   lessonModel: LessonPayModel // flat rate per lesson, or banded by attendance
   ratePerLesson: number // staff_pay.rate_per_lesson — an ordinary weekly lesson, flat model
   attLow: number        // by_attendance — below the threshold
-  attHigh: number       // by_attendance — at or above the threshold
-  attThreshold: number  // by_attendance — riders present that earn the high rate
+  attMid: number | null // by_attendance — 3-tier only, middle band; null = 2-tier
+  attHigh: number       // by_attendance — top band
+  attThreshold: number  // by_attendance — riders present that earn the mid/high rate
+  attThreshold2: number | null // by_attendance — 3-tier only, riders present that earn the top rate
   hourlyRate: number    // staff_pay.hourly_rate     — special activities, per hour
   travelType: TravelType
   travelKm: number
@@ -39,8 +41,11 @@ const emptyForm = {
   lessonModel: 'flat' as LessonPayModel,
   ratePerLesson: String(DEFAULT_RATE_PER_LESSON),
   attLow: String(DEFAULT_ATTENDANCE_RATE_LOW),
+  attMid: '',
   attHigh: String(DEFAULT_ATTENDANCE_RATE_HIGH),
   attThreshold: String(DEFAULT_ATTENDANCE_THRESHOLD),
+  attThreshold2: '',
+  attHasMid: false,
   hourlyRate: String(DEFAULT_HOURLY_RATE),
   travelType: 'none' as TravelType,
   travelKm: '', travelRate: '', travelMonthly: '',
@@ -48,14 +53,19 @@ const emptyForm = {
 
 /** Lesson-pay model picker plus whichever fields that choice needs. */
 function LessonPayFields({
-  model, flat, low, high, threshold, onModel, onFlat, onLow, onHigh, onThreshold,
+  model, flat, low, mid, high, threshold, threshold2, hasMid,
+  onModel, onFlat, onLow, onMid, onHigh, onThreshold, onThreshold2, onHasMid,
 }: {
-  model: LessonPayModel; flat: string; low: string; high: string; threshold: string
+  model: LessonPayModel; flat: string; low: string; mid: string; high: string
+  threshold: string; threshold2: string; hasMid: boolean
   onModel: (m: LessonPayModel) => void
   onFlat: (v: string) => void
   onLow: (v: string) => void
+  onMid: (v: string) => void
   onHigh: (v: string) => void
   onThreshold: (v: string) => void
+  onThreshold2: (v: string) => void
+  onHasMid: (v: boolean) => void
 }) {
   return (
     <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 13 }}>
@@ -94,9 +104,14 @@ function LessonPayFields({
         </div>
       ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: hasMid ? C.accent : C.muted, fontSize: 12.5, marginBottom: 10, cursor: 'pointer' }}>
+            <input type="checkbox" checked={hasMid} onChange={e => onHasMid(e.target.checked)} style={{ width: 16, height: 16, accentColor: C.accent, cursor: 'pointer' }} />
+            מדרגת ביניים נוספת (3 מדרגות במקום 2)
+          </label>
+
+          <div style={{ display: 'grid', gridTemplateColumns: hasMid ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 10 }}>
             <div>
-              <label style={labelStyle}>תעריף עד הסף (₪)</label>
+              <label style={labelStyle}>{hasMid ? 'תעריף מדרגה 1 (₪)' : 'תעריף עד הסף (₪)'}</label>
               <input
                 style={inputStyle} type="number" inputMode="numeric" dir="ltr"
                 value={low} onChange={e => onLow(e.target.value)}
@@ -104,25 +119,58 @@ function LessonPayFields({
               />
             </div>
             <div>
-              <label style={labelStyle}>תעריף מהסף (₪)</label>
-              <input
-                style={inputStyle} type="number" inputMode="numeric" dir="ltr"
-                value={high} onChange={e => onHigh(e.target.value)}
-                placeholder={String(DEFAULT_ATTENDANCE_RATE_HIGH)}
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>סף חניכים</label>
+              <label style={labelStyle}>{hasMid ? 'סף מדרגה 1 (חניכים)' : 'סף חניכים'}</label>
               <input
                 style={inputStyle} type="number" inputMode="numeric" dir="ltr"
                 value={threshold} onChange={e => onThreshold(e.target.value)}
                 placeholder={String(DEFAULT_ATTENDANCE_THRESHOLD)}
               />
             </div>
+            {!hasMid && (
+              <div>
+                <label style={labelStyle}>תעריף מהסף (₪)</label>
+                <input
+                  style={inputStyle} type="number" inputMode="numeric" dir="ltr"
+                  value={high} onChange={e => onHigh(e.target.value)}
+                  placeholder={String(DEFAULT_ATTENDANCE_RATE_HIGH)}
+                />
+              </div>
+            )}
           </div>
+
+          {hasMid && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginTop: 10 }}>
+              <div>
+                <label style={labelStyle}>תעריף מדרגה 2 (₪)</label>
+                <input
+                  style={inputStyle} type="number" inputMode="numeric" dir="ltr"
+                  value={mid} onChange={e => onMid(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>סף מדרגה 2 (חניכים)</label>
+                <input
+                  style={inputStyle} type="number" inputMode="numeric" dir="ltr"
+                  value={threshold2} onChange={e => onThreshold2(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={labelStyle}>תעריף מדרגה 3 (₪)</label>
+                <input
+                  style={inputStyle} type="number" inputMode="numeric" dir="ltr"
+                  value={high} onChange={e => onHigh(e.target.value)}
+                  placeholder={String(DEFAULT_ATTENDANCE_RATE_HIGH)}
+                />
+              </div>
+            </div>
+          )}
+
           <div style={{ color: C.muted, fontSize: 11.5, marginTop: 5 }}>
-            עד {Math.max(Number(threshold || DEFAULT_ATTENDANCE_THRESHOLD) - 1, 0)} נוכחים → ₪{low || DEFAULT_ATTENDANCE_RATE_LOW} ·
-            {' '}מ־{threshold || DEFAULT_ATTENDANCE_THRESHOLD} נוכחים → ₪{high || DEFAULT_ATTENDANCE_RATE_HIGH}
+            {hasMid
+              ? `עד ${Math.max(Number(threshold || DEFAULT_ATTENDANCE_THRESHOLD) - 1, 0)} נוכחים → ₪${low || DEFAULT_ATTENDANCE_RATE_LOW} · ${threshold || DEFAULT_ATTENDANCE_THRESHOLD}–${Math.max(Number(threshold2 || 0) - 1, 0)} → ₪${mid || 0} · מ־${threshold2 || 0} נוכחים → ₪${high || DEFAULT_ATTENDANCE_RATE_HIGH}`
+              : `עד ${Math.max(Number(threshold || DEFAULT_ATTENDANCE_THRESHOLD) - 1, 0)} נוכחים → ₪${low || DEFAULT_ATTENDANCE_RATE_LOW} · מ־${threshold || DEFAULT_ATTENDANCE_THRESHOLD} → ₪${high || DEFAULT_ATTENDANCE_RATE_HIGH}`}
           </div>
         </>
       )}
@@ -215,8 +263,11 @@ export default function InstructorsClient() {
   const [editModel,   setEditModel]   = useState<LessonPayModel>('flat')
   const [editLesson,  setEditLesson]  = useState('')
   const [editAttLow,  setEditAttLow]  = useState('')
+  const [editAttMid,  setEditAttMid]  = useState('')
   const [editAttHigh, setEditAttHigh] = useState('')
-  const [editAttThreshold, setEditAttThreshold] = useState('')
+  const [editAttThreshold,  setEditAttThreshold]  = useState('')
+  const [editAttThreshold2, setEditAttThreshold2] = useState('')
+  const [editHasMid, setEditHasMid] = useState(false)
   const [editHourly,  setEditHourly]  = useState('')
   const [editTravelType,    setEditTravelType]    = useState<TravelType>('none')
   const [editTravelKm,      setEditTravelKm]      = useState('')
@@ -237,7 +288,7 @@ export default function InstructorsClient() {
       // Rates and the travel arrangement live here, keyed by admin_roles.id.
       supabase
         .from('staff_pay')
-        .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_high, attendance_threshold, travel_type, travel_km, travel_rate, travel_monthly_amount'),
+        .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, travel_type, travel_km, travel_rate, travel_monthly_amount'),
     ])
 
     if (e1 || e2) {
@@ -256,8 +307,10 @@ export default function InstructorsClient() {
           lessonModel:   lesson.model,
           ratePerLesson: lesson.flat,
           attLow:        lesson.low,
+          attMid:        lesson.mid,
           attHigh:       lesson.high,
           attThreshold:  lesson.threshold,
+          attThreshold2: lesson.threshold2,
           hourlyRate:    p?.hourly_rate     == null ? DEFAULT_HOURLY_RATE     : Number(p.hourly_rate),
           travelType:    cfg.type,
           travelKm:      cfg.km,
@@ -299,8 +352,10 @@ export default function InstructorsClient() {
           lessonModel:   form.lessonModel,
           ratePerLesson: form.ratePerLesson || DEFAULT_RATE_PER_LESSON,
           attLow:        form.attLow        || DEFAULT_ATTENDANCE_RATE_LOW,
+          attMid:        form.attHasMid ? (form.attMid || 0) : null,
           attHigh:       form.attHigh       || DEFAULT_ATTENDANCE_RATE_HIGH,
           attThreshold:  form.attThreshold  || DEFAULT_ATTENDANCE_THRESHOLD,
+          attThreshold2: form.attHasMid ? (form.attThreshold2 || 0) : null,
           hourlyRate:    form.hourlyRate    || DEFAULT_HOURLY_RATE,
           travelType:    form.travelType,
           travelKm:      form.travelType === 'per_km'        ? (form.travelKm || 0) : 0,
@@ -327,8 +382,11 @@ export default function InstructorsClient() {
     setEditModel(ins.lessonModel)
     setEditLesson(String(ins.ratePerLesson))
     setEditAttLow(String(ins.attLow))
+    setEditAttMid(ins.attMid == null ? '' : String(ins.attMid))
     setEditAttHigh(String(ins.attHigh))
     setEditAttThreshold(String(ins.attThreshold))
+    setEditAttThreshold2(ins.attThreshold2 == null ? '' : String(ins.attThreshold2))
+    setEditHasMid(ins.attMid != null && ins.attThreshold2 != null)
     setEditHourly(String(ins.hourlyRate))
     setEditTravelType(ins.travelType)
     setEditTravelKm(String(ins.travelKm))
@@ -348,10 +406,19 @@ export default function InstructorsClient() {
     const attLow  = Number(editAttLow || 0)
     const attHigh = Number(editAttHigh || 0)
     const attThr  = Number(editAttThreshold || 0)
+    // Mid/threshold2 are only stored when the 3-tier checkbox is on — leaving
+    // them null is what keeps a plain 2-tier instructor on the 2-tier model
+    // (lessonPayConfigOf treats a missing mid rate as "no third tier").
+    const attMid  = editHasMid ? Number(editAttMid || 0) : null
+    const attThr2 = editHasMid ? Number(editAttThreshold2 || 0) : null
     if (editModel === 'by_attendance') {
-      if (!Number.isFinite(attLow)  || attLow  < 0) { setError('תעריף עד הסף לא תקין'); return }
-      if (!Number.isFinite(attHigh) || attHigh < 0) { setError('תעריף מהסף לא תקין'); return }
-      if (!Number.isInteger(attThr) || attThr  < 1) { setError('סף חניכים לא תקין — מספר שלם מ־1 ומעלה'); return }
+      if (!Number.isFinite(attLow)  || attLow  < 0) { setError('תעריף מדרגה 1 לא תקין'); return }
+      if (!Number.isFinite(attHigh) || attHigh < 0) { setError('תעריף המדרגה העליונה לא תקין'); return }
+      if (!Number.isInteger(attThr) || attThr  < 1) { setError('סף מדרגה 1 לא תקין — מספר שלם מ־1 ומעלה'); return }
+      if (editHasMid) {
+        if (attMid == null || !Number.isFinite(attMid) || attMid < 0) { setError('תעריף מדרגה 2 לא תקין'); return }
+        if (attThr2 == null || !Number.isInteger(attThr2) || attThr2 <= attThr) { setError('סף מדרגה 2 לא תקין — חייב להיות מספר שלם גדול מסף מדרגה 1'); return }
+      }
     }
 
     // Only the fields the chosen arrangement uses are validated and stored;
@@ -374,8 +441,10 @@ export default function InstructorsClient() {
           lesson_pay_model: editModel,
           rate_per_lesson: perLesson,
           attendance_rate_low: attLow,
+          attendance_rate_mid: attMid,
           attendance_rate_high: attHigh,
           attendance_threshold: attThr,
+          attendance_threshold_2: attThr2,
           hourly_rate: hourly,
           travel_type: editTravelType,
           travel_km: km,
@@ -392,7 +461,7 @@ export default function InstructorsClient() {
       i.id === id
         ? {
             ...i, lessonModel: editModel, ratePerLesson: perLesson, hourlyRate: hourly,
-            attLow, attHigh, attThreshold: attThr,
+            attLow, attMid, attHigh, attThreshold: attThr, attThreshold2: attThr2,
             travelType: editTravelType, travelKm: km, travelRate: rate, travelMonthly: monthly,
             hasPayRow: true,
           }
@@ -458,10 +527,12 @@ export default function InstructorsClient() {
                     />
                   </div>
                   <LessonPayFields
-                    model={editModel} flat={editLesson} low={editAttLow}
-                    high={editAttHigh} threshold={editAttThreshold}
-                    onModel={setEditModel} onFlat={setEditLesson} onLow={setEditAttLow}
-                    onHigh={setEditAttHigh} onThreshold={setEditAttThreshold}
+                    model={editModel} flat={editLesson} low={editAttLow} mid={editAttMid}
+                    high={editAttHigh} threshold={editAttThreshold} threshold2={editAttThreshold2}
+                    hasMid={editHasMid}
+                    onModel={setEditModel} onFlat={setEditLesson} onLow={setEditAttLow} onMid={setEditAttMid}
+                    onHigh={setEditAttHigh} onThreshold={setEditAttThreshold} onThreshold2={setEditAttThreshold2}
+                    onHasMid={setEditHasMid}
                   />
                   <TravelFields
                     type={editTravelType} km={editTravelKm} rate={editTravelRate} monthly={editTravelMonthly}
@@ -564,13 +635,17 @@ export default function InstructorsClient() {
               </div>
 
               <LessonPayFields
-                model={form.lessonModel} flat={form.ratePerLesson} low={form.attLow}
-                high={form.attHigh} threshold={form.attThreshold}
+                model={form.lessonModel} flat={form.ratePerLesson} low={form.attLow} mid={form.attMid}
+                high={form.attHigh} threshold={form.attThreshold} threshold2={form.attThreshold2}
+                hasMid={form.attHasMid}
                 onModel={m => setForm(f => ({ ...f, lessonModel: m }))}
                 onFlat={v => set('ratePerLesson', v)}
                 onLow={v => set('attLow', v)}
+                onMid={v => set('attMid', v)}
                 onHigh={v => set('attHigh', v)}
                 onThreshold={v => set('attThreshold', v)}
+                onThreshold2={v => set('attThreshold2', v)}
+                onHasMid={v => setForm(f => ({ ...f, attHasMid: v }))}
               />
 
               <TravelFields

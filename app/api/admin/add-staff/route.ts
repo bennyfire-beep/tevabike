@@ -50,8 +50,10 @@ export async function POST(request: NextRequest) {
     // Lesson pay model, set on /admin/instructors.
     lessonModel?: string | null
     attLow?: string | number | null
+    attMid?: string | number | null
     attHigh?: string | number | null
     attThreshold?: string | number | null
+    attThreshold2?: string | number | null
     // Travel arrangement, set on /admin/instructors.
     travelType?: string | null
     travelKm?: string | number | null
@@ -75,12 +77,16 @@ export async function POST(request: NextRequest) {
   const numOr = (v: unknown, d: number) =>
     v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : d
 
-  // Lesson pay: a flat rate per lesson, or two rates banded by attendance.
+  // Lesson pay: a flat rate per lesson, or bands by attendance (2 or 3 tiers).
   // The bands are stored either way, so switching model later is one click.
+  // Mid/threshold2 stay null unless both were actually sent — a null mid rate
+  // is what keeps lessonPayConfigOf on the plain 2-tier model.
   const lessonModel = body.lessonModel === 'by_attendance' ? 'by_attendance' : 'flat'
   const attLow      = numOr(body.attLow,       DEFAULT_ATTENDANCE_RATE_LOW)
   const attHigh     = numOr(body.attHigh,      DEFAULT_ATTENDANCE_RATE_HIGH)
   const attThresh   = numOr(body.attThreshold, DEFAULT_ATTENDANCE_THRESHOLD)
+  const attMid      = body.attMid      != null && body.attMid      !== '' ? Number(body.attMid)      : null
+  const attThresh2  = body.attThreshold2 != null && body.attThreshold2 !== '' ? Number(body.attThreshold2) : null
   const travelType = ['per_km', 'none', 'monthly_fixed'].includes(String(body.travelType))
     ? String(body.travelType)
     : 'none'
@@ -140,8 +146,10 @@ export async function POST(request: NextRequest) {
           lesson_pay_model: lessonModel,
           rate_per_lesson: ratePerLesson,
           attendance_rate_low: attLow,
+          attendance_rate_mid: attMid,
           attendance_rate_high: attHigh,
           attendance_threshold: attThresh,
+          attendance_threshold_2: attThresh2,
           ...(hourlyRate !== null ? { hourly_rate: hourlyRate } : {}),
           travel_type: travelType,
           travel_km: travelKm,

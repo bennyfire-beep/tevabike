@@ -50,8 +50,10 @@ type Role = {
   rate_per_lesson: number | null
   lesson_pay_model: string | null
   attendance_rate_low: number | null
+  attendance_rate_mid: number | null
   attendance_rate_high: number | null
   attendance_threshold: number | null
+  attendance_threshold_2: number | null
   monthly_base: number | null
   travel_type: string | null
   travel_km: number | null
@@ -128,7 +130,7 @@ export default function PayrollPage() {
     // Staff: names, both pay rates and monthly base for every role.
     const [{ data: roles }, { data: pay }] = await Promise.all([
       supabase.from('admin_roles').select('id, name, role'),
-      supabase.from('staff_pay').select('admin_role_id, hourly_rate, rate_per_lesson, lesson_pay_model, attendance_rate_low, attendance_rate_high, attendance_threshold, monthly_base, travel_type, travel_km, travel_rate, travel_monthly_amount'),
+      supabase.from('staff_pay').select('admin_role_id, hourly_rate, rate_per_lesson, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, monthly_base, travel_type, travel_km, travel_rate, travel_monthly_amount'),
     ])
     const payOf: Record<string, any> = {}
     for (const p of (pay ?? []) as any[]) payOf[p.admin_role_id] = p
@@ -139,8 +141,10 @@ export default function PayrollPage() {
       rate_per_lesson:       payOf[r.id]?.rate_per_lesson       ?? null,
       lesson_pay_model:      payOf[r.id]?.lesson_pay_model      ?? null,
       attendance_rate_low:   payOf[r.id]?.attendance_rate_low   ?? null,
+      attendance_rate_mid:   payOf[r.id]?.attendance_rate_mid   ?? null,
       attendance_rate_high:  payOf[r.id]?.attendance_rate_high  ?? null,
       attendance_threshold:  payOf[r.id]?.attendance_threshold  ?? null,
+      attendance_threshold_2: payOf[r.id]?.attendance_threshold_2 ?? null,
       monthly_base:          payOf[r.id]?.monthly_base          ?? null,
       travel_type:           payOf[r.id]?.travel_type           ?? null,
       travel_km:             payOf[r.id]?.travel_km             ?? null,

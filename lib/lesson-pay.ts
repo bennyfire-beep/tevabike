@@ -4,14 +4,23 @@
 // Every instructor has one of two models, on `staff_pay.lesson_pay_model`:
 //
 //   flat          — staff_pay.rate_per_lesson, the same for every lesson.
-//   by_attendance — the rate depends on how many riders actually turned up:
-//                   present_count >= attendance_threshold → attendance_rate_high,
-//                   anything less                         → attendance_rate_low.
+//   by_attendance — the rate depends on how many riders actually turned up,
+//                   in either two or three tiers depending on whether
+//                   attendance_rate_mid / attendance_threshold_2 are set:
+//
+//     2-tier (attendance_rate_mid is null):
+//       present < attendance_threshold                          → rate_low
+//       present >= attendance_threshold                         → rate_high
+//
+//     3-tier (attendance_rate_mid is set):
+//       present < attendance_threshold                          → rate_low
+//       attendance_threshold <= present < attendance_threshold_2 → rate_mid
+//       present >= attendance_threshold_2                       → rate_high
 //
 // Special activities (מחנה, ימי שיא) are untouched by either model — they are
 // always duration × hourly_rate.
 //
-// Every pay screen runs its lessons through lessonRateFor, so the two models
+// Every pay screen runs its lessons through lessonRateFor, so the models
 // cannot drift apart between screens — the same job lib/travel.ts does for
 // travel reimbursement.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,6 +42,8 @@ export const LESSON_PAY_HINT: Record<LessonPayModel, string> = {
 }
 
 // Used for an instructor whose staff_pay row has nothing in these columns.
+// The defaults describe a plain 2-tier model — attendance_rate_mid stays
+// unset (null) unless a 3-tier arrangement is deliberately configured.
 export const DEFAULT_ATTENDANCE_RATE_LOW  = 90
 export const DEFAULT_ATTENDANCE_RATE_HIGH = 150
 export const DEFAULT_ATTENDANCE_THRESHOLD = 9
@@ -41,8 +52,10 @@ export interface LessonPayFields {
   lesson_pay_model: string | null
   rate_per_lesson: number | null
   attendance_rate_low: number | null
+  attendance_rate_mid: number | null
   attendance_rate_high: number | null
   attendance_threshold: number | null
+  attendance_threshold_2: number | null
 }
 
 /** The stored number when there is one, the fallback when there isn't — 0 is a real value. */
@@ -52,16 +65,31 @@ function numOr(v: unknown, fallback: number): number {
   return Number.isFinite(n) ? n : fallback
 }
 
+/** Null/blank stays null — attendance_rate_mid absent is what selects the 2-tier model. */
+function numOrNull(v: unknown): number | null {
+  if (v == null || v === '') return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
 /** Normalise whatever came back from staff_pay into a usable config. */
 export function lessonPayConfigOf(row: Partial<LessonPayFields> | undefined | null): {
-  model: LessonPayModel; flat: number; low: number; high: number; threshold: number
+  model: LessonPayModel; flat: number
+  low: number; mid: number | null; high: number
+  threshold: number; threshold2: number | null
 } {
+  const mid        = numOrNull(row?.attendance_rate_mid)
+  const threshold2 = numOrNull(row?.attendance_threshold_2)
   return {
-    model:     row?.lesson_pay_model === 'by_attendance' ? 'by_attendance' : 'flat',
-    flat:      numOr(row?.rate_per_lesson,      DEFAULT_RATE_PER_LESSON),
-    low:       numOr(row?.attendance_rate_low,  DEFAULT_ATTENDANCE_RATE_LOW),
-    high:      numOr(row?.attendance_rate_high, DEFAULT_ATTENDANCE_RATE_HIGH),
-    threshold: numOr(row?.attendance_threshold, DEFAULT_ATTENDANCE_THRESHOLD),
+    model:      row?.lesson_pay_model === 'by_attendance' ? 'by_attendance' : 'flat',
+    flat:       numOr(row?.rate_per_lesson,      DEFAULT_RATE_PER_LESSON),
+    low:        numOr(row?.attendance_rate_low,  DEFAULT_ATTENDANCE_RATE_LOW),
+    // A 3-tier setup needs both a mid rate AND a second threshold to mean
+    // anything; missing either one falls back to the plain 2-tier model.
+    mid:        mid != null && threshold2 != null ? mid : null,
+    high:       numOr(row?.attendance_rate_high, DEFAULT_ATTENDANCE_RATE_HIGH),
+    threshold:  numOr(row?.attendance_threshold, DEFAULT_ATTENDANCE_THRESHOLD),
+    threshold2: mid != null && threshold2 != null ? threshold2 : null,
   }
 }
 
@@ -89,7 +117,7 @@ export function coTaughtPresent(
  * `presentCount` — riders marked present in that lesson, already adjusted by
  *                  coTaughtPresent() if the lesson was co-taught. Null
  *                  (attendance was never saved) counts as none present, i.e.
- *                  the low rate.
+ *                  the bottom band.
  */
 export function lessonRateFor(
   row: Partial<LessonPayFields> | undefined | null,
@@ -97,7 +125,13 @@ export function lessonRateFor(
 ): number {
   const cfg = lessonPayConfigOf(row)
   if (cfg.model === 'flat') return cfg.flat
-  return (Number(presentCount) || 0) >= cfg.threshold ? cfg.high : cfg.low
+  const present = Number(presentCount) || 0
+  if (cfg.mid != null && cfg.threshold2 != null) {
+    if (present >= cfg.threshold2) return cfg.high
+    if (present >= cfg.threshold)  return cfg.mid
+    return cfg.low
+  }
+  return present >= cfg.threshold ? cfg.high : cfg.low
 }
 
 /** A month's lesson pay: every lesson priced on its own attendance. */
@@ -110,11 +144,14 @@ export function lessonPayFor(
   ) / 100
 }
 
-/** How the two bands are set, for the report screens. */
+/** How the bands are set, for the report screens. */
 export function attendanceBandDetail(
   row: Partial<LessonPayFields> | undefined | null,
   lessons: number,
 ): string {
   const cfg = lessonPayConfigOf(row)
+  if (cfg.mid != null && cfg.threshold2 != null) {
+    return `${lessons} שיעורים · לפי נוכחות (עד ${cfg.threshold - 1} → ₪${cfg.low}, ${cfg.threshold}–${cfg.threshold2 - 1} → ₪${cfg.mid}, מ־${cfg.threshold2} → ₪${cfg.high})`
+  }
   return `${lessons} שיעורים · לפי נוכחות (עד ${cfg.threshold - 1} → ₪${cfg.low}, מ־${cfg.threshold} → ₪${cfg.high})`
 }

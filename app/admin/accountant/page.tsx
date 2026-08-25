@@ -115,7 +115,7 @@ export default function AccountantPage() {
     // Both rates and the travel arrangement live on staff_pay.
     const { data: pay } = await supabase
       .from('staff_pay')
-      .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_high, attendance_threshold, travel_type, travel_km, travel_rate, travel_monthly_amount')
+      .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, travel_type, travel_km, travel_rate, travel_monthly_amount')
 
     // Per-month travel override, typed into the salary report.
     const { data: travelRows } = await supabase
