@@ -1,4 +1,4 @@
-// app/api/shop-order/route.ts — קליטת הזמנה מדף /shop + מייל לספק (גרסה 1 — MVP)
+// app/api/shop-order/route.ts — קליטת הזמנה מדף /shop + מייל לספק (גרסה 2 — עלות משלוח)
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -18,6 +18,16 @@ const SUPPLIER_EMAIL = 'bennyfire@gmail.com'
 
 const VALID_SLUGS = ['spank-spoon-35', 'spank-spike-33-grip', 'spank-spoon-pedals']
 const VALID_FULFILLMENT = ['pickup', 'delivery']
+
+// מחירים ועלות משלוח מחושבים בשרת (לא סומכים על מה שהלקוח שלח) — חייבים
+// להישאר זהים למה שמוצג ב-app/shop/page.tsx.
+const PRODUCT_PRICES: Record<string, number> = {
+  'spank-spoon-35': 399,
+  'spank-spike-33-grip': 139,
+  'spank-spoon-pedals': 449,
+}
+const SHIPPING_COST = 50
+const FREE_SHIPPING_THRESHOLD = 600
 
 const MAX_SHORT = 100
 const MAX_PHONE = 30
@@ -46,6 +56,7 @@ async function sendEmail(to: string, subject: string, html: string) {
 function orderHtml(orderId: string, p: {
   product_name: string; color: string; quantity: number; customer_name: string;
   customer_phone: string; fulfillment: string; delivery_address: string | null;
+  subtotal: number; shipping: number; total: number;
 }) {
   const fulfillmentLabel = p.fulfillment === 'delivery' ? 'משלוח ללקוח' : 'איסוף מטבע בייק'
   return `
@@ -57,7 +68,8 @@ function orderHtml(orderId: string, p: {
       <p style="margin:0 0 8px"><b style="color:#D4288A">גוון/דגם:</b> ${p.color}</p>
       <p style="margin:0 0 8px"><b style="color:#D4288A">כמות:</b> ${p.quantity}</p>
       <p style="margin:0 0 8px"><b style="color:#D4288A">לקוח:</b> ${p.customer_name} · ${p.customer_phone}</p>
-      <p style="margin:0"><b style="color:#D4288A">אופן קבלה:</b> ${fulfillmentLabel}${p.delivery_address ? ' — ' + p.delivery_address : ''}</p>
+      <p style="margin:0 0 8px"><b style="color:#D4288A">אופן קבלה:</b> ${fulfillmentLabel}${p.delivery_address ? ' — ' + p.delivery_address : ''}</p>
+      <p style="margin:0"><b style="color:#D4288A">סה"כ לגבייה:</b> ${p.subtotal} ₪ + משלוח ${p.shipping === 0 ? 'חינם' : p.shipping + ' ₪'} = <b>${p.total} ₪</b></p>
     </div>
     <p style="font-size:12px;color:#7E948A;margin-top:20px">טבע בייק · tevabike.com</p>
   </div>`
@@ -84,6 +96,11 @@ export async function POST(req: NextRequest) {
   if (!product_slug || !VALID_SLUGS.includes(product_slug)) {
     return NextResponse.json({ error: 'bad_product' }, { status: 400 })
   }
+
+  const unitPrice = PRODUCT_PRICES[product_slug]
+  const subtotal = unitPrice * quantity
+  const shipping = fulfillment === 'delivery' && subtotal < FREE_SHIPPING_THRESHOLD ? SHIPPING_COST : 0
+  const total = subtotal + shipping
   if (!product_name || !color || !customer_name || !customer_phone) {
     return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
   }
@@ -112,6 +129,8 @@ export async function POST(req: NextRequest) {
       customer_phone,
       fulfillment,
       delivery_address,
+      shipping_amount: shipping,
+      total_amount: total,
     })
     .select('id')
     .single()
@@ -124,8 +143,11 @@ export async function POST(req: NextRequest) {
   await sendEmail(
     SUPPLIER_EMAIL,
     `הזמנה חדשה מטבע בייק — ${product_name}`,
-    orderHtml(data.id, { product_name, color, quantity, customer_name, customer_phone, fulfillment, delivery_address })
+    orderHtml(data.id, {
+      product_name, color, quantity, customer_name, customer_phone, fulfillment, delivery_address,
+      subtotal, shipping, total,
+    })
   )
 
-  return NextResponse.json({ ok: true, id: data.id })
+  return NextResponse.json({ ok: true, id: data.id, total })
 }

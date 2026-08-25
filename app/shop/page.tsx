@@ -1,4 +1,4 @@
-// app/shop/page.tsx — דף חנות טבע בייק (גרסה 2 — תמונות אמיתיות + מלאי פתיחה)
+// app/shop/page.tsx — דף חנות טבע בייק (גרסה 4 — כמות + עלות משלוח)
 "use client";
 
 import { useState } from "react";
@@ -60,6 +60,10 @@ const PRODUCTS: Product[] = [
   },
 ];
 
+// עלות משלוח: 50 ₪, חינם מעל 600 ₪ (רק כשנבחר "משלוח" — איסוף עצמי תמיד חינם)
+const SHIPPING_COST = 50;
+const FREE_SHIPPING_THRESHOLD = 600;
+
 type Status = "idle" | "sending" | "done" | "error";
 
 export default function ShopPage() {
@@ -75,6 +79,11 @@ export default function ShopPage() {
   });
 
   const openProduct = PRODUCTS.find((p) => p.slug === openSlug) || null;
+  const quantity = Math.max(1, parseInt(form.quantity, 10) || 1);
+  const subtotal = (openProduct?.price ?? 0) * quantity;
+  const shipping =
+    form.fulfillment === "delivery" && subtotal < FREE_SHIPPING_THRESHOLD ? SHIPPING_COST : 0;
+  const total = subtotal + shipping;
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -112,11 +121,13 @@ export default function ShopPage() {
           product_slug: openProduct.slug,
           product_name: openProduct.name,
           color: form.variant,
-          quantity: form.quantity,
+          quantity: String(quantity),
           customer_name: form.customer_name,
           customer_phone: form.customer_phone,
           fulfillment: form.fulfillment,
           delivery_address: form.delivery_address,
+          shipping_amount: shipping,
+          total_amount: total,
         }),
       });
       setStatus(res.ok ? "done" : "error");
@@ -210,9 +221,16 @@ export default function ShopPage() {
                 <div className="text-5xl">✅</div>
                 <h2 className="text-2xl font-black">ההזמנה התקבלה!</h2>
                 <p style={{ color: "#D8E2DC" }}>
-                  {openProduct.name} · {form.variant}
+                  {openProduct.name} · {form.variant} · כמות {quantity}
                   <br />
-                  ניצור איתך קשר בקרוב לתיאום תשלום ומסירה.
+                  סה״כ לתשלום: <b style={{ color: C.offWhite }}>{total} ₪</b>
+                  {shipping === 0 && form.fulfillment === "delivery" && " (משלוח חינם)"}
+                  <br />
+                  ניצור איתך קשר בקרוב לתיאום תשלום.
+                  <br />
+                  <span style={{ color: "#9FB3A8", fontSize: 13 }}>
+                    ההזמנה נשלחת אליך ישירות ממחסן פאן רייד.
+                  </span>
                 </p>
                 <button
                   onClick={() => setOpenSlug(null)}
@@ -247,6 +265,29 @@ export default function ShopPage() {
                         {v}
                       </button>
                     ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm mb-2" style={{ color: "#9FB3A8" }}>כמות</p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => set("quantity", String(Math.max(1, quantity - 1)))}
+                      className="rounded-lg w-10 h-10 text-lg font-bold border"
+                      style={{ background: C.dark, borderColor: C.greenMid, color: C.offWhite }}
+                    >
+                      −
+                    </button>
+                    <span className="text-lg font-bold w-6 text-center">{quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => set("quantity", String(quantity + 1))}
+                      className="rounded-lg w-10 h-10 text-lg font-bold border"
+                      style={{ background: C.dark, borderColor: C.greenMid, color: C.offWhite }}
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
 
@@ -303,13 +344,41 @@ export default function ShopPage() {
                   />
                 )}
 
+                <div
+                  className="rounded-lg p-3 text-sm space-y-1"
+                  style={{ background: C.dark, border: `1px solid ${C.greenMid}` }}
+                >
+                  <div className="flex justify-between" style={{ color: "#D8E2DC" }}>
+                    <span>מוצר × {quantity}</span>
+                    <span>{subtotal} ₪</span>
+                  </div>
+                  {form.fulfillment === "delivery" && (
+                    <div className="flex justify-between" style={{ color: "#D8E2DC" }}>
+                      <span>משלוח</span>
+                      <span>{shipping === 0 ? "חינם" : `${shipping} ₪`}</span>
+                    </div>
+                  )}
+                  <div
+                    className="flex justify-between font-bold pt-1 mt-1"
+                    style={{ borderTop: `1px solid ${C.greenMid}`, color: C.offWhite }}
+                  >
+                    <span>סה״כ</span>
+                    <span>{total} ₪</span>
+                  </div>
+                  {form.fulfillment === "delivery" && shipping > 0 && (
+                    <p className="text-xs pt-1" style={{ color: "#7E948A" }}>
+                      משלוח חינם בהזמנה מעל {FREE_SHIPPING_THRESHOLD} ₪
+                    </p>
+                  )}
+                </div>
+
                 <button
                   onClick={submit}
                   disabled={status === "sending"}
                   className="w-full rounded-xl py-3 font-black transition disabled:opacity-50 hover:opacity-90"
                   style={{ background: C.brand, color: "#fff" }}
                 >
-                  {status === "sending" ? "שולח..." : `אישור הזמנה — ${openProduct.price} ₪`}
+                  {status === "sending" ? "שולח..." : `אישור הזמנה — ${total} ₪`}
                 </button>
 
                 {status === "error" && (
