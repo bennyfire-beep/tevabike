@@ -25,7 +25,7 @@ type Reg = {
 }
 
 const CAPACITY = 20            // ← חייב להיות זהה למספר שב-app/api/sukkot-register/route.ts
-const MIN_PARTICIPANTS = 8
+const MIN_PARTICIPANTS = 10
 
 const STATUS_LABEL: Record<string, string> = { pending: 'ממתין לתשלום', paid: 'שולם', cancelled: 'בוטל' }
 const STATUS_COLOR: Record<string, { bg: string; fg: string }> = {
@@ -185,7 +185,7 @@ export default function SukkotAdminPage() {
         <div>
           <h2 style={{ margin: '0 0 3px', fontSize: 20, fontWeight: 800 }}>מחנה סוכות · משמר העמק</h2>
           <p style={{ color: '#7a8f7d', fontSize: 13, margin: 0 }}>
-            27.09–01.10 · {loading ? 'טוען...' : `${filtered.length} הרשמות`}
+            27.09–30.09 · {loading ? 'טוען...' : `${filtered.length} הרשמות`}
           </p>
         </div>
         <div style={{ marginRight: 'auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
