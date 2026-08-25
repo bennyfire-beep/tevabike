@@ -325,6 +325,27 @@ export default function AttendancePage() {
     setAtt(p => { const n = { ...p }; delete n[rider.id]; return n })
   }
 
+  // Whole-session delete — for a session opened by mistake (e.g. an
+  // instructor tapping the wrong entry on the board). Removes it and its
+  // attendance rows entirely; it will no longer appear anywhere, including
+  // in payroll. A regular group's recurring slot is untouched — this only
+  // deletes the one class_sessions row, not the group itself.
+  const [deleting, setDeleting] = useState(false)
+  async function deleteSession() {
+    if (!selected) return
+    const label = selected.type === 'special' ? (selected.activity_name ?? selected.class_name) : selected.class_name
+    if (!window.confirm(`למחוק את האימון "${label}" (${new Date(selected.session_date + 'T12:00:00').toLocaleDateString('he-IL')})?\nהפעולה תמחק גם את כל הנוכחות שסומנה בו, ולא ניתן לבטל.`)) return
+    setDeleting(true)
+    await supabase.from('attendance').delete().eq('session_id', selected.id)
+    const { error } = await supabase.from('class_sessions').delete().eq('id', selected.id)
+    setDeleting(false)
+    if (error) { alert('מחיקת האימון נכשלה: ' + error.message); return }
+    setSessions(p => p.filter(s => s.id !== selected.id))
+    setSelected(null)
+    setRiders([])
+    setAtt({})
+  }
+
   if (!user) return null
 
   const presentCount = riders.filter(r => attendance[r.id] !== false).length
@@ -560,6 +581,14 @@ export default function AttendancePage() {
                   </button>
                   <span style={{ background: '#4cdb7a22', color: '#4cdb7a', border: '1px solid #4cdb7a44', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>✓ {presentCount}</span>
                   <span style={{ background: '#ff4f4f22', color: '#ff8080', border: '1px solid #ff4f4f44', borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>✗ {riders.length - presentCount}</span>
+                  <button
+                    onClick={deleteSession}
+                    disabled={deleting}
+                    title="מחק אימון זה (למשל אם נפתח בטעות)"
+                    style={{ background: 'transparent', color: '#ff8080', border: '1px solid #ff4f4f44', borderRadius: 20, padding: '5px 10px', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 12, cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.6 : 1 }}
+                  >
+                    🗑 {deleting ? 'מוחק...' : 'מחק אימון'}
+                  </button>
                 </div>
               </div>
 

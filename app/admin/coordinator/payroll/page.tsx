@@ -84,6 +84,10 @@ type LineItem = {
   date: string | null
   present: number | null
   pay: number
+  // Only set for kind='regular'|'special' — lets the row offer "מחק אימון"
+  // for a session opened by mistake. base/travel items aren't real sessions
+  // and have nothing to delete.
+  sessionId: string | null
 }
 type PersonGroup = {
   name: string
@@ -244,6 +248,7 @@ export default function PayrollPage() {
             key: s.id + iid, name: nameOf[iid] ?? 'מדריך לא ידוע', kind: 'special',
             label: s.activity_name ?? s.class_name, branch: s.branch, date: s.session_date,
             present: s.present_count ?? 0, pay: round2(Number(s.duration ?? 0) * (rateOf[iid] ?? DEFAULT_HOURLY_RATE)),
+            sessionId: s.id,
           })
         }
       } else {
@@ -259,7 +264,7 @@ export default function PayrollPage() {
         if (allCredited.length === 0) {
           items.push({
             key: s.id, name: 'ללא מדריך', kind: 'regular', label: s.class_name,
-            branch: s.branch, date: s.session_date, present, pay: 0,
+            branch: s.branch, date: s.session_date, present, pay: 0, sessionId: s.id,
           })
         }
 
@@ -281,6 +286,7 @@ export default function PayrollPage() {
             branch: s.branch, date: s.session_date,
             present,
             pay: rate,
+            sessionId: s.id,
           })
         }
       }
@@ -292,7 +298,7 @@ export default function PayrollPage() {
       if (!hasPay.has(r.id)) continue
       const base = Number(r.monthly_base ?? 0)
       if (base > 0) {
-        items.push({ key: 'base-' + r.id, name: r.name, kind: 'base', label: 'בסיס חודשי', branch: null, date: null, present: null, pay: base })
+        items.push({ key: 'base-' + r.id, name: r.name, kind: 'base', label: 'בסיס חודשי', branch: null, date: null, present: null, pay: base, sessionId: null })
       }
     }
 
@@ -307,7 +313,7 @@ export default function PayrollPage() {
         items.push({
           key: 'travel-' + r.id, name: r.name, kind: 'travel',
           label: `נסיעות · ${travelDetail(r, days, overrideKmOf[r.id] ?? null, reported)}`,
-          branch: null, date: null, present: null, pay: amount,
+          branch: null, date: null, present: null, pay: amount, sessionId: null,
         })
       }
     }
@@ -340,6 +346,23 @@ export default function PayrollPage() {
     if (!user) return
     load(month)
   }, [user, month, load])
+
+  // Whole-session delete, right from a mispriced line item — for a session
+  // opened by mistake (e.g. an instructor tapping the wrong entry on the
+  // board). Removes it and its attendance rows entirely, then reloads the
+  // month so every affected total (this instructor's, and any co-instructor
+  // whose band this session's headcount was feeding into) recomputes.
+  const [deletingSession, setDeletingSession] = useState<string | null>(null)
+  async function deleteSessionRow(id: string, label: string, date: string | null) {
+    const when = date ? new Date(date + 'T12:00:00').toLocaleDateString('he-IL') : ''
+    if (!window.confirm(`למחוק את האימון "${label}" ${when}?\nהפעולה תמחק גם את כל הנוכחות שסומנה בו, ולא ניתן לבטל.`)) return
+    setDeletingSession(id)
+    await supabase.from('attendance').delete().eq('session_id', id)
+    const { error } = await supabase.from('class_sessions').delete().eq('id', id)
+    setDeletingSession(null)
+    if (error) { alert('מחיקת האימון נכשלה: ' + error.message); return }
+    load(month)
+  }
 
   const grandSessions = groups.reduce((s, g) => s + g.sessionCount, 0)
   const grandPresent  = groups.reduce((s, g) => s + g.totalPresent, 0)
@@ -481,11 +504,18 @@ export default function PayrollPage() {
 
                 {open && (
                   <div style={{ background: '#0d0f0e', borderTop: '1px solid #252b27' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 120px', padding: '9px 16px', fontSize: 11, color: '#5f6f62', fontWeight: 600 }}>
-                      <span>תאריך</span><span>פריט</span><span>נוכחים</span><span>תשלום</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 120px 30px', padding: '9px 16px', fontSize: 11, color: '#5f6f62', fontWeight: 600 }}>
+                      <span>תאריך</span><span>פריט</span><span>נוכחים</span><span>תשלום</span><span></span>
                     </div>
-                    {g.items.map(it => (
-                      <div key={it.key} style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 120px', ...cell, borderTop: '1px solid #141716', alignItems: 'center' }}>
+                    {g.items.map(it => {
+                      // Read once into a local rather than asserting `it.sessionId!`
+                      // below — a non-null assertion in a component is exactly what
+                      // turned a real null into a white screen once already in this
+                      // codebase (see RiderForm's history). TS narrows a const fine;
+                      // it doesn't narrow a repeated property access the same way.
+                      const sessionId = it.sessionId
+                      return (
+                      <div key={it.key} style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 120px 30px', ...cell, borderTop: '1px solid #141716', alignItems: 'center' }}>
                         <span style={{ color: '#7a8f7d' }}>{it.date ? new Date(it.date + 'T12:00:00').toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : '—'}</span>
                         <span>
                           <span style={{ fontWeight: 600 }}>{it.label}</span>
@@ -499,8 +529,19 @@ export default function PayrollPage() {
                         </span>
                         <span style={{ color: '#b5e853' }}>{it.present ?? '—'}</span>
                         <span style={{ color: '#4cdb7a', fontWeight: 700 }}>₪{it.pay.toLocaleString()}</span>
+                        <span>
+                          {sessionId && (
+                            <button
+                              onClick={() => deleteSessionRow(sessionId, it.label, it.date)}
+                              disabled={deletingSession === sessionId}
+                              title="מחק אימון זה (נפתח בטעות?)"
+                              style={{ background: 'transparent', border: 'none', color: '#ff8080', fontSize: 14, cursor: deletingSession === sessionId ? 'default' : 'pointer', opacity: deletingSession === sessionId ? 0.5 : 1 }}
+                            >🗑</button>
+                          )}
+                        </span>
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
