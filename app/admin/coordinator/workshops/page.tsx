@@ -3,6 +3,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import {
+  PAYMENT_METHODS, PAYMENT_METHOD_LABEL, PAYMENT_STATUSES, PAYMENT_STATUS_LABEL,
+  type PaymentMethod, type PaymentStatus,
+} from '@/lib/workshop-payment'
 
 type Reg = {
   id: string
@@ -47,6 +51,14 @@ export default function WorkshopsAdminPage() {
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
 
+  // Inline payment editing. Only one card is open at a time, so a single draft
+  // is enough. The notes line is written by the server, not here.
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draftStatus, setDraftStatus] = useState<PaymentStatus>('pending')
+  const [draftMethod, setDraftMethod] = useState<PaymentMethod>('paybox')
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState('')
+
   useEffect(() => {
     ;(async () => {
       const { data, error } = await supabase
@@ -70,6 +82,58 @@ export default function WorkshopsAdminPage() {
     [regs, tab]
   )
   const paidCount = current.filter((r) => r.payment_status === 'paid').length
+
+  function startEdit(r: Reg) {
+    setEditingId(r.id)
+    setDraftStatus(r.payment_status === 'paid' ? 'paid' : 'pending')
+    setDraftMethod('paybox')
+    setSaveError('')
+  }
+
+  async function savePayment(id: string) {
+    const status = draftStatus
+    const method = status === 'paid' ? draftMethod : null
+
+    setSavingId(id)
+    setSaveError('')
+
+    // Optimistic: the badge flips now, and rolls back if the write fails.
+    const before = regs
+    setRegs((prev) => prev.map((r) => (r.id === id ? { ...r, payment_status: status } : r)))
+
+    try {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token ?? ''
+      const res = await fetch('/api/workshop-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id, payment_status: status, payment_method: method }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setRegs(before)
+        setSaveError(d.error ?? 'עדכון התשלום נכשל')
+        return
+      }
+      // The server owns the notes line — take back what it actually wrote.
+      const saved = d.registration ?? null
+      if (saved) {
+        setRegs((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? { ...r, payment_status: saved.payment_status ?? status, notes: saved.notes ?? r.notes }
+              : r
+          )
+        )
+      }
+      setEditingId(null)
+    } catch (e) {
+      setRegs(before)
+      setSaveError('עדכון התשלום נכשל: ' + (e as Error).message)
+    } finally {
+      setSavingId(null)
+    }
+  }
 
   function copyPhones() {
     const phones = current.map((r) => r.phone).join(', ')
@@ -146,6 +210,8 @@ export default function WorkshopsAdminPage() {
         {current.map((r, i) => {
           const discount = r.bike_brand && DISCOUNT.includes(r.bike_brand)
           const paid = r.payment_status === 'paid'
+          const editing = editingId === r.id
+          const saving = savingId === r.id
           return (
             <div
               key={r.id}
@@ -188,16 +254,74 @@ export default function WorkshopsAdminPage() {
                     {discount ? ' · 10% הנחה' : ''}
                   </span>
                 )}
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-bold ${
-                    paid
-                      ? 'bg-lime-400/20 text-lime-300 border border-lime-400/50'
-                      : 'bg-amber-400/15 text-amber-300 border border-amber-400/40'
-                  }`}
-                >
-                  {paid ? '✓ שולם' : '⏳ ממתין לתשלום'}
-                </span>
+                {editing ? (
+                  <div className="flex gap-2 items-center flex-wrap justify-end">
+                    <select
+                      value={draftStatus}
+                      onChange={(e) => setDraftStatus(e.target.value as PaymentStatus)}
+                      aria-label="סטטוס תשלום"
+                      className="px-3 py-1.5 rounded-lg bg-stone-800 border border-stone-600 text-sm text-stone-100"
+                    >
+                      {PAYMENT_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {PAYMENT_STATUS_LABEL[s]}
+                        </option>
+                      ))}
+                    </select>
+
+                    {draftStatus === 'paid' && (
+                      <select
+                        value={draftMethod}
+                        onChange={(e) => setDraftMethod(e.target.value as PaymentMethod)}
+                        aria-label="אמצעי תשלום"
+                        className="px-3 py-1.5 rounded-lg bg-stone-800 border border-stone-600 text-sm text-stone-100"
+                      >
+                        {PAYMENT_METHODS.map((m) => (
+                          <option key={m} value={m}>
+                            {PAYMENT_METHOD_LABEL[m]}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+
+                    <button
+                      onClick={() => savePayment(r.id)}
+                      disabled={saving}
+                      className="px-4 py-1.5 rounded-lg bg-lime-400 text-stone-950 text-sm font-bold disabled:opacity-50"
+                    >
+                      {saving ? 'שומר...' : 'שמור'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingId(null)
+                        setSaveError('')
+                      }}
+                      disabled={saving}
+                      aria-label="ביטול"
+                      className="px-3 py-1.5 rounded-lg bg-stone-800 border border-stone-600 text-sm text-stone-300 disabled:opacity-50"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => startEdit(r)}
+                    title="שינוי סטטוס תשלום"
+                    className={`px-3 py-1 rounded-full text-sm font-bold transition ${
+                      paid
+                        ? 'bg-lime-400/20 text-lime-300 border border-lime-400/50 hover:bg-lime-400/30'
+                        : 'bg-amber-400/15 text-amber-300 border border-amber-400/40 hover:bg-amber-400/25'
+                    }`}
+                  >
+                    {paid ? '✓ שולם' : '⏳ ממתין לתשלום'}
+                    <span className="opacity-60 mr-1.5">✎</span>
+                  </button>
+                )}
               </div>
+
+              {editing && saveError && (
+                <p className="basis-full text-red-400 text-sm">{saveError}</p>
+              )}
             </div>
           )
         })}
