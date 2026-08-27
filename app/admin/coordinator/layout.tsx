@@ -25,6 +25,7 @@ const NAV = [
   { href: '/admin/coordinator/camp-sukkot', label: 'מחנה סוכות', exact: false },
   { href: '/admin/coordinator/registrations', label: 'הרשמות', exact: false },
   { href: '/admin/coordinator/workshops', label: 'סדנאות', exact: false },
+  { href: '/admin/coordinator/whatsapp', label: 'וואטסאפ', exact: false },
   { href: '/admin/coordinator/reports', label: 'דוחות', exact: false },
   { href: '/admin/coordinator/trips', label: 'טיולי חו״ל', exact: false, salaryOnly: true },
   // Entry point to the summer-2026 screens (groups / students / instructors /
