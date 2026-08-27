@@ -21,6 +21,7 @@ type Lead = {
 }
 
 const GRID = '105px 1fr 120px 165px 95px 105px 1fr 110px 95px 1.3fr'
+const TABLE_MIN_WIDTH = 1150
 
 const fmtDateTime = (iso: string) =>
   new Date(iso).toLocaleString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -82,7 +83,7 @@ export default function LeadsPage() {
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 1250, margin: '0 auto' }}>
+    <div style={{ padding: 'clamp(12px, 4vw, 24px)', maxWidth: 1250, margin: '0 auto' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <div>
@@ -110,8 +111,8 @@ export default function LeadsPage() {
       </div>
 
       {/* Table */}
-      <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 8, padding: '11px 16px', borderBottom: '1px solid #252b27', fontSize: 11, color: '#7a8f7d', fontWeight: 700 }}>
+      <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, overflowX: 'auto', overflowY: 'hidden', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 8, padding: '11px 16px', borderBottom: '1px solid #252b27', fontSize: 11, color: '#7a8f7d', fontWeight: 700, minWidth: TABLE_MIN_WIDTH }}>
           <span>תאריך</span><span>שם</span><span>טלפון</span><span>תחום עניין</span><span>סניף</span><span>מקור</span><span>הודעה</span><span>סטטוס</span><span>טופל ע"י</span><span>הערות</span>
         </div>
 
@@ -126,7 +127,7 @@ export default function LeadsPage() {
           filtered.map((l, i) => {
             const ic = INTEREST_COLOR[l.interest] ?? '#7a8f7d'
             return (
-              <div key={l.id} style={{ display: 'grid', gridTemplateColumns: GRID, gap: 8, padding: '13px 16px', borderBottom: i < filtered.length - 1 ? '1px solid #1a1e1c' : 'none', alignItems: 'center', fontSize: 13 }}>
+              <div key={l.id} style={{ display: 'grid', gridTemplateColumns: GRID, gap: 8, padding: '13px 16px', borderBottom: i < filtered.length - 1 ? '1px solid #1a1e1c' : 'none', alignItems: 'center', fontSize: 13, minWidth: TABLE_MIN_WIDTH }}>
                 <span style={{ color: '#7a8f7d', fontSize: 12 }}>{fmtDateTime(l.created_at)}</span>
                 <span style={{ fontWeight: 700 }}>{l.full_name}</span>
                 <a href={`tel:${l.phone}`} dir="ltr" style={{ color: '#81d4fa', textDecoration: 'none', textAlign: 'right' }}>{l.phone}</a>

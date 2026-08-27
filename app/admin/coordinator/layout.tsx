@@ -56,17 +56,34 @@ export default function CoordinatorLayout({ children }: { children: React.ReactN
 
   return (
     <CoordinatorCtx.Provider value={user}>
-      <div dir="rtl" style={{ fontFamily: 'Heebo, Arial, sans-serif', background: '#0d0f0e', minHeight: '100vh', color: '#e8efe9' }}>
-        <header style={{ background: '#141716', borderBottom: '1px solid #252b27', padding: '0 24px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0' }}>
+      <div dir="rtl" style={{ fontFamily: 'Heebo, Arial, sans-serif', background: '#0d0f0e', minHeight: '100vh', color: '#e8efe9', overflowX: 'hidden' }}>
+        <header style={{ background: '#141716', borderBottom: '1px solid #252b27', padding: '0 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', maxWidth: '100vw' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', flexShrink: 0 }}>
             <Link href="/admin/coordinator" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', flexShrink: 0 }}>
-              <img src="/logo.png" alt="טבע בייק" style={{ height: 36, width: 'auto', display: 'block', filter: 'brightness(1.05)' }} />
+              <img src="/logo.png" alt="טבע בייק" style={{ height: 32, width: 'auto', display: 'block', filter: 'brightness(1.05)' }} />
             </Link>
             <span style={{ width: 1, height: 24, background: '#252b27', flexShrink: 0 }} />
-            <span style={{ background: '#1a2637', color: '#81d4fa', padding: '2px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>רכז</span>
-            <span style={{ color: '#e8efe9', fontSize: 14, fontWeight: 700 }}>{user.name}</span>
+            <span style={{ background: '#1a2637', color: '#81d4fa', padding: '2px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600, flexShrink: 0 }}>רכז</span>
+            <span style={{ color: '#e8efe9', fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap' }}>{user.name}</span>
+            <button
+              onClick={logout}
+              style={{ marginRight: 0, background: 'transparent', border: '1px solid #252b27', color: '#7a8f7d', borderRadius: 8, padding: '6px 14px', fontFamily: 'Heebo, Arial, sans-serif', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}
+            >
+              יציאה
+            </button>
           </div>
-          <nav style={{ display: 'flex', gap: 2 }}>
+          <nav
+            style={{
+              display: 'flex',
+              gap: 2,
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              WebkitOverflowScrolling: 'touch',
+              flex: '1 1 auto',
+              minWidth: 0,
+              scrollbarWidth: 'thin',
+            }}
+          >
             {navItems.map(({ href, label, exact }) => {
               const active = exact ? pathname === href : pathname.startsWith(href)
               return (
@@ -81,6 +98,8 @@ export default function CoordinatorLayout({ children }: { children: React.ReactN
                   alignItems: 'center',
                   gap: 6,
                   transition: 'color .15s',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}>
                   {label}
                   {href === LEADS_HREF && newLeads > 0 && (
@@ -92,12 +111,6 @@ export default function CoordinatorLayout({ children }: { children: React.ReactN
               )
             })}
           </nav>
-          <button
-            onClick={logout}
-            style={{ marginRight: 'auto', background: 'transparent', border: '1px solid #252b27', color: '#7a8f7d', borderRadius: 8, padding: '6px 14px', fontFamily: 'Heebo, Arial, sans-serif', fontSize: 12, cursor: 'pointer' }}
-          >
-            יציאה
-          </button>
         </header>
         {children}
       </div>
