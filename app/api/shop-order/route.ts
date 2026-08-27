@@ -12,9 +12,10 @@ export const dynamic = 'force-dynamic'
 const FROM = 'טבע בייק <info@mail.tevabike.com>'
 const REPLY_TO = 'bennyfire@gmail.com'
 
-// TODO אחרי הפגישה: להחליף בכתובת המייל האמיתית שדודי נותן לך להזמנות.
-// עד אז ההזמנות מגיעות אליך, בדיוק בפורמט שדודי יקבל בעתיד.
-const SUPPLIER_EMAIL = 'bennyfire@gmail.com'
+const SUPPLIER_EMAIL = 'orderfunride@gmail.com'
+
+// זמן אספקה משוער שמוצג בהזמנה לספק.
+const ESTIMATED_DELIVERY = 'כ-7-10 ימי עסקים (יתכנו שינויים בשל עומסים שאינם תלויים בנו)'
 
 const VALID_SLUGS = ['spank-spoon-35', 'spank-spike-33-grip', 'spank-spoon-pedals']
 const VALID_FULFILLMENT = ['pickup', 'delivery']
@@ -69,7 +70,8 @@ function orderHtml(orderId: string, p: {
       <p style="margin:0 0 8px"><b style="color:#D4288A">כמות:</b> ${p.quantity}</p>
       <p style="margin:0 0 8px"><b style="color:#D4288A">לקוח:</b> ${p.customer_name} · ${p.customer_phone}</p>
       <p style="margin:0 0 8px"><b style="color:#D4288A">אופן קבלה:</b> ${fulfillmentLabel}${p.delivery_address ? ' — ' + p.delivery_address : ''}</p>
-      <p style="margin:0"><b style="color:#D4288A">סה"כ לגבייה:</b> ${p.subtotal} ₪ + משלוח ${p.shipping === 0 ? 'חינם' : p.shipping + ' ₪'} = <b>${p.total} ₪</b></p>
+      <p style="margin:0 0 8px"><b style="color:#D4288A">סה"כ לגבייה:</b> ${p.subtotal} ₪ + משלוח ${p.shipping === 0 ? 'חינם' : p.shipping + ' ₪'} = <b>${p.total} ₪</b></p>
+      <p style="margin:0"><b style="color:#D4288A">זמן אספקה משוער:</b> ${ESTIMATED_DELIVERY}</p>
     </div>
     <p style="font-size:12px;color:#7E948A;margin-top:20px">טבע בייק · tevabike.com</p>
   </div>`
