@@ -608,10 +608,20 @@ export default function Home() {
           </div>
 
           {/* Bottom bar */}
-          <div style={{ borderTop: `1px solid rgba(212,40,138,0.18)`, paddingTop: 26, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-            <span style={{ color: 'rgba(255,255,255,0.26)', fontSize: 12 }}>
-              © {new Date().getFullYear()} טבע בייק. כל הזכויות שמורות.
-            </span>
+          <div style={{ borderTop: `1px solid rgba(212,40,138,0.18)`, paddingTop: 26, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <span style={{ color: 'rgba(255,255,255,0.26)', fontSize: 12 }}>
+                © {new Date().getFullYear()} טבע בייק. כל הזכויות שמורות.
+              </span>
+              <a
+                href="/privacy"
+                style={{ color: 'rgba(255,255,255,0.42)', fontSize: 12, textDecoration: 'none', transition: 'color .2s' }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = PINK}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.42)'}
+              >
+                מדיניות פרטיות
+              </a>
+            </div>
             <span style={{ color: PINK, fontSize: 12, fontWeight: 600 }}>
               Made with ❤️ in the Galilee
             </span>
