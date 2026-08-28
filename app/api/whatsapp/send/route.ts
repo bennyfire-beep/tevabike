@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { whatsappServiceClient, requireCoordinator } from '@/lib/whatsapp-server'
+import { whatsappServiceClient, requireCoordinator, canAccessConversation } from '@/lib/whatsapp-server'
 import { WHATSAPP_GRAPH_VERSION, WINDOW_CLOSED_MESSAGE, isReplyWindowOpen } from '@/lib/whatsapp'
 
 // POST /api/whatsapp/send — a coordinator's reply, sent through the Meta Cloud
@@ -16,6 +16,7 @@ type Conversation = {
   id: string
   wa_id: string
   last_inbound_at: string | null
+  assigned_to: string | null
 }
 
 export async function POST(req: NextRequest) {
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
 
   const auth = await requireCoordinator(req, admin)
   if (!auth.ok) return auth.response
+  const { caller } = auth
 
   let body: { conversation_id?: string; wa_id?: string; text?: string }
   try { body = await req.json() }
@@ -41,8 +43,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'חסר מזהה שיחה' }, { status: 400 })
   }
 
-  // ── 1. Load the conversation and check the 24h reply window ──
-  let query = admin.from('whatsapp_conversations').select('id, wa_id, last_inbound_at')
+  // ── 1. Load the conversation, check ownership and the 24h reply window ──
+  let query = admin.from('whatsapp_conversations').select('id, wa_id, last_inbound_at, assigned_to')
   query = conversationId && UUID.test(conversationId) ? query.eq('id', conversationId) : query.eq('wa_id', waId)
   const { data: conversation, error: convErr } = await query.maybeSingle<Conversation>()
 
@@ -51,10 +53,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'שגיאת שרת' }, { status: 500 })
   }
   if (!conversation) return NextResponse.json({ error: 'השיחה לא נמצאה' }, { status: 404 })
+  if (!canAccessConversation(caller, conversation.assigned_to)) {
+    return NextResponse.json({ error: 'השיחה משויכת לרכז אחר' }, { status: 403 })
+  }
 
   if (!isReplyWindowOpen(conversation.last_inbound_at)) {
     return NextResponse.json({ error: WINDOW_CLOSED_MESSAGE }, { status: 400 })
   }
+
+  // Every outbound message is signed — the customer sees who they're talking
+  // to when more than one person answers the same inbox.
+  const signedText = `${text}\n\n— ${caller.name}`
 
   // ── 2. Send via the Graph API ──
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID
@@ -72,7 +81,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         to: conversation.wa_id,
-        text: { body: text },
+        text: { body: signedText },
       }),
     })
     const data = await res.json().catch(() => ({}))
@@ -96,11 +105,12 @@ export async function POST(req: NextRequest) {
       wa_message_id: waMessageId,
       direction: 'outbound',
       msg_type: 'text',
-      body: text,
+      body: signedText,
       status: 'sent',
+      sent_by: caller.name,
       created_at: now,
     })
-    .select('id, wa_message_id, direction, msg_type, body, status, error_detail, created_at')
+    .select('id, wa_message_id, direction, msg_type, body, status, error_detail, sent_by, created_at')
     .single()
 
   if (insertErr) console.error('[whatsapp/send] message insert failed:', insertErr.message)

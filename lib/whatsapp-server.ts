@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { primaryRow, type AdminRole } from '@/lib/roles'
 
-// Shared server-side plumbing for the /api/whatsapp/* routes: the same
-// service-role client, and the same "caller must be a signed-in coordinator or
-// admin" check used by app/api/workshop-payment/route.ts. Three routes
-// (conversations, messages, send) need both, so it lives once here.
+// Shared server-side plumbing for the /api/whatsapp/* and /api/push/* routes:
+// the same service-role client, and the same "caller must be a signed-in
+// coordinator or admin" check used by app/api/workshop-payment/route.ts —
+// enriched with the caller's own identity, since assignment, the sent-by
+// signature, and push all need to know who is actually asking.
 
 export function whatsappServiceClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -13,8 +15,17 @@ export function whatsappServiceClient(): SupabaseClient | null {
   return createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
+export type Caller = {
+  userId: string
+  email: string
+  /** Their admin_roles row's display name, for the "— טל" signature and the team picker. */
+  name: string
+  /** Their strongest role — admin outranks coordinator (see lib/roles.ts). */
+  role: AdminRole
+}
+
 export type AuthResult =
-  | { ok: true }
+  | { ok: true; caller: Caller }
   | { ok: false; response: NextResponse }
 
 /** Verifies the caller's bearer token belongs to a signed-in coordinator or admin. */
@@ -29,12 +40,35 @@ export async function requireCoordinator(req: NextRequest, admin: SupabaseClient
 
   const { data: roleRows } = await admin
     .from('admin_roles')
-    .select('role')
+    .select('role, name')
     .eq('user_id', caller.user.id)
 
-  const allowed = (roleRows ?? []).some((r: { role: string }) => r.role === 'coordinator' || r.role === 'admin')
-  if (!allowed) {
+  const rows = (roleRows ?? []).filter((r): r is { role: 'admin' | 'coordinator'; name: string } =>
+    r.role === 'coordinator' || r.role === 'admin')
+  const winner = primaryRow(rows)
+  if (!winner) {
     return { ok: false, response: NextResponse.json({ error: 'אין לך הרשאה לצפות בוואטסאפ' }, { status: 403 }) }
   }
-  return { ok: true }
+
+  return {
+    ok: true,
+    caller: {
+      userId: caller.user.id,
+      email: (caller.user.email ?? '').toLowerCase(),
+      name: winner.name,
+      role: winner.role,
+    },
+  }
+}
+
+/**
+ * The assignment rule, applied everywhere a conversation is read or acted on:
+ * admin sees/acts on everything; a coordinator only on her own assigned
+ * conversations and anything unassigned. Mirrors the whatsapp_conversations
+ * RLS policy in supabase/migrations/20260828_whatsapp_push_and_assignment.sql
+ * — this is the real enforcement, that policy is the backstop.
+ */
+export function canAccessConversation(caller: Caller, assignedTo: string | null): boolean {
+  if (caller.role === 'admin') return true
+  return assignedTo === null || assignedTo.toLowerCase() === caller.email
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { whatsappServiceClient } from '@/lib/whatsapp-server'
 import { bodyLabel, isMsgStatus } from '@/lib/whatsapp'
+import { notifyInbound } from '@/lib/whatsapp-notify'
 
 // Meta WhatsApp Cloud API webhook — one URL, two jobs:
 //   GET  — the handshake Meta does once, when the webhook is configured.
@@ -50,15 +51,17 @@ type WaChangeValue = {
   statuses?: WaStatus[]
 }
 
+type UpsertedConversation = { id: string; assignedTo: string | null }
+
 async function upsertConversationForInbound(
   admin: SupabaseClient,
   waId: string,
   displayName: string | null,
   when: string,
-): Promise<string | null> {
+): Promise<UpsertedConversation | null> {
   const { data: existing } = await admin
     .from('whatsapp_conversations')
-    .select('id, unread_count')
+    .select('id, unread_count, assigned_to')
     .eq('wa_id', waId)
     .maybeSingle()
 
@@ -74,7 +77,7 @@ async function upsertConversationForInbound(
       })
       .eq('id', existing.id)
     if (error) console.error('[whatsapp/webhook] conversation update failed:', error.message)
-    return existing.id
+    return { id: existing.id, assignedTo: existing.assigned_to ?? null }
   }
 
   const { data: created, error } = await admin
@@ -92,7 +95,7 @@ async function upsertConversationForInbound(
     console.error('[whatsapp/webhook] conversation insert failed:', error.message)
     return null
   }
-  return created?.id ?? null
+  return created ? { id: created.id, assignedTo: null } : null
 }
 
 async function handleInboundMessage(
@@ -105,18 +108,18 @@ async function handleInboundMessage(
   const displayName = contact?.profile?.name ?? null
   const when = new Date(Number(message.timestamp) * 1000 || Date.now()).toISOString()
 
-  const conversationId = await upsertConversationForInbound(admin, waId, displayName, when)
-  if (!conversationId) return
+  const conversation = await upsertConversationForInbound(admin, waId, displayName, when)
+  if (!conversation) return
 
   const msgType = message.type || 'unsupported'
   const text = msgType === 'text' ? (message.text?.body ?? '') : ''
   const body = bodyLabel(msgType, text)
 
-  const { error } = await admin
+  const { error, data: inserted } = await admin
     .from('whatsapp_messages')
     .upsert(
       {
-        conversation_id: conversationId,
+        conversation_id: conversation.id,
         wa_message_id: message.id,
         direction: 'inbound',
         msg_type: msgType,
@@ -125,7 +128,22 @@ async function handleInboundMessage(
       },
       { onConflict: 'wa_message_id', ignoreDuplicates: true },
     )
+    .select('id')
   if (error) console.error('[whatsapp/webhook] message insert failed:', error.message)
+
+  // Push + personal-number alert. Only for a message we actually just inserted
+  // (ignoreDuplicates leaves `inserted` empty on a Meta retry) — best-effort
+  // and fully awaited: an un-awaited send on Vercel can get killed the moment
+  // this function's response goes out, same lesson as the /shop supplier email.
+  if (!error && inserted && inserted.length > 0) {
+    await notifyInbound(admin, {
+      conversationId: conversation.id,
+      assignedTo: conversation.assignedTo,
+      senderName: displayName ?? '',
+      senderPhone: waId,
+      preview: body,
+    })
+  }
 }
 
 async function handleStatus(admin: SupabaseClient, status: WaStatus) {

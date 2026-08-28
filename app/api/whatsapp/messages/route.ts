@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { whatsappServiceClient, requireCoordinator } from '@/lib/whatsapp-server'
+import { whatsappServiceClient, requireCoordinator, canAccessConversation } from '@/lib/whatsapp-server'
 
 // GET /api/whatsapp/messages?conversation_id=... — the open conversation's
 // messages, oldest first. Opening a conversation is what "reading" it means
@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
 
   const auth = await requireCoordinator(req, admin)
   if (!auth.ok) return auth.response
+  const { caller } = auth
 
   const conversationId = (req.nextUrl.searchParams.get('conversation_id') ?? '').trim()
   if (!UUID.test(conversationId)) {
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   const { data: conversation, error: convErr } = await admin
     .from('whatsapp_conversations')
-    .select('id, wa_id, display_name, last_message_at, last_inbound_at, unread_count')
+    .select('id, wa_id, display_name, last_message_at, last_inbound_at, unread_count, assigned_to, assigned_at')
     .eq('id', conversationId)
     .maybeSingle()
 
@@ -36,10 +37,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'שגיאת שרת' }, { status: 500 })
   }
   if (!conversation) return NextResponse.json({ error: 'השיחה לא נמצאה' }, { status: 404 })
+  if (!canAccessConversation(caller, conversation.assigned_to)) {
+    return NextResponse.json({ error: 'השיחה משויכת לרכז אחר' }, { status: 403 })
+  }
 
   const { data: messages, error: msgErr } = await admin
     .from('whatsapp_messages')
-    .select('id, wa_message_id, direction, msg_type, body, status, error_detail, created_at')
+    .select('id, wa_message_id, direction, msg_type, body, status, error_detail, sent_by, created_at')
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
 

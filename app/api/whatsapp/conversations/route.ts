@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { whatsappServiceClient, requireCoordinator } from '@/lib/whatsapp-server'
+import { whatsappServiceClient, requireCoordinator, canAccessConversation } from '@/lib/whatsapp-server'
 import { bodyLabel } from '@/lib/whatsapp'
 
 // GET /api/whatsapp/conversations — the conversation list for the coordinator
@@ -18,10 +18,11 @@ export async function GET(req: NextRequest) {
 
   const auth = await requireCoordinator(req, admin)
   if (!auth.ok) return auth.response
+  const { caller } = auth
 
   const { data, error } = await admin
     .from('whatsapp_conversations')
-    .select('id, wa_id, display_name, last_message_at, last_inbound_at, unread_count')
+    .select('id, wa_id, display_name, last_message_at, last_inbound_at, unread_count, assigned_to, assigned_at')
     .order('last_message_at', { ascending: false, nullsFirst: false })
 
   if (error) {
@@ -29,7 +30,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'שגיאת שרת' }, { status: 500 })
   }
 
-  const conversations = data ?? []
+  // A coordinator's inbox is her own assigned conversations plus anything
+  // unassigned — never someone else's. admin sees everything. Filtered here,
+  // not just hidden in the UI: the RLS policy is the backstop, this is the
+  // real rule (see canAccessConversation).
+  const conversations = (data ?? []).filter(c => canAccessConversation(caller, c.assigned_to))
 
   // The list needs a one-line preview of the last message, but that text lives
   // in whatsapp_messages, not on the conversation row. One query for every

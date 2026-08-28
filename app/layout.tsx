@@ -19,6 +19,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "טבע בייק — חוגי רכיבת שטח לילדים ומבוגרים",
   description: "חוגי גרביטי, רכיבה טכנית וכושר בשטח — משגב, מצובה וביריה.",
+  // "הוסף למסך הבית" on iOS reads these tags directly — the web manifest
+  // alone isn't enough there. See app/manifest.ts for the Android/Chrome side.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "טבע בייק",
+  },
+  icons: {
+    apple: "/icon-192.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
