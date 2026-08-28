@@ -169,11 +169,19 @@ export default function WhatsAppPage() {
       )
     : conversations
 
+  // The two-column box below is pegged to a hard height (viewport minus the
+  // coordinator header — a single row since the nav scrolls horizontally
+  // rather than wrapping, see layout.tsx), not min-height. Every flex child
+  // down to the scrollable panes also needs `min-h-0`: a flex item's default
+  // min-height is `auto` (= its content's height), so without it the message
+  // list would just grow past the box instead of scrolling internally, the
+  // whole page would gain a scrollbar, and the composer would end up below
+  // the fold — which was exactly the bug here.
   return (
-    <div dir="rtl" className="flex h-[calc(100vh-58px)] text-stone-100">
+    <div dir="rtl" className="flex h-[calc(100vh-58px)] min-h-0 text-stone-100">
       {/* ── רשימת שיחות (ימין) ── */}
-      <div className={`${selectedId ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-col border-l border-stone-800 bg-stone-950`}>
-        <div className="p-3 border-b border-stone-800">
+      <div className={`${selectedId ? 'hidden md:flex' : 'flex'} w-full md:w-80 flex-col min-h-0 border-l border-stone-800 bg-stone-950`}>
+        <div className="shrink-0 p-3 border-b border-stone-800">
           <h1 className="text-lg font-bold mb-2">וואטסאפ</h1>
           <input
             value={search}
@@ -189,7 +197,7 @@ export default function WhatsAppPage() {
           <p className="p-4 text-stone-400 text-sm">אין עדיין שיחות.</p>
         )}
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {filtered.map(c => {
             const active = c.id === selectedId
             return (
@@ -221,7 +229,7 @@ export default function WhatsAppPage() {
       </div>
 
       {/* ── חלון שיחה ── */}
-      <div className={`${selectedId ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-stone-900`}>
+      <div className={`${selectedId ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-h-0 bg-stone-900`}>
         {!selected && (
           <div className="flex-1 flex items-center justify-center text-stone-500 text-sm">
             בחר/י שיחה מהרשימה
@@ -230,7 +238,7 @@ export default function WhatsAppPage() {
 
         {selected && (
           <>
-            <div className="px-4 py-3 border-b border-stone-800 flex items-center gap-3 bg-stone-950">
+            <div className="shrink-0 px-4 py-3 border-b border-stone-800 flex items-center gap-3 bg-stone-950">
               <button onClick={() => setSelectedId(null)} className="md:hidden text-stone-400 px-1">→ חזרה</button>
               <div className="min-w-0">
                 <div className="font-bold truncate">{selected.display_name || formatPhone(selected.wa_id)}</div>
@@ -238,7 +246,7 @@ export default function WhatsAppPage() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
               {msgLoading && <p className="text-stone-400 text-sm">טוען הודעות...</p>}
               {msgError && <p className="text-red-400 text-sm">{msgError}</p>}
               {!msgLoading && messages.length === 0 && !msgError && (
@@ -270,7 +278,7 @@ export default function WhatsAppPage() {
             </div>
 
             {windowOpen ? (
-              <div className="p-3 border-t border-stone-800 bg-stone-950">
+              <div className="shrink-0 p-3 border-t border-stone-800 bg-stone-950">
                 {sendError && <p className="text-red-400 text-xs mb-2">{sendError}</p>}
                 <div className="flex gap-2">
                   <input
@@ -290,7 +298,7 @@ export default function WhatsAppPage() {
                 </div>
               </div>
             ) : (
-              <div className="p-3 border-t border-stone-800 bg-amber-400/15 text-amber-200 text-sm text-center">
+              <div className="shrink-0 p-3 border-t border-stone-800 bg-amber-400/15 text-amber-200 text-sm text-center">
                 {WINDOW_CLOSED_MESSAGE}
               </div>
             )}
