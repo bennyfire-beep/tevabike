@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { INTEREST_COLOR, LEAD_INTERESTS, LEAD_STATUSES, STATUS_COLOR, SOURCE_LABEL } from '@/lib/leads'
+import { downloadCsv } from '@/lib/csv-export'
+import WhatsappOptinBadge from '@/components/WhatsappOptinBadge'
 
 type Lead = {
   id: string
@@ -17,10 +19,12 @@ type Lead = {
   status: string
   handled_by: string | null
   notes: string | null
+  whatsapp_optin: boolean | null
+  whatsapp_optin_at: string | null
   created_at: string
 }
 
-const GRID = '105px 1fr 120px 165px 95px 105px 1fr 110px 95px 1.3fr'
+const GRID = '105px 1fr 120px 165px 95px 105px 1fr 110px 95px 1.3fr 150px'
 
 const fmtDateTime = (iso: string) =>
   new Date(iso).toLocaleString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -31,6 +35,7 @@ export default function LeadsPage() {
   const [loading, setLoading]     = useState(true)
   const [statusFilter, setStatusFilter]     = useState('all')
   const [interestFilter, setInterestFilter] = useState('all')
+  const [waOnly, setWaOnly] = useState(false)
   const [savingId, setSavingId]   = useState<string | null>(null)
   const [savedNoteId, setSavedNoteId] = useState<string | null>(null)
 
@@ -38,7 +43,7 @@ export default function LeadsPage() {
     setLoading(true)
     const { data } = await supabase
       .from('leads')
-      .select('id, full_name, phone, interest, branch, source, utm_campaign, message, status, handled_by, notes, created_at')
+      .select('id, full_name, phone, interest, branch, source, utm_campaign, message, status, handled_by, notes, whatsapp_optin, whatsapp_optin_at, created_at')
       .order('created_at', { ascending: false })
     setLeads((data ?? []) as Lead[])
     setLoading(false)
@@ -72,9 +77,24 @@ export default function LeadsPage() {
 
   const filtered = leads.filter(l =>
     (statusFilter === 'all' || l.status === statusFilter) &&
-    (interestFilter === 'all' || l.interest === interestFilter),
+    (interestFilter === 'all' || l.interest === interestFilter) &&
+    (!waOnly || l.whatsapp_optin),
   )
   const newCount = leads.filter(l => l.status === 'new').length
+
+  function exportCsv() {
+    downloadCsv(
+      'מתעניינים-אישרו-וואטסאפ.csv',
+      ['תאריך', 'שם', 'טלפון', 'תחום עניין', 'סניף', 'מקור', 'סטטוס', 'אישר וואטסאפ בתאריך'],
+      filtered
+        .filter(l => l.whatsapp_optin)
+        .map(l => [
+          fmtDateTime(l.created_at), l.full_name, l.phone, l.interest, l.branch ?? '',
+          SOURCE_LABEL[l.source ?? ''] ?? l.source ?? '', l.status,
+          l.whatsapp_optin_at ? fmtDateTime(l.whatsapp_optin_at) : '',
+        ]),
+    )
+  }
 
   const selStyle: React.CSSProperties = {
     background: '#0d0f0e', border: '1px solid #252b27', borderRadius: 8, color: '#e8efe9',
@@ -92,6 +112,21 @@ export default function LeadsPage() {
           </p>
         </div>
         <div style={{ marginRight: 'auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#e8efe9', fontSize: 12, cursor: 'pointer' }}>
+            <input type="checkbox" checked={waOnly} onChange={e => setWaOnly(e.target.checked)} style={{ width: 15, height: 15, accentColor: '#b5e853', cursor: 'pointer' }} />
+            אישרו וואטסאפ בלבד
+          </label>
+          <button
+            onClick={exportCsv}
+            disabled={filtered.filter(l => l.whatsapp_optin).length === 0}
+            style={{
+              background: '#1a2114', color: '#b5e853', border: '1px solid #2f4020', borderRadius: 8,
+              padding: '7px 14px', fontSize: 12, fontWeight: 700, fontFamily: 'Heebo, Arial, sans-serif',
+              cursor: 'pointer', opacity: filtered.filter(l => l.whatsapp_optin).length === 0 ? 0.45 : 1,
+            }}
+          >
+            ייצוא מאושרי וואטסאפ ל-CSV ({filtered.filter(l => l.whatsapp_optin).length})
+          </button>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#7a8f7d', fontSize: 12 }}>
             סטטוס
             <select aria-label="סינון לפי סטטוס" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={selStyle}>
@@ -112,7 +147,7 @@ export default function LeadsPage() {
       {/* Table */}
       <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 8, padding: '11px 16px', borderBottom: '1px solid #252b27', fontSize: 11, color: '#7a8f7d', fontWeight: 700 }}>
-          <span>תאריך</span><span>שם</span><span>טלפון</span><span>תחום עניין</span><span>סניף</span><span>מקור</span><span>הודעה</span><span>סטטוס</span><span>טופל ע"י</span><span>הערות</span>
+          <span>תאריך</span><span>שם</span><span>טלפון</span><span>תחום עניין</span><span>סניף</span><span>מקור</span><span>הודעה</span><span>סטטוס</span><span>טופל ע"י</span><span>הערות</span><span>וואטסאפ</span>
         </div>
 
         {loading ? (
@@ -173,6 +208,9 @@ export default function LeadsPage() {
                   {savedNoteId === l.id && (
                     <span style={{ position: 'absolute', bottom: -14, right: 2, color: '#b5e853', fontSize: 10, fontWeight: 700 }}>נשמר ✓</span>
                   )}
+                </span>
+                <span>
+                  <WhatsappOptinBadge optedIn={l.whatsapp_optin} optedAt={l.whatsapp_optin_at} />
                 </span>
               </div>
             )

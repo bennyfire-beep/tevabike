@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { WHATSAPP_OPTIN_LABEL } from "@/lib/whatsapp-optin";
 
 const PAYMENT_LINK = "https://arbox.link/IdCW6--f";
 
@@ -46,6 +47,7 @@ export default function WorkshopAirbagPage() {
     notes: "",
   });
   const [waiver, setWaiver] = useState(false);
+  const [whatsappOptin, setWhatsappOptin] = useState(false);
   const [utm, setUtm] = useState({ utm_source: "", utm_medium: "", utm_campaign: "" });
   const [status, setStatus] = useState<"idle" | "sending" | "done" | "full" | "error">("idle");
 
@@ -74,7 +76,7 @@ export default function WorkshopAirbagPage() {
       const res = await fetch("/api/workshop-register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, ...utm, waiver_accepted: true }),
+        body: JSON.stringify({ ...form, ...utm, waiver_accepted: true, whatsapp_optin: whatsappOptin }),
       });
       if (res.ok) setStatus("done");
       else {
@@ -319,6 +321,16 @@ export default function WorkshopAirbagPage() {
               </span>
             </label>
           </div>
+
+          <label className="flex items-start gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={whatsappOptin}
+              onChange={(e) => setWhatsappOptin(e.target.checked)}
+              className="mt-1 h-4 w-4 accent-pink-600"
+            />
+            <span style={{ color: "#D8E2DC" }}>{WHATSAPP_OPTIN_LABEL}</span>
+          </label>
 
           <button
             onClick={submit}

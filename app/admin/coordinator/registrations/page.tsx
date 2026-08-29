@@ -3,6 +3,8 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { downloadCsv } from '@/lib/csv-export'
+import WhatsappOptinBadge from '@/components/WhatsappOptinBadge'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,6 +38,8 @@ type Registration = {
   membership_plan: string | null
   promo_code: string | null
   registration_type: string | null
+  whatsapp_optin: boolean | null
+  whatsapp_optin_at: string | null
 }
 
 type Group = {
@@ -58,6 +62,7 @@ export default function RegistrationsPage() {
   const [msg, setMsg] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [savedNoteId, setSavedNoteId] = useState<string | null>(null)
+  const [waOnly, setWaOnly] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -130,7 +135,25 @@ export default function RegistrationsPage() {
     await load()
   }
 
-  const shown = regs.filter((r) => (tab === 'pending' ? r.status === 'pending' : r.status !== 'pending'))
+  const shown = regs
+    .filter((r) => (tab === 'pending' ? r.status === 'pending' : r.status !== 'pending'))
+    .filter((r) => !waOnly || r.whatsapp_optin)
+
+  const fmtDateTime = (iso: string) =>
+    new Date(iso).toLocaleString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+
+  function exportCsv() {
+    downloadCsv(
+      'הרשמות-אישרו-וואטסאפ.csv',
+      ['תאריך', 'שם הרוכב/ה', 'שם ההורה', 'טלפון', 'אימייל', 'סניף', 'יישוב', 'אישר וואטסאפ בתאריך'],
+      shown
+        .filter((r) => r.whatsapp_optin)
+        .map((r) => [
+          fmtDateTime(r.created_at), r.child_name || r.full_name, r.full_name, r.phone, r.email ?? '',
+          r.branch ?? '', r.city ?? '', r.whatsapp_optin_at ? fmtDateTime(r.whatsapp_optin_at) : '',
+        ]),
+    )
+  }
 
   // מסלול יומועדון בלבד → מציגים את קבוצת יומועדון; אחרת לפי סניף
   function groupsFor(reg: Registration) {
@@ -153,6 +176,20 @@ export default function RegistrationsPage() {
         </header>
 
         {showAdd && <ManualAdd onDone={() => { setShowAdd(false); load() }} />}
+
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <label className="flex items-center gap-2 text-stone-300 text-xs cursor-pointer">
+            <input type="checkbox" checked={waOnly} onChange={(e) => setWaOnly(e.target.checked)} className="w-[15px] h-[15px] accent-lime-400 cursor-pointer" />
+            אישרו וואטסאפ בלבד
+          </label>
+          <button
+            onClick={exportCsv}
+            disabled={shown.filter((r) => r.whatsapp_optin).length === 0}
+            className="bg-lime-950 border border-lime-800 text-lime-300 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
+          >
+            ייצוא מאושרי וואטסאפ ל-CSV ({shown.filter((r) => r.whatsapp_optin).length})
+          </button>
+        </div>
 
         <div className="flex gap-2 mb-5">
           {(['pending', 'approved'] as const).map((t) => (
@@ -213,9 +250,12 @@ export default function RegistrationsPage() {
                     </div>
                     {reg.notes && <p className="text-sm text-amber-300/80 mt-2">📝 {reg.notes}</p>}
                   </div>
-                  <span className="text-xs text-stone-600 whitespace-nowrap">
-                    {new Date(reg.created_at).toLocaleDateString('he-IL')}
-                  </span>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="text-xs text-stone-600 whitespace-nowrap">
+                      {new Date(reg.created_at).toLocaleDateString('he-IL')}
+                    </span>
+                    <WhatsappOptinBadge optedIn={reg.whatsapp_optin} optedAt={reg.whatsapp_optin_at} />
+                  </div>
                 </div>
 
                 {reg.status === 'pending' ? (

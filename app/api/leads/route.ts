@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { LEAD_INTERESTS, LEAD_BRANCHES } from '@/lib/leads'
+import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 
 // Public leads intake.
 //
@@ -130,6 +131,7 @@ export async function POST(req: NextRequest) {
     utm_medium,
     utm_campaign,
     // status defaults to 'new' in the DB
+    ...whatsappOptinFields(body.whatsapp_optin === true, 'contact'),
   })
 
   if (error) {

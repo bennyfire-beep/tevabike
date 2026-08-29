@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 
 // מחנה סוכות — משמר העמק, 27.09–30.09
 //
@@ -81,6 +82,7 @@ type Body = {
   foodNotes?: string
   consentParentName?: string
   consentApproved?: boolean
+  whatsappOptin?: boolean
 }
 
 export async function POST(req: NextRequest) {
@@ -145,6 +147,7 @@ export async function POST(req: NextRequest) {
     payment_status: 'pending',
     consent_parent_name: consentName,
     consent_approved: true,
+    ...whatsappOptinFields(body.whatsappOptin === true, 'camp_sukkot'),
   })
 
   if (error) {

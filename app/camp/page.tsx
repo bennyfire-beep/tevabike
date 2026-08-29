@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 
 type DayInfo = {
   id: string
@@ -53,6 +54,7 @@ export default function CampPage() {
     consentParentName: '',
   })
   const [consent, setConsent] = useState(false)
+  const [whatsappOptin, setWhatsappOptin] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState<{ total: number; daysCount: number; paymentLink: string } | null>(null)
@@ -88,7 +90,7 @@ export default function CampPage() {
       const res = await fetch('/api/camp-register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, days: selected, consentApproved: consent }),
+        body: JSON.stringify({ ...form, days: selected, consentApproved: consent, whatsappOptin }),
       })
       const data = await res.json()
       if (!data.ok) { setError(data.error || 'משהו השתבש'); setSending(false); return }
@@ -255,9 +257,14 @@ export default function CampPage() {
           <label style={label}>שם ההורה החותם *</label>
           <input style={input} value={form.consentParentName} onChange={e => set('consentParentName', e.target.value)} />
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: 28, fontSize: 14 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: 16, fontSize: 14 }}>
           <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} style={{ width: 20, height: 20, accentColor: LIME, cursor: 'pointer' }} />
           קראתי והבנתי את כל האמור לעיל ואני מאשר/ת
+        </label>
+
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginBottom: 28, fontSize: 14 }}>
+          <input type="checkbox" checked={whatsappOptin} onChange={e => setWhatsappOptin(e.target.checked)} style={{ width: 20, height: 20, marginTop: 1, accentColor: LIME, cursor: 'pointer', flexShrink: 0 }} />
+          <span>{WHATSAPP_OPTIN_LABEL}</span>
         </label>
 
         {/* מדיניות ביטול */}

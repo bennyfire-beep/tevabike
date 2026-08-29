@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 
 const MATNAS_URL = 'https://www.matnasmatteasher.org.il/%D7%9E%D7%97%D7%9C%D7%A7%D7%AA-%D7%A1%D7%A4%D7%95%D7%A8%D7%98/'
 
@@ -56,6 +57,7 @@ export default function RegisterPage() {
     email: '',
     notes: '',
   })
+  const [whatsappOptin, setWhatsappOptin] = useState(false)
   const [utm, setUtm] = useState<{ utm_source?: string; utm_medium?: string; utm_campaign?: string }>({})
 
   // Capture campaign tags from the landing URL and keep them for the session,
@@ -129,6 +131,7 @@ export default function RegisterPage() {
           amount_monthly: TRACKS.find((t) => t.value === form.track)?.price ?? null,
           registration_type: type,
           promo_code: promo ? 'BOOST5' : null,
+          whatsapp_optin: whatsappOptin,
           ...utm,
         }),
       })
@@ -349,6 +352,16 @@ export default function RegisterPage() {
                     textarea
                   />
                 </Section>
+
+                <label className="flex items-start gap-2.5 cursor-pointer text-sm text-stone-300 select-none">
+                  <input
+                    type="checkbox"
+                    checked={whatsappOptin}
+                    onChange={(e) => setWhatsappOptin(e.target.checked)}
+                    className="mt-0.5 w-[18px] h-[18px] accent-lime-400 cursor-pointer shrink-0"
+                  />
+                  <span>{WHATSAPP_OPTIN_LABEL}</span>
+                </label>
 
                 {error && <div className="bg-red-950 border border-red-800 text-red-200 rounded-lg p-3 text-sm">{error}</div>}
 

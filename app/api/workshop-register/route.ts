@@ -1,6 +1,7 @@
 // app/api/workshop-register/route.ts — גרסה 2: תיקון שליחת מיילים (await)
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 
 // Public workshop registration intake.
 // Inserts with the SERVICE ROLE (anon never touches the table), then fires a
@@ -137,6 +138,7 @@ export async function POST(req: NextRequest) {
     utm_source: clean(body.utm_source, MAX_UTM),
     utm_medium: clean(body.utm_medium, MAX_UTM),
     utm_campaign: clean(body.utm_campaign, MAX_UTM),
+    ...whatsappOptinFields(body.whatsapp_optin === true, 'workshop_airbag'),
   })
 
   if (error) {

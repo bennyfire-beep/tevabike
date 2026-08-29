@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
+import { downloadCsv } from '@/lib/csv-export'
+import WhatsappOptinBadge from '@/components/WhatsappOptinBadge'
 
 type Reg = {
   id: string
@@ -22,6 +24,8 @@ type Reg = {
   food_notes: string | null
   total_amount: number
   payment_status: string
+  whatsapp_optin: boolean | null
+  whatsapp_optin_at: string | null
 }
 
 const CAPACITY = 20            // ← חייב להיות זהה למספר שב-app/api/sukkot-register/route.ts
@@ -47,6 +51,7 @@ export default function SukkotAdminPage() {
   const [regs, setRegs] = useState<Reg[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('all')
+  const [waOnly, setWaOnly] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
 
   // שליחת הודעה לכל הנרשמים
@@ -123,7 +128,10 @@ export default function SukkotAdminPage() {
   const revenue = paid.reduce((s, r) => s + r.total_amount, 0)
   const pending = active.filter(r => r.payment_status === 'pending').reduce((s, r) => s + r.total_amount, 0)
 
-  const filtered = regs.filter(r => statusFilter === 'all' || r.payment_status === statusFilter)
+  const filtered = regs.filter(r =>
+    (statusFilter === 'all' || r.payment_status === statusFilter) &&
+    (!waOnly || r.whatsapp_optin),
+  )
 
   const summaryText = [
     'מחנה סוכות משמר העמק — סיכום הרשמות',
@@ -141,13 +149,18 @@ export default function SukkotAdminPage() {
       r.parent_email, r.city ?? '', r.health_notes ?? '', r.food_notes ?? '',
       String(r.total_amount), STATUS_LABEL[r.payment_status] ?? r.payment_status,
     ])
-    const body = [head, ...rows].map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
-    const url = URL.createObjectURL(new Blob(['\uFEFF' + body], { type: 'text/csv;charset=utf-8' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'מחנה-סוכות-הרשמות.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadCsv('מחנה-סוכות-הרשמות.csv', head, rows)
+  }
+
+  // ייצוא מי שאישר לקבל וואטסאפ, מתוך הרשימה המסוננת כרגע
+  const csvWhatsapp = () => {
+    const head = ['רוכב', 'הורה', 'טלפון', 'מייל', 'אישר וואטסאפ בתאריך']
+    const rows = filtered.filter(r => r.whatsapp_optin).map(r => [
+      `${r.rider_first_name} ${r.rider_last_name}`,
+      r.parent_name, r.parent_phone, r.parent_email,
+      r.whatsapp_optin_at ? fmtDate(r.whatsapp_optin_at) : '',
+    ])
+    downloadCsv('מחנה-סוכות-אישרו-וואטסאפ.csv', head, rows)
   }
 
   const selStyle: React.CSSProperties = {
@@ -196,6 +209,13 @@ export default function SukkotAdminPage() {
           <a href={waLink('0505358071', summaryText)} target="_blank" rel="noopener noreferrer" style={btnStyle}>
             שליחת סיכום לטל
           </a>
+          <button onClick={csvWhatsapp} disabled={filtered.filter(r => r.whatsapp_optin).length === 0} style={{ ...btnStyle, opacity: filtered.filter(r => r.whatsapp_optin).length === 0 ? 0.45 : 1 }}>
+            ייצוא מאושרי וואטסאפ ל-CSV ({filtered.filter(r => r.whatsapp_optin).length})
+          </button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#e8efe9', fontSize: 12, cursor: 'pointer' }}>
+            <input type="checkbox" checked={waOnly} onChange={e => setWaOnly(e.target.checked)} style={{ width: 15, height: 15, accentColor: '#b5e853', cursor: 'pointer' }} />
+            אישרו וואטסאפ בלבד
+          </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#7a8f7d', fontSize: 12 }}>
             תשלום
             <select aria-label="סינון לפי סטטוס תשלום" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={selStyle}>
@@ -308,6 +328,7 @@ export default function SukkotAdminPage() {
               <th style={th}>אוכל</th>
               <th style={th}>סכום</th>
               <th style={th}>תשלום</th>
+              <th style={th}>וואטסאפ</th>
               <th style={th}>נרשם</th>
             </tr>
           </thead>
@@ -349,6 +370,7 @@ export default function SukkotAdminPage() {
                       {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k} style={{ background: '#0d0f0e', color: '#e8efe9' }}>{v}</option>)}
                     </select>
                   </td>
+                  <td style={td}><WhatsappOptinBadge optedIn={r.whatsapp_optin} optedAt={r.whatsapp_optin_at} /></td>
                   <td style={{ ...td, color: '#7a8f7d', whiteSpace: 'nowrap' }}>{fmtDate(r.created_at)}</td>
                 </tr>
               )

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 
 export const dynamic = 'force-dynamic'
 
@@ -128,6 +129,7 @@ export async function POST(req: Request) {
       utm_source,
       utm_medium,
       utm_campaign,
+      ...whatsappOptinFields(body.whatsapp_optin === true, 'youth_registration'),
     })
 
     if (error) {
