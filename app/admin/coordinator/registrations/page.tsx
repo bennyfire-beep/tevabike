@@ -13,6 +13,10 @@ const supabase = createClient(
 
 const BRANCHES = ['משגב', 'ביריה', 'מטה אשר', 'פרוד-אמירים', 'אחר']
 
+// 0=ראשון..6=שבת — תואם ל-chosen_day, לתצוגת יום קבוע (מסלול "פעם בשבוע"
+// אצל ילדים, ובחירת אימון במשגב אצל מבוגרים — ראו app/register/page.tsx).
+const DAY_LABEL = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+
 const PLAN_LABEL: Record<string, string> = {
   center: 'מרכז בלבד · ₪300',
   yomoadon: 'יומועדון בלבד · ₪360',
@@ -38,6 +42,7 @@ type Registration = {
   membership_plan: string | null
   promo_code: string | null
   registration_type: string | null
+  chosen_day: number | null
   whatsapp_optin: boolean | null
   whatsapp_optin_at: string | null
 }
@@ -235,6 +240,7 @@ export default function RegistrationsPage() {
                       {reg.city && ' · '}
                       {reg.branch}
                       {reg.class_type ? ` · ${reg.class_type}` : ''}
+                      {reg.chosen_day !== null ? ` · יום ${DAY_LABEL[reg.chosen_day] ?? reg.chosen_day}` : ''}
                     </p>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {reg.membership_plan && (
