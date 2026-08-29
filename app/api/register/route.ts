@@ -95,7 +95,11 @@ export async function POST(req: Request) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!url || !serviceKey) {
-      console.error('[register] SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL not set — cannot save registration.')
+      // Booleans only — never log the secret itself, just whether it's present,
+      // so a missing-env-var report says exactly which var to go add.
+      console.error(
+        `[register] missing env var(s), cannot save registration: NEXT_PUBLIC_SUPABASE_URL=${!!url} SUPABASE_SERVICE_ROLE_KEY=${!!serviceKey}`
+      )
       return NextResponse.json({ error: 'השרת לא מוגדר נכון' }, { status: 500 })
     }
     const supabase = createClient(url, serviceKey)
