@@ -92,10 +92,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'חסרים שדות חובה' }, { status: 400 })
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !serviceKey) {
+      console.error('[register] SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL not set — cannot save registration.')
+      return NextResponse.json({ error: 'השרת לא מוגדר נכון' }, { status: 500 })
+    }
+    const supabase = createClient(url, serviceKey)
 
     // Campaign attribution — optional, capped, and never allowed to block a
     // registration. `source` is the coarse channel used for grouping.

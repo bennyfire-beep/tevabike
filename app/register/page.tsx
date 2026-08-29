@@ -9,12 +9,30 @@ const MATNAS_URL = 'https://www.matnasmatteasher.org.il/%D7%9E%D7%97%D7%9C%D7%A7
 const PROMO_ENDS = new Date('2026-09-01T00:00:00+03:00')
 const promoActive = () => new Date() < PROMO_ENDS
 
+// חוגי ילדים ונוער — כל הסניפים הפעילים.
 const BRANCHES = [
   { value: 'משגב', label: 'משגב', day: 'ראשון וחמישי 15:30–17:00' },
   { value: 'ביריה', label: 'ביריה', day: 'שני 15:45–17:15' },
   { value: 'מטה אשר', label: 'מטה אשר', day: 'שלישי', external: true },
   { value: 'פרוד-אמירים', label: 'פרוד-אמירים', day: 'רביעי 15:45–17:00' },
   { value: 'אחר', label: 'אחר', day: '' },
+]
+
+// מבוגרים — כרגע פעיל רק משגב (ביריה, מטה אשר ופרוד-אמירים הן חוגי ילדים/נוער
+// בלבד ולא רלוונטיות למבוגרים). לוח הזמנים המלא מוצג בנפרד, ב-MISGAV_ADULT_SESSIONS.
+const ADULT_BRANCHES = [
+  { value: 'משגב', label: 'משגב', day: '' },
+  { value: 'אחר', label: 'אחר', day: '' },
+]
+
+// פירוט האימונים במשגב למבוגרים — מוצג כשנבחר הסניף, כדי שהנרשם יידע למה
+// בדיוק הוא נרשם.
+const MISGAV_ADULT_SESSIONS = [
+  { day: "יום א'", type: 'טכני', time: '6:30–8:00' },
+  { day: "יום ב'", type: 'כושר ואושר', time: '6:00–7:15' },
+  { day: "יום ג'", type: 'כושר נשים', time: '6:00–7:15' },
+  { day: "יום ד'", type: 'חשמלי טכני', time: '6:00–7:15' },
+  { day: "יום ה'", type: 'נשים טכני', time: '6:00–7:15' },
 ]
 
 // Summer 2026 tracks. Friday (יומועדון) is cancelled, so the only remaining
@@ -220,7 +238,7 @@ export default function RegisterPage() {
               <div>
                 <label className="block text-sm text-stone-400 mb-1.5">איפה נוח לכם להתאמן? *</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {BRANCHES.map((b) => (
+                  {(isKids ? BRANCHES : ADULT_BRANCHES).map((b) => (
                     <button
                       key={b.value}
                       type="button"
@@ -241,6 +259,19 @@ export default function RegisterPage() {
                   ))}
                 </div>
               </div>
+
+              {/* מבוגרים + משגב — פירוט האימונים, כדי שיידעו למה נרשמים */}
+              {!isKids && form.branch === 'משגב' && (
+                <div className="bg-stone-950 border border-stone-700 rounded-lg p-3 space-y-1.5">
+                  <div className="text-sm text-stone-300 font-semibold mb-1">האימונים במשגב</div>
+                  {MISGAV_ADULT_SESSIONS.map((s) => (
+                    <div key={s.day} className="flex items-center justify-between text-xs text-stone-400">
+                      <span className="text-stone-300">{s.day} · {s.type}</span>
+                      <span dir="ltr">{s.time}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Section>
 
             {/* מטה אשר – מעבר ישיר לאתר המתנ"ס */}
