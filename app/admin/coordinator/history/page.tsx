@@ -24,6 +24,9 @@ type SessionRow = {
   end_time: string | null
   type: 'regular' | 'special' | null
   activity_name: string | null
+  instructor_id: string | null
+  instructor_ids: string[] | null
+  instructor_names: string[]
   present: number
   total: number
   pct: number
@@ -61,9 +64,13 @@ export default function HistoryPage() {
   async function load() {
     setLoading(true)
     setOpenId(null)
+    const { data: staff } = await supabase.from('admin_roles').select('id, name')
+    const nameOf: Record<string, string> = {}
+    for (const p of staff ?? []) nameOf[p.id] = p.name
+
     let q = supabase
       .from('class_sessions')
-      .select('id, class_name, branch, session_date, start_time, end_time, type, activity_name')
+      .select('id, class_name, branch, session_date, start_time, end_time, type, activity_name, instructor_id, instructor_ids')
       .order('session_date', { ascending: false })
     if (branch) q = q.eq('branch', branch)
     if (group)  q = q.eq('class_name', group)
@@ -85,7 +92,15 @@ export default function HistoryPage() {
     }
     setRows(list.map(s => {
       const c = counts[s.id] ?? { present: 0, total: 0 }
-      return { ...s, present: c.present, total: c.total, pct: c.total > 0 ? Math.round(c.present / c.total * 100) : 0 }
+      const ids = [...(s.instructor_id ? [s.instructor_id] : []), ...((s.instructor_ids ?? []) as string[])]
+      const instructor_names = [...new Set(ids)].map(id => nameOf[id] ?? 'לא ידוע')
+      return {
+        ...s,
+        instructor_names,
+        present: c.present,
+        total: c.total,
+        pct: c.total > 0 ? Math.round(c.present / c.total * 100) : 0,
+      }
     }))
     setLoading(false)
   }
@@ -160,6 +175,11 @@ export default function HistoryPage() {
                     : <span style={{ background: bc + '22', color: bc, borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>{s.branch}</span>}
                   <span style={{ color: '#e8efe9', fontSize: 13 }}>📅 {fmtDate(s.session_date)}</span>
                   {s.start_time && <span style={{ color: '#7a8f7d', fontSize: 12 }}>🕒 {fmtTime(s.start_time)}{s.end_time ? `–${fmtTime(s.end_time)}` : ''}</span>}
+                  {s.instructor_names.length > 0 && (
+                    <span style={{ color: '#7a8f7d', fontSize: 12 }}>
+                      🧑‍🏫 {s.instructor_names.join(', ')}
+                    </span>
+                  )}
                   <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ color: '#7a8f7d', fontSize: 12 }}>{s.present}/{s.total}</span>
                     <span style={{ background: bg, color: text, border: `1px solid ${text}44`, borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>{s.pct}%</span>
