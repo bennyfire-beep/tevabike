@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
+import { sendRegistrationConfirmation } from '@/lib/whatsapp-templates'
 
 export const dynamic = 'force-dynamic'
 
@@ -112,36 +113,59 @@ export async function POST(req: Request) {
     const utm_medium   = utm(body.utm_medium)
     const utm_campaign = utm(body.utm_campaign)
 
-    const { error } = await supabase.from('registrations').insert({
-      full_name: body.full_name,
-      phone: body.phone,
-      email: body.email || null,
-      branch: body.branch,
-      city: body.city || null,
-      class_type: body.class_type || null,
-      registration_type: body.registration_type === 'adults' ? 'annual_adults' : 'annual_kids',
-      membership_plan: body.membership_plan || null,
-      track: body.track || null,
-      chosen_day:
-        body.chosen_day === '' || body.chosen_day === null || body.chosen_day === undefined
-          ? null
-          : parseInt(String(body.chosen_day), 10),
-      amount_monthly: body.amount_monthly ?? null,
-      promo_code: body.promo_code || null,
-      child_name: body.child_name || null,
-      child_age: body.child_age ? parseInt(body.child_age, 10) : null,
-      notes: body.notes || null,
-      status: 'pending',
-      source: (utm_source ?? 'website').toLowerCase(),
-      utm_source,
-      utm_medium,
-      utm_campaign,
-      ...whatsappOptinFields(body.whatsapp_optin === true, 'youth_registration'),
-    })
+    const { data: inserted, error } = await supabase
+      .from('registrations')
+      .insert({
+        full_name: body.full_name,
+        phone: body.phone,
+        email: body.email || null,
+        branch: body.branch,
+        city: body.city || null,
+        class_type: body.class_type || null,
+        registration_type: body.registration_type === 'adults' ? 'annual_adults' : 'annual_kids',
+        membership_plan: body.membership_plan || null,
+        track: body.track || null,
+        chosen_day:
+          body.chosen_day === '' || body.chosen_day === null || body.chosen_day === undefined
+            ? null
+            : parseInt(String(body.chosen_day), 10),
+        amount_monthly: body.amount_monthly ?? null,
+        promo_code: body.promo_code || null,
+        child_name: body.child_name || null,
+        child_age: body.child_age ? parseInt(body.child_age, 10) : null,
+        notes: body.notes || null,
+        status: 'pending',
+        source: (utm_source ?? 'website').toLowerCase(),
+        utm_source,
+        utm_medium,
+        utm_campaign,
+        ...whatsappOptinFields(body.whatsapp_optin === true, 'youth_registration'),
+      })
+      .select('id')
+      .single()
 
     if (error) {
       console.error('registration insert failed:', error)
       return NextResponse.json({ error: 'שמירת ההרשמה נכשלה' }, { status: 500 })
+    }
+
+    // WhatsApp confirmation template — opt-in only, and never allowed to block
+    // or slow down the response to the parent. Safe no-op until
+    // WHATSAPP_REGISTRATION_TEMPLATE_NAME is configured (see lib/whatsapp-templates).
+    if (body.whatsapp_optin === true && inserted) {
+      const firstName = (body.full_name || '').trim().split(/\s+/)[0] || body.full_name
+      const activityName = body.branch ? `חוג ${body.branch}` : 'ההרשמה השנתית'
+      const dateLabel = new Date().toLocaleDateString('he-IL')
+      sendRegistrationConfirmation(body.phone, firstName, activityName, dateLabel)
+        .then(async (result) => {
+          if ('ok' in result && result.ok) {
+            await supabase
+              .from('registrations')
+              .update({ whatsapp_confirmation_sent_at: new Date().toISOString() })
+              .eq('id', inserted.id)
+          }
+        })
+        .catch((e) => console.error('[register] whatsapp confirmation failed (registration was still saved):', e))
     }
 
     // Best-effort alert — the registration is already stored either way.
