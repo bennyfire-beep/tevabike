@@ -34,20 +34,29 @@ color.
 - Site brand tokens (app/shop/page.tsx `C` object): brand #D4288A, brandHover
   #B51E77, dark #0C1814, green #152A1E, greenMid #1F3D2A, offWhite #F5F2EE
 - user-media/spike33-user-photo-purple.webp — user-supplied real photo of the
-  Spike 33 grips (purple pair). Use ONLY as a tight cropped hands/grip-texture
-  close-up: crop out the face entirely (privacy), and don't present purple as
-  a sold variant — site copy stays black/cream. Grip texture/lockring detail
-  is real and usable regardless of color.
+  Spike 33 grips (purple pair), confirmed by the user as their own photo/subject.
+  This is the **primary real close-up reference** for the product shots —
+  build macro/hands-on-grip shots from this exact product look and color.
+  MUST crop out the face entirely (explicit user instruction, privacy) — hands
+  and product only, no identifiable person in frame.
 
 ## Customizations
 
 - No live URL to capture — build via the no-capture path, using the assets and
   brand tokens above directly as the design system input instead of a crawl.
-- Source/generate supplementary product + MTB footage around the one real
-  catalog photo: macro grip-texture / hands-gripping close-ups, and energetic
-  MTB descent b-roll, to deliver the "strong close-up product shots, energetic
-  MTB feel" the brief calls for.
-- Energetic instrumental music bed (no narration); cuts paced to its energy.
+- Source/generate supplementary MTB descent b-roll around the two real product
+  photos (catalog black/cream hero shot + user's purple close-up) to deliver
+  the "strong close-up product shots, energetic MTB feel" the brief calls for.
+- **Purple is a real SPANK color option** (per the user, a future addition not
+  yet on the live site) — use it as a secondary/accent color throughout the
+  composition alongside black, and as the literal color of the close-up product
+  shots built from the user's photo. Don't caption or claim purple is
+  orderable today — the CTA ("available now") refers to the grips generally,
+  matching what the site currently sells (black/cream).
+- No music bed available this run (no HeyGen sign-in, no working offline
+  music engine) — proceeding **fully silent** per explicit user instruction to
+  continue; energy carried by kinetic-text pacing and cut rhythm instead. Can
+  add BGM later via a HeyGen sign-in + re-running Step 3.1 audio.
 - On-screen text in Hebrew (RTL), matching the real site's language and audience.
 
 ## Notes
@@ -56,5 +65,6 @@ color.
   problem → solution → CTA plus multiple shot types; hold time matters most
   on the product hero shot and the CTA on a vertical mobile view.
 - Brand look is rugged-MTB-first: dark/earthy grade leads, the site's actual
-  pink is accent-only (logo/CTA), not the dominant graphic color.
+  pink is accent-only (logo/CTA); purple (from the real product photo) is the
+  other accent, alongside black as the dominant product color.
 - No storyboard review; single build straight to a finished video from this brief.
