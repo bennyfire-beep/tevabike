@@ -21,7 +21,7 @@ music: none
 - voiceover: "מזיעים." / "האחיזה נחלשת." — (Sweating. / Grip weakens.)
 - duration: 3.5s
 - transition_in: cut
-- status: outline
+- status: animated
 - src: compositions/frames/01-pain.html
 - type: hook
 - persuasion: Pain validation
@@ -45,7 +45,7 @@ keyMessage: Your grip fails you exactly when you need it most.
 - voiceover: "ספייק 33" / "מבית SPANK" — (Spike 33 / by SPANK)
 - duration: 5s
 - transition_in: zoom-through
-- status: outline
+- status: animated
 - src: compositions/frames/02-product-intro.html
 - type: product_intro
 - persuasion: Feature-to-benefit translation
@@ -70,7 +70,7 @@ keyMessage: This is what actually holds on.
 - voiceover: "אחיזה מקסימלית — גם כשמזיעים." / "רכב רך שבולם רעידות בשטח מחוספס." — (Max grip — even when sweaty. / A soft compound that absorbs vibration on rough terrain.)
 - duration: 5s
 - transition_in: crossfade
-- status: outline
+- status: animated
 - src: compositions/frames/03-benefits.html
 - type: benefit_highlight
 - persuasion: Show-don't-tell proof
@@ -95,7 +95,7 @@ keyMessage: Sweat-proof grip and a compound built to absorb the trail.
 - voiceover: "זמין עכשיו בטבע בייק" / "לינק בביו" — (Available now at Teva Bike / Link in bio)
 - duration: 4.5s
 - transition_in: squeeze
-- status: outline
+- status: animated
 - src: compositions/frames/04-cta.html
 - type: cta
 - persuasion: Risk reversal / urgency
