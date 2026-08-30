@@ -76,4 +76,11 @@ color.
   itself (the real cropped grip photo) — graphic elements (CTA card, text,
   backgrounds) stay single-accent pink for internal consistency; purple
   shows up as documentary product color, not a second UI accent.
+- **Step 6 QA correction**: `public/SPIKE33MAIN123.webp` (used as the
+  "black/cream catalog hero shot") turned out to actually be a 6-color
+  manufacturer swatch chart (orange/green/red/purple/cream/black), never
+  visually verified before use. Re-cropped to isolate just the black grip at
+  its real aspect ratio, and resized Frame 2's product card to fit (was
+  forcing a square crop that would have cut off the branded end cap). This
+  also independently confirms purple is a real SPANK manufacturer color.
 - No storyboard review; single build straight to a finished video from this brief.
