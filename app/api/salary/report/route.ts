@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
 import { computeTravel, TRAVEL_LABEL, travelConfigOf } from '@/lib/travel'
 import { lessonPayFor, coTaughtPresent } from '@/lib/lesson-pay'
+import { activityPayTotal } from '@/lib/activity-logs'
 
 // ─── Vercel Cron: runs at 08:00 on the 1st of every month ────────────────────
 // Add to vercel.json:  { "crons": [{ "path": "/api/salary/report", "schedule": "0 6 1 * *" }] }
@@ -45,6 +46,7 @@ function buildHtml(report: ReportRow[], ym: string, totalHours: number, totalSal
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center">${r.lessons} × ₪${r.ratePerLesson}<br><b>₪${r.lessonPay.toLocaleString()}</b></td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center">${r.totalHours > 0 ? `${r.totalHours}ש' × ₪${r.hourlyRate}<br><b>₪${r.specialPay.toLocaleString()}</b>` : '—'}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center">${r.travelPay > 0 ? `₪${r.travelPay.toLocaleString()}<br><span style="font-size:11px;color:#6b7a72">${r.travelLabel}</span>` : '—'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center">${r.activityPay > 0 ? `₪${r.activityPay.toLocaleString()}` : '—'}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-weight:700;color:#16A34A;text-align:center">₪${r.totalSalary.toLocaleString()}</td>
     </tr>`).join('')
 
@@ -69,7 +71,7 @@ function buildHtml(report: ReportRow[], ym: string, totalHours: number, totalSal
         </div>
         <div style="background:#f0f4ff;border-radius:8px;padding:12px 16px;flex:1">
           <div style="font-size:11px;color:#6b7a72">מדריכים פעילים</div>
-          <div style="font-size:24px;font-weight:900;color:#4444cc">${report.filter(r => r.lessons > 0 || r.totalHours > 0).length}</div>
+          <div style="font-size:24px;font-weight:900;color:#4444cc">${report.filter(r => r.lessons > 0 || r.totalHours > 0 || r.activityPay > 0).length}</div>
         </div>
       </div>
       <table style="width:100%;border-collapse:collapse">
@@ -79,6 +81,7 @@ function buildHtml(report: ReportRow[], ym: string, totalHours: number, totalSal
             <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6b7a72">שיעורים רגילים</th>
             <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6b7a72">★ פעילויות מיוחדות</th>
             <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6b7a72">🚗 נסיעות</th>
+            <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6b7a72">➕ פעילויות נוספות</th>
             <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6b7a72">סה"כ</th>
           </tr>
         </thead>
@@ -107,6 +110,7 @@ type ReportRow = {
   specialPay:    number
   travelPay:     number
   travelLabel:   string
+  activityPay:   number   // approved "פעילות אחרת" reports this month
   totalSalary:   number
 }
 
@@ -142,7 +146,7 @@ export async function GET(request: NextRequest) {
   // Rates live on staff_pay (admin_roles carries neither), and the lesson log is
   // class_sessions — the previous `instructor_hours` table does not exist, which
   // is why this report came out empty.
-  const [{ data: instructors }, { data: pay }, { data: sessions }, { data: travelRows }, { data: travelDays }] = await Promise.all([
+  const [{ data: instructors }, { data: pay }, { data: sessions }, { data: travelRows }, { data: travelDays }, { data: activityRows }] = await Promise.all([
     db.from('admin_roles').select('id, name').eq('role', 'instructor').order('name'),
     db.from('staff_pay')
       .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, travel_type, travel_km, travel_rate, travel_monthly_amount'),
@@ -151,6 +155,11 @@ export async function GET(request: NextRequest) {
       .gte('session_date', first).lte('session_date', last),
     db.from('instructor_travel').select('instructor_id, amount').eq('month', month),
     db.from('instructor_travel_days').select('instructor_id, km').gte('travel_date', first).lte('travel_date', last),
+    // Approved "פעילות אחרת" reports only — pending/rejected never reach pay.
+    db.from('instructor_activity_logs')
+      .select('instructor_id, hours, hourly_rate')
+      .eq('status', 'approved')
+      .gte('activity_date', first).lte('activity_date', last),
   ])
 
   // Tally per instructor; co-taught sessions count for everyone listed.
@@ -187,6 +196,14 @@ export async function GET(request: NextRequest) {
     reportedOf.set(d.instructor_id, (reportedOf.get(d.instructor_id) ?? 0) + (Number(d.km) || 0))
   }
 
+  // Approved activity reports, grouped per instructor — priced on their own
+  // (hours × the rate set at approval), never off staff_pay.
+  const activityByInstructor = new Map<string, Array<{ hours: number | null; hourly_rate: number | null }>>()
+  for (const a of activityRows ?? []) {
+    if (!activityByInstructor.has(a.instructor_id)) activityByInstructor.set(a.instructor_id, [])
+    activityByInstructor.get(a.instructor_id)!.push(a)
+  }
+
   const report: ReportRow[] = (instructors ?? []).map(inst => {
     const p             = payOf.get(inst.id)
     const ratePerLesson = p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson)
@@ -200,6 +217,7 @@ export async function GET(request: NextRequest) {
     const specialPay  = hours * hourlyRate
     const reportedKm  = reportedOf.has(inst.id) ? Math.round(reportedOf.get(inst.id)! * 100) / 100 : null
     const travelPay   = computeTravel(p, workingDays, overrideOf.has(inst.id) ? overrideOf.get(inst.id)! : null, reportedKm)
+    const activityPay = activityPayTotal(activityByInstructor.get(inst.id) ?? [])
 
     return {
       name:        inst.name,
@@ -211,7 +229,8 @@ export async function GET(request: NextRequest) {
       specialPay:  Math.round(specialPay),
       travelPay:   Math.round(travelPay),
       travelLabel: TRAVEL_LABEL[travelConfigOf(p).type],
-      totalSalary: Math.round(lessonPay + specialPay + travelPay),
+      activityPay: Math.round(activityPay),
+      totalSalary: Math.round(lessonPay + specialPay + travelPay + activityPay),
     }
   })
 

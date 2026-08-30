@@ -3,6 +3,7 @@ import { resolveCaller, currentMonth, monthBounds } from '@/lib/instructor-ident
 import { DEFAULT_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
 import { lessonPayConfigOf, lessonRateFor, coTaughtPresent } from '@/lib/lesson-pay'
+import { activityLabel } from '@/lib/activity-logs'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "המשכורת שלי" — this month's pay for the signed-in instructor, and nobody
@@ -20,23 +21,28 @@ import { lessonPayConfigOf, lessonRateFor, coTaughtPresent } from '@/lib/lesson-
 //   • נסיעות             — computeTravel() (lib/travel.ts): manual monthly
 //                          override, else self-reported km × rate, else
 //                          working days × standing km × rate
+//   • פעילויות נוספות     — approved instructor_activity_logs rows this month
+//                          (hours × hourly_rate, set at approval — see
+//                          /api/coordinator/activity-logs). Pending/rejected
+//                          reports never appear here or in the total.
 //
 // Every session the instructor is credited with counts in full, whether they
 // led it (instructor_id) or co-taught it (instructor_ids), and whether or not
 // the register was ever saved — an unsaved register is 0 present, which the
 // by_attendance model prices at the low band.
 //
-// Security: staff_pay, instructor_travel and instructor_travel_days are
-// salary-admin-only under RLS and stay that way. This route reads them with the
-// service role, and the instructor whose rows it reads comes from the verified
-// access token via resolveCaller() — the request never names an instructor.
-// Unlike the coordinator report this does NOT merge rows by name: only the one
-// admin_roles row belonging to this user is ever read.
+// Security: staff_pay, instructor_travel, instructor_travel_days and
+// instructor_activity_logs are salary-admin-only under RLS and stay that way.
+// This route reads them with the service role, and the instructor whose rows
+// it reads comes from the verified access token via resolveCaller() — the
+// request never names an instructor. Unlike the coordinator report this does
+// NOT merge rows by name: only the one admin_roles row belonging to this user
+// is ever read.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const dynamic = 'force-dynamic'
 
-type Kind = 'base' | 'regular' | 'special' | 'travel'
+type Kind = 'base' | 'regular' | 'special' | 'travel' | 'activity'
 
 type LineItem = {
   key: string
@@ -76,7 +82,7 @@ export async function GET(req: NextRequest) {
 
   const credited = `instructor_id.eq.${adminRoleId},instructor_ids.cs.{${adminRoleId}}`
 
-  const [payRes, sessRes, travelRes, daysRes] = await Promise.all([
+  const [payRes, sessRes, travelRes, daysRes, activityRes] = await Promise.all([
     db.from('staff_pay')
       .select('hourly_rate, rate_per_lesson, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, monthly_base, travel_type, travel_km, travel_rate, travel_monthly_amount')
       .eq('admin_role_id', adminRoleId)
@@ -97,6 +103,13 @@ export async function GET(req: NextRequest) {
       .eq('instructor_id', adminRoleId)
       .gte('travel_date', first)
       .lte('travel_date', last),
+    // Approved "פעילות אחרת" reports only — pending/rejected never reach pay.
+    db.from('instructor_activity_logs')
+      .select('id, activity_date, activity_type, activity_type_other, hours, hourly_rate')
+      .eq('instructor_id', adminRoleId)
+      .eq('status', 'approved')
+      .gte('activity_date', first)
+      .lte('activity_date', last),
   ])
 
   if (sessRes.error) {
@@ -107,23 +120,38 @@ export async function GET(req: NextRequest) {
   const pay      = payRes.data ?? null
   const sessions = (sessRes.data ?? []) as SessionRow[]
 
+  // Approved "פעילות אחרת" reports — priced on their own at approval time, so
+  // they count even for someone with no staff_pay row (the rate never comes
+  // from staff_pay to begin with).
+  type ActivityRow = { id: string; activity_date: string; activity_type: string; activity_type_other: string | null; hours: number | null; hourly_rate: number | null }
+  const activityItems: LineItem[] = ((activityRes.data ?? []) as ActivityRow[]).map(a => ({
+    key: 'act-' + a.id,
+    kind: 'activity',
+    label: `${activityLabel(a.activity_type, a.activity_type_other)} · ${a.hours} ש׳ × ₪${a.hourly_rate}`,
+    branch: null,
+    date: a.activity_date,
+    present: null,
+    pay: round2(Number(a.hours ?? 0) * Number(a.hourly_rate ?? 0)),
+  }))
+
   // No staff_pay row at all means this instructor is not on the payroll — a
   // volunteer, a parent helping out, someone not set up yet. Answering with a
   // priced report built on the DEFAULT_ rates would invent a wage nobody
   // agreed to, and answering ₪0 would read as "you earned nothing this month".
   // Say plainly that there is no pay arrangement instead, and let the screen
-  // phrase it.
+  // phrase it. Approved activity reports still show and still pay — they were
+  // never priced from staff_pay.
   if (!pay) {
     return NextResponse.json({
       month,
       name,
       hasPay: false,
-      items: [],
+      items: activityItems,
       lessonCount: sessions.filter(s => s.type !== 'special').length,
       specialCount: sessions.filter(s => s.type === 'special').length,
       workDays: new Set(sessions.map(s => s.session_date)).size,
       totalPresent: sessions.reduce((sum, s) => sum + Number(s.present_count ?? 0), 0),
-      total: 0,
+      total: round2(activityItems.reduce((sum, it) => sum + it.pay, 0)),
       payModel: lessonPayConfigOf(null),
     })
   }
@@ -205,6 +233,9 @@ export async function GET(req: NextRequest) {
       pay: round2(travelPay),
     })
   }
+
+  // ── פעילויות נוספות ──────────────────────────────────────────────────────
+  items.push(...activityItems)
 
   items.sort((a, b) => {
     if (a.kind === 'base' && b.kind !== 'base') return -1

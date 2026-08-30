@@ -7,17 +7,24 @@ import { computeTravel, travelDetail } from '@/lib/travel'
 import { lessonPayConfigOf, lessonRateFor, coTaughtPresent } from '@/lib/lesson-pay'
 import { isSalaryAdmin, isBenny } from '@/lib/salary-access'
 import { currentMonth, monthBounds } from '@/lib/month'
+import { activityLabel } from '@/lib/activity-logs'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Monthly pay report (coordinator).
 //
-// A person's monthly pay is the sum of three kinds of line item:
+// A person's monthly pay is the sum of these kinds of line item:
 //   • בסיס חודשי  — staff_pay.monthly_base (once per month, if > 0)
 //   • regular sessions   — the instructor's lesson rate: staff_pay.rate_per_lesson
 //                          when lesson_pay_model is 'flat', or the low/high band
 //                          picked by that session's present_count when it is
 //                          'by_attendance' (see lib/lesson-pay.ts)
 //   • special activities — duration × the instructor's staff_pay.hourly_rate
+//   • פעילויות נוספות     — approved instructor_activity_logs rows this month
+//                          (hours × hourly_rate, set by a salary admin at
+//                          approval — see /admin/coordinator/activity-logs).
+//                          Priced entirely off the report itself, never off
+//                          staff_pay, so it counts even for someone with no
+//                          staff_pay row.
 //
 // Both session rates are read live from staff_pay rather than from the stored
 // class_sessions.instructor_pay, so a rate change on /admin/instructors shows
@@ -74,7 +81,7 @@ type SessionRow = {
   instructor_ids: string[] | null
   duration: number | null
 }
-type Kind = 'regular' | 'special' | 'base' | 'travel'
+type Kind = 'regular' | 'special' | 'base' | 'travel' | 'activity'
 type LineItem = {
   key: string
   name: string
@@ -195,6 +202,17 @@ export default function PayrollPage() {
       overrideOf[t.instructor_id] = Number(t.amount)
       if (t.mode === 'manual_km') overrideKmOf[t.instructor_id] = Number(t.km ?? 0)
     }
+
+    // Approved "פעילות אחרת" reports for the month — pending/rejected never
+    // reach pay. Priced on their own (hours × the rate set at approval), so
+    // these count even for someone with no staff_pay row at all; see the
+    // "not gated by hasPay" note below.
+    const { data: activityRows } = await supabase
+      .from('instructor_activity_logs')
+      .select('id, instructor_id, activity_date, activity_type, activity_type_other, hours, hourly_rate')
+      .eq('status', 'approved')
+      .gte('activity_date', first)
+      .lte('activity_date', last)
 
     // What the per_km instructors reported themselves, one row per day worked.
     // Absent means "reported nothing" — a reported 0 is a real figure.
@@ -319,6 +337,23 @@ export default function PayrollPage() {
       }
     }
 
+    // פעילויות נוספות — one line per approved report. Deliberately NOT gated
+    // by hasPay: the rate was set on the report itself at approval, never
+    // read off staff_pay, so someone with no wage arrangement can still have
+    // an approved activity report to be paid for.
+    for (const a of activityRows ?? []) {
+      const name = nameOf[a.instructor_id]
+      if (!name) continue   // instructor_id with no admin_roles row — shouldn't happen, nothing to attribute it to
+      const hours = Number(a.hours ?? 0)
+      const rate  = Number(a.hourly_rate ?? 0)
+      items.push({
+        key: 'act-' + a.id, name, kind: 'activity',
+        label: `${activityLabel(a.activity_type, a.activity_type_other)} · ${hours} ש׳ × ₪${rate}`,
+        branch: null, date: a.activity_date, present: null,
+        pay: round2(hours * rate), sessionId: null,
+      })
+    }
+
     // Merge by name.
     const map: Record<string, PersonGroup> = {}
     for (const it of items) {
@@ -326,8 +361,8 @@ export default function PayrollPage() {
       const g = map[it.name]
       g.items.push(it)
       g.totalPay += it.pay
-      // Base pay and travel are not sessions — they must not inflate the count.
-      if (it.kind !== 'base' && it.kind !== 'travel') { g.sessionCount++; g.totalPresent += it.present ?? 0 }
+      // Base pay, travel and extra activities are not sessions — they must not inflate the count.
+      if (it.kind !== 'base' && it.kind !== 'travel' && it.kind !== 'activity') { g.sessionCount++; g.totalPresent += it.present ?? 0 }
     }
     for (const g of Object.values(map)) {
       g.items.sort((a, b) => {
@@ -386,7 +421,7 @@ export default function PayrollPage() {
         totalPay: g.totalPay,
         items: g.items.map(it => ({
           date: it.date, label: it.label,
-          isSpecial: it.kind === 'special', isBase: it.kind === 'base',
+          isSpecial: it.kind === 'special', isBase: it.kind === 'base', isActivity: it.kind === 'activity',
           present: it.present, pay: it.pay,
         })),
       })),
@@ -434,7 +469,7 @@ export default function PayrollPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24, flexWrap: 'wrap' }}>
         <div>
           <h2 style={{ margin: '0 0 3px', fontSize: 20, fontWeight: 800 }}>דוח שכר</h2>
-          <p style={{ color: '#7a8f7d', fontSize: 13, margin: 0 }}>בסיס חודשי · שיעורים · פעילויות מיוחדות — {monthLabel}</p>
+          <p style={{ color: '#7a8f7d', fontSize: 13, margin: 0 }}>בסיס חודשי · שיעורים · פעילויות מיוחדות · פעילויות נוספות — {monthLabel}</p>
         </div>
         <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           {emailMsg && <span style={{ color: emailMsg.startsWith('✓') ? '#4cdb7a' : '#f9a8d4', fontSize: 12, fontWeight: 600 }}>{emailMsg}</span>}
@@ -529,7 +564,9 @@ export default function PayrollPage() {
                             : it.kind === 'travel'
                             ? <span style={{ marginRight: 6, background: '#81d4fa22', color: '#81d4fa', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>🚗 נסיעות</span>
                             : it.kind === 'special'
-                              ? <span style={{ marginRight: 6, background: '#c084fc22', color: '#c084fc', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>★ מיוחדת</span>
+                            ? <span style={{ marginRight: 6, background: '#c084fc22', color: '#c084fc', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>★ מיוחדת</span>
+                            : it.kind === 'activity'
+                              ? <span style={{ marginRight: 6, background: '#4cdb7a22', color: '#4cdb7a', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>➕ פעילות נוספת</span>
                               : it.branch && <span style={{ marginRight: 6, background: (BRANCH_COLOR[it.branch] ?? '#7a8f7d') + '22', color: BRANCH_COLOR[it.branch] ?? '#7a8f7d', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>{it.branch}</span>}
                         </span>
                         <span style={{ color: '#b5e853' }}>{it.present ?? '—'}</span>

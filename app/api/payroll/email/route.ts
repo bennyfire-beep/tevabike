@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 // Report recipients — extend this array to add more.
 const RECIPIENTS = ['bennyfire@gmail.com', 'shirkobi8@gmail.com']
 
-type Item = { date: string | null; label: string; isSpecial: boolean; isBase?: boolean; present: number | null; pay: number }
+type Item = { date: string | null; label: string; isSpecial: boolean; isBase?: boolean; isActivity?: boolean; present: number | null; pay: number }
 type Group = { name: string; totalSessions: number; totalPresent: number; totalPay: number; items: Item[] }
 type Payload = {
   month: string
@@ -26,6 +26,7 @@ const fmtDate = (d: string | null) => (d ? new Date(d + 'T12:00:00').toLocaleDat
 function tag(it: Item): string {
   if (it.isBase) return ' <span style="background:#fef6da;color:#b8860b;border-radius:8px;padding:1px 6px;font-size:11px">💼 קבוע</span>'
   if (it.isSpecial) return ' <span style="background:#f3e8ff;color:#a855f7;border-radius:8px;padding:1px 6px;font-size:11px">★ מיוחדת</span>'
+  if (it.isActivity) return ' <span style="background:#e8f9ee;color:#16A34A;border-radius:8px;padding:1px 6px;font-size:11px">➕ פעילות נוספת</span>'
   return ''
 }
 

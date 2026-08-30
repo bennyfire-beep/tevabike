@@ -11,6 +11,7 @@ import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
 import { clearAdminSession } from '@/lib/auth-actions'
 import { today as localToday, monthLabel as fmtMonth } from '@/lib/month'
 import { rowForRole } from '@/lib/roles'
+import { ACTIVITY_TYPES, OTHER_ACTIVITY_TYPE, ACTIVITY_STATUS_LABEL, ACTIVITY_STATUS_COLOR, activityLabel, type ActivityStatus } from '@/lib/activity-logs'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Instructor screen — for a SIGNED-IN instructor.
@@ -116,7 +117,7 @@ type Rider = {
 type TravelDay = { origin: string; km: number }
 type TravelStatus = { is_per_km: boolean; today: TravelDay | null; last: TravelDay | null }
 
-type Tab = 'sessions' | 'students' | 'salary'
+type Tab = 'sessions' | 'students' | 'activity' | 'salary'
 
 type Student = {
   id: string
@@ -127,7 +128,7 @@ type Student = {
   phone: string | null
 }
 
-type PayKind = 'base' | 'regular' | 'special' | 'travel'
+type PayKind = 'base' | 'regular' | 'special' | 'travel' | 'activity'
 type PayItem = {
   key: string
   kind: PayKind
@@ -137,6 +138,18 @@ type PayItem = {
   present: number | null
   pay: number
 }
+type ActivityLog = {
+  id: string
+  activity_date: string
+  activity_type: string
+  activity_type_other: string | null
+  description: string | null
+  hours: number
+  hourly_rate: number | null
+  status: ActivityStatus
+  created_at: string
+}
+
 type PayReport = {
   month: string
   /** False when this instructor has no staff_pay row — no wage arranged. */
@@ -177,10 +190,11 @@ async function authHeaders(): Promise<Record<string, string> | null> {
 }
 
 const PAY_BADGE: Record<PayKind, { text: string; color: string }> = {
-  base:    { text: '💼 קבוע',   color: '#f0b90b' },
-  travel:  { text: '🚗 נסיעות', color: '#81d4fa' },
-  special: { text: '★ מיוחדת',  color: '#c084fc' },
-  regular: { text: '',          color: C.muted   },
+  base:     { text: '💼 קבוע',       color: '#f0b90b' },
+  travel:   { text: '🚗 נסיעות',     color: '#81d4fa' },
+  special:  { text: '★ מיוחדת',      color: '#c084fc' },
+  activity: { text: '➕ פעילות אחרת', color: '#4ade80' },
+  regular:  { text: '',              color: C.muted   },
 }
 
 // ── Page chrome ─────────────────────────────────────────────────────────────
@@ -229,6 +243,7 @@ function Centered({ children }: { children: React.ReactNode }) {
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'sessions', label: '🗓️ אימונים' },
   { id: 'students', label: '🚵 התלמידים שלי' },
+  { id: 'activity', label: '➕ פעילות אחרת' },
   { id: 'salary',   label: '💰 המשכורת שלי' },
 ]
 
@@ -370,6 +385,136 @@ function StudentsSection({
                   )
                 })}
               </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ── "➕ פעילות אחרת" ─────────────────────────────────────────────────────────
+// Reporting hours on something that isn't a lesson (צילום, תיקון אופניים,
+// ...). Always lands as status='pending' with no rate — a salary admin sets
+// the hourly rate and approves or rejects it on the coordinator screen. Until
+// then it shows up here as "ממתין לאישור" and affects no pay report.
+type ActivityForm = {
+  date: string; setDate: (v: string) => void
+  type: string; setType: (v: string) => void
+  typeOther: string; setTypeOther: (v: string) => void
+  description: string; setDescription: (v: string) => void
+  hours: string; setHours: (v: string) => void
+  submitting: boolean
+  error: string
+  successMsg: string
+  onSubmit: () => void
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', minHeight: 52, boxSizing: 'border-box', background: C.surface2,
+  border: `1px solid ${C.border}`, color: C.text, borderRadius: 14, padding: '0 16px',
+  fontFamily: FONT, fontSize: 16, marginBottom: 14,
+}
+const labelStyle: React.CSSProperties = { display: 'block', color: C.muted, fontSize: 15, fontWeight: 700, marginBottom: 6 }
+
+function ActivitySection({
+  logs, loading, error, onRetry, form,
+}: {
+  logs: ActivityLog[] | null
+  loading: boolean
+  error: string
+  onRetry: () => void
+  form: ActivityForm
+}) {
+  return (
+    <section aria-label="פעילות אחרת">
+      <h1 style={{ fontSize: 24, fontWeight: 900, margin: '0 0 4px' }}>➕ פעילות אחרת</h1>
+      <p style={{ color: C.muted, fontSize: 15, margin: '0 0 20px', lineHeight: 1.7 }}>
+        דיווח על פעילות שאינה שיעור — צילום, תיקון אופניים וכו׳. הדיווח ממתין לאישור התעריף מול ההנהלה, ורק אז נכנס לחישוב השכר.
+      </p>
+
+      <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: '18px 18px 6px', marginBottom: 24 }}>
+        <label htmlFor="act-date" style={labelStyle}>תאריך</label>
+        <input id="act-date" type="date" value={form.date} onChange={e => form.setDate(e.target.value)} style={inputStyle} />
+
+        <label htmlFor="act-type" style={labelStyle}>סוג פעילות</label>
+        <select id="act-type" value={form.type} onChange={e => form.setType(e.target.value)} style={{ ...inputStyle, appearance: 'auto' }}>
+          {ACTIVITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+
+        {form.type === OTHER_ACTIVITY_TYPE && (
+          <>
+            <label htmlFor="act-type-other" style={labelStyle}>מה בדיוק נעשה?</label>
+            <input
+              id="act-type-other"
+              value={form.typeOther}
+              onChange={e => form.setTypeOther(e.target.value)}
+              placeholder="למשל: תיקון סככת אופניים"
+              style={inputStyle}
+            />
+          </>
+        )}
+
+        <label htmlFor="act-description" style={labelStyle}>תיאור</label>
+        <textarea
+          id="act-description"
+          value={form.description}
+          onChange={e => form.setDescription(e.target.value)}
+          placeholder="פירוט חופשי (לא חובה)"
+          rows={3}
+          style={{ ...inputStyle, minHeight: 80, padding: '12px 16px', resize: 'vertical', fontFamily: FONT }}
+        />
+
+        <label htmlFor="act-hours" style={labelStyle}>מספר שעות</label>
+        <input
+          id="act-hours"
+          value={form.hours}
+          onChange={e => form.setHours(e.target.value)}
+          type="number" inputMode="decimal" dir="ltr" placeholder="0"
+          style={inputStyle}
+        />
+
+        {form.error && <p role="alert" style={{ color: C.absent, fontSize: 15, margin: '0 0 14px' }}>{form.error}</p>}
+        {form.successMsg && (
+          <p role="status" style={{ color: C.present, fontSize: 15, margin: '0 0 14px', lineHeight: 1.6 }}>✓ {form.successMsg}</p>
+        )}
+
+        <button
+          onClick={form.onSubmit}
+          disabled={form.submitting}
+          style={{ width: '100%', minHeight: 56, marginBottom: 18, background: form.submitting ? C.surface2 : `linear-gradient(90deg, ${C.purple}, ${C.pink})`, color: form.submitting ? C.muted : '#fff', border: 'none', borderRadius: 16, fontFamily: FONT, fontWeight: 900, fontSize: 18, cursor: form.submitting ? 'default' : 'pointer' }}
+        >
+          {form.submitting ? 'שולח...' : '📤 שליחה לאישור'}
+        </button>
+      </div>
+
+      <h2 style={{ fontSize: 17, fontWeight: 900, margin: '0 0 12px', color: C.purpleSoft }}>הדיווחים שלי</h2>
+
+      {error ? (
+        <div style={{ background: C.surface, border: `1px solid ${C.absent}66`, borderRadius: 18, padding: 28, textAlign: 'center' }}>
+          <p role="alert" style={{ color: C.absent, fontSize: 16, margin: '0 0 16px' }}>{error}</p>
+          <button onClick={onRetry} style={{ minHeight: 48, background: C.surface2, border: `1px solid ${C.border}`, color: C.purpleSoft, borderRadius: 14, padding: '0 22px', fontFamily: FONT, fontSize: 16, fontWeight: 800, cursor: 'pointer' }}>
+            נסה שוב
+          </button>
+        </div>
+      ) : loading ? (
+        <p style={{ color: C.muted, textAlign: 'center', padding: 30, fontSize: 16 }}>טוען...</p>
+      ) : !logs || logs.length === 0 ? (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: 30, textAlign: 'center', color: C.muted, fontSize: 15 }}>
+          עדיין לא נשלחו דיווחים
+        </div>
+      ) : (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, overflow: 'hidden' }}>
+          {logs.map((l, i) => (
+            <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '13px 16px', borderTop: i === 0 ? 'none' : `1px solid ${C.border}` }}>
+              <span style={{ minWidth: 52, fontSize: 13, color: C.muted }}>{fmtDay(l.activity_date)}</span>
+              <span style={{ flex: 1, minWidth: 150 }}>
+                <span style={{ fontSize: 15.5, fontWeight: 700, color: C.text }}>{activityLabel(l.activity_type, l.activity_type_other)}</span>
+                <span style={{ display: 'block', fontSize: 13, color: C.muted }}>{l.hours} שעות{l.description ? ` · ${l.description}` : ''}</span>
+              </span>
+              <span style={{ background: `${ACTIVITY_STATUS_COLOR[l.status]}22`, color: ACTIVITY_STATUS_COLOR[l.status], borderRadius: 10, padding: '3px 11px', fontSize: 12.5, fontWeight: 800, whiteSpace: 'nowrap' }}>
+                {ACTIVITY_STATUS_LABEL[l.status]}
+              </span>
             </div>
           ))}
         </div>
@@ -540,7 +685,7 @@ export default function InstructorPage() {
   const [travelSaving,  setTravelSaving]  = useState(false)
   const [travelError,   setTravelError]   = useState('')
 
-  // ── The two personal tabs ─────────────────────────────────────────────────
+  // ── The personal tabs ──────────────────────────────────────────────────────
   const [students,        setStudents]        = useState<Student[] | null>(null)
   const [studentsLoading, setStudentsLoading] = useState(false)
   const [studentsError,   setStudentsError]   = useState('')
@@ -548,6 +693,20 @@ export default function InstructorPage() {
   const [payReport,  setPayReport]  = useState<PayReport | null>(null)
   const [payLoading, setPayLoading] = useState(false)
   const [payError,   setPayError]   = useState('')
+
+  // "➕ פעילות אחרת" — the reported-hours form and this instructor's own list.
+  const [activityLogs,    setActivityLogs]    = useState<ActivityLog[] | null>(null)
+  const [activityLoading, setActivityLoading] = useState(false)
+  const [activityError,   setActivityError]   = useState('')
+
+  const [actDate,        setActDate]        = useState(today)
+  const [actType,        setActType]        = useState<string>(ACTIVITY_TYPES[0])
+  const [actTypeOther,   setActTypeOther]   = useState('')
+  const [actDescription, setActDescription] = useState('')
+  const [actHours,       setActHours]       = useState('')
+  const [actSubmitting,  setActSubmitting]  = useState(false)
+  const [actFormError,   setActFormError]   = useState('')
+  const [actSuccessMsg,  setActSuccessMsg]  = useState('')
 
   // ── Identify the instructor ───────────────────────────────────────────────
   // admin_roles.user_id is the link between the Supabase login and the staff
@@ -936,13 +1095,69 @@ export default function InstructorPage() {
     }
   }, [])
 
+  const loadActivity = useCallback(async () => {
+    setActivityLoading(true)
+    setActivityError('')
+    try {
+      const headers = await authHeaders()
+      if (!headers) { setActivityError('החיבור פג — יש להתחבר מחדש'); return }
+      const r = await fetch('/api/instructor/activity-log', { headers })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setActivityError(d.error ?? 'טעינת הדיווחים נכשלה'); return }
+      setActivityLogs((d.logs ?? []) as ActivityLog[])
+    } catch (e) {
+      setActivityError('טעינת הדיווחים נכשלה: ' + (e as Error).message)
+    } finally {
+      setActivityLoading(false)
+    }
+  }, [])
+
+  async function submitActivity() {
+    const hours = Number(actHours)
+    if (!actDate) { setActFormError('צריך לבחור תאריך'); return }
+    if (actType === OTHER_ACTIVITY_TYPE && !actTypeOther.trim()) { setActFormError('צריך לפרט מה בדיוק נעשה'); return }
+    if (actHours.trim() === '' || !Number.isFinite(hours) || hours <= 0 || hours > 24) {
+      setActFormError('מספר שעות לא תקין (0–24)'); return
+    }
+    setActFormError('')
+    setActSuccessMsg('')
+    setActSubmitting(true)
+    try {
+      const headers = await authHeaders()
+      if (!headers) { setActFormError('החיבור פג — יש להתחבר מחדש'); return }
+      const r = await fetch('/api/instructor/activity-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          activity_date: actDate,
+          activity_type: actType,
+          activity_type_other: actType === OTHER_ACTIVITY_TYPE ? actTypeOther.trim() : undefined,
+          description: actDescription.trim(),
+          hours,
+        }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setActFormError(d.error ?? 'שליחת הדיווח נכשלה'); return }
+      if (d.log) setActivityLogs(p => [d.log as ActivityLog, ...(p ?? [])])
+      setActSuccessMsg('הדיווח נשלח לאישור')
+      setActTypeOther('')
+      setActDescription('')
+      setActHours('')
+    } catch (e) {
+      setActFormError('שליחת הדיווח נכשלה: ' + (e as Error).message)
+    } finally {
+      setActSubmitting(false)
+    }
+  }
+
   // Fetch when the tab is first opened rather than from an effect: an effect
   // keyed on "no data yet" would re-fire forever once a request fails.
   const openTab = useCallback((t: Tab) => {
     setTab(t)
     if (t === 'students' && students === null && !studentsLoading) loadStudents()
     if (t === 'salary'   && payReport === null && !payLoading)     loadSalary()
-  }, [students, studentsLoading, loadStudents, payReport, payLoading, loadSalary])
+    if (t === 'activity' && activityLogs === null && !activityLoading) loadActivity()
+  }, [students, studentsLoading, loadStudents, payReport, payLoading, loadSalary, activityLogs, activityLoading, loadActivity])
 
   const presentCount = riders.filter(r => attendance[r.id] !== false).length
 
@@ -1045,6 +1260,26 @@ export default function InstructorPage() {
 
         {tab === 'students' && (
           <StudentsSection students={students} loading={studentsLoading} error={studentsError} onRetry={loadStudents} />
+        )}
+
+        {tab === 'activity' && (
+          <ActivitySection
+            logs={activityLogs}
+            loading={activityLoading}
+            error={activityError}
+            onRetry={loadActivity}
+            form={{
+              date: actDate, setDate: setActDate,
+              type: actType, setType: setActType,
+              typeOther: actTypeOther, setTypeOther: setActTypeOther,
+              description: actDescription, setDescription: setActDescription,
+              hours: actHours, setHours: setActHours,
+              submitting: actSubmitting,
+              error: actFormError,
+              successMsg: actSuccessMsg,
+              onSubmit: submitActivity,
+            }}
+          />
         )}
 
         {tab === 'salary' && (

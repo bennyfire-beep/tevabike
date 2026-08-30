@@ -18,6 +18,7 @@ const NAV = [
   { href: '/admin/coordinator/attendance', label: 'נוכחות',   exact: false },
   { href: '/admin/coordinator/history',    label: 'היסטוריה', exact: false },
   { href: '/admin/coordinator/payroll',    label: 'שכר',      exact: false, salaryOnly: true },
+  { href: '/admin/coordinator/activity-logs', label: 'פעילויות נוספות', exact: false, salaryOnly: true },
   { href: LEADS_HREF,                       label: 'מתעניינים', exact: false },
   { href: '/admin/coordinator/staff',      label: 'צוות',     exact: false },
   { href: '/admin/coordinator/gemini',     label: 'ניתוח AI', exact: false },
