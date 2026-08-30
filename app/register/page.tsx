@@ -56,6 +56,7 @@ export default function RegisterPage() {
     email: '',
     notes: '',
   })
+  const [whatsappConsent, setWhatsappConsent] = useState(false)
   const [utm, setUtm] = useState<{ utm_source?: string; utm_medium?: string; utm_campaign?: string }>({})
 
   // Capture campaign tags from the landing URL and keep them for the session,
@@ -129,6 +130,7 @@ export default function RegisterPage() {
           amount_monthly: TRACKS.find((t) => t.value === form.track)?.price ?? null,
           registration_type: type,
           promo_code: promo ? 'BOOST5' : null,
+          whatsapp_consent: whatsappConsent,
           ...utm,
         }),
       })
@@ -349,6 +351,16 @@ export default function RegisterPage() {
                     textarea
                   />
                 </Section>
+
+                <label className="flex items-start gap-2.5 text-sm text-stone-300 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={whatsappConsent}
+                    onChange={(e) => setWhatsappConsent(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-lime-400 shrink-0"
+                  />
+                  <span>אני מסכים/ה לקבל עדכונים לגבי ההרשמה שלי ב-WhatsApp</span>
+                </label>
 
                 {error && <div className="bg-red-950 border border-red-800 text-red-200 rounded-lg p-3 text-sm">{error}</div>}
 
