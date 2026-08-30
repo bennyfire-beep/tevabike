@@ -33,7 +33,7 @@ color.
   שחור/קרם (black/cream)
 - Site brand tokens (app/shop/page.tsx `C` object): brand #D4288A, brandHover
   #B51E77, dark #0C1814, green #152A1E, greenMid #1F3D2A, offWhite #F5F2EE
-- user-media/spike33-user-photo-purple.jpg — user-supplied real photo of the
+- user-media/spike33-user-photo-purple.webp — user-supplied real photo of the
   Spike 33 grips (purple pair). Use ONLY as a tight cropped hands/grip-texture
   close-up: crop out the face entirely (privacy), and don't present purple as
   a sold variant — site copy stays black/cream. Grip texture/lockring detail
