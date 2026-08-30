@@ -29,15 +29,15 @@
     }
 
     /* full-bleed ground, lives on a class="clip" layer, never on #root itself */
-    #cta-bg {
+    #cta04-bg {
       background: #0c1814;
     }
 
-    #cta-content {
+    #cta04-content {
       /* wrapper only — persists the whole duration, individually-timed children live inside */
     }
 
-    #cta-logo-wrap {
+    #cta04-logo-wrap {
       position: absolute;
       left: 50%;
       top: 560px;
@@ -46,13 +46,13 @@
       transform-origin: 50% 50%;
       will-change: transform;
     }
-    #cta-logo-wrap img {
+    #cta04-logo-wrap img {
       display: block;
       width: 100%;
       height: auto;
     }
 
-    #cta-line1 {
+    #cta04-line1 {
       position: absolute;
       left: 0;
       right: 0;
@@ -67,14 +67,14 @@
       transform-origin: 50% 50%;
     }
 
-    #cta-line2-wrap {
+    #cta04-line2-wrap {
       position: absolute;
       left: 0;
       right: 0;
       top: 850px;
       height: 110px;
     }
-    #cta-line2 {
+    #cta04-line2 {
       position: absolute;
       left: 0;
       right: 0;
@@ -87,11 +87,11 @@
       line-height: 1.15;
       color: #f5f2ee;
     }
-    #cta-line2 .cta-word {
+    #cta04-line2 .cta04-word {
       display: inline-block;
       transform-origin: 50% 50%;
     }
-    #cta-underline {
+    #cta04-underline {
       position: absolute;
       left: 50%;
       top: 78px;
@@ -102,7 +102,7 @@
       transform-origin: 50% 50%;
     }
 
-    #cta-rule {
+    #cta04-rule {
       position: absolute;
       left: 70px;
       top: 1120px;
@@ -112,7 +112,7 @@
       transform-origin: 0% 50%;
     }
 
-    #cta-card {
+    #cta04-card {
       position: absolute;
       left: 70px;
       top: 1150px;
@@ -122,7 +122,7 @@
       background: #1a1819;
       will-change: transform;
     }
-    #cta-card img {
+    #cta04-card img {
       display: block;
       width: 100%;
       height: 100%;
@@ -130,24 +130,26 @@
     }
   </style>
 
-  <div id="cta-bg" class="clip" data-start="0" data-duration="4.5" data-track-index="0"></div>
+  <div id="cta04-bg" class="clip" data-start="0" data-duration="4.5" data-track-index="0"></div>
 
-  <div id="cta-content" class="clip" data-start="0" data-duration="4.5" data-track-index="1">
-    <div id="cta-logo-wrap" data-start="0.05" data-duration="4.45">
+  <div id="cta04-content" class="clip" data-start="0" data-duration="4.5" data-track-index="1">
+    <div id="cta04-logo-wrap" data-start="0.05" data-duration="4.45">
       <img src="assets/teva-bike-logo.png" alt="" />
     </div>
 
-    <div id="cta-line1" data-start="1.3" data-duration="3.2">זמין עכשיו בטבע בייק</div>
+    <div id="cta04-line1" data-start="1.3" data-duration="3.2">זמין עכשיו בטבע בייק</div>
 
-    <div id="cta-line2-wrap" data-start="2.2" data-duration="2.3">
-      <div id="cta-line2"><span class="cta-word">לינק</span> <span class="cta-word">בביו</span></div>
-      <div id="cta-underline"></div>
+    <div id="cta04-line2-wrap" data-start="2.2" data-duration="2.3">
+      <div id="cta04-line2">
+        <span class="cta04-word">לינק</span> <span class="cta04-word">בביו</span>
+      </div>
+      <div id="cta04-underline"></div>
     </div>
   </div>
 
-  <div id="cta-rule" class="clip" data-start="0.95" data-duration="3.55" data-track-index="0"></div>
+  <div id="cta04-rule" class="clip" data-start="0.95" data-duration="3.55" data-track-index="0"></div>
 
-  <div id="cta-card" class="clip" data-start="1.0" data-duration="3.5" data-track-index="0">
+  <div id="cta04-card" class="clip" data-start="1.0" data-duration="3.5" data-track-index="0">
     <img src="assets/spike33-user-purple.webp" alt="" />
   </div>
 
@@ -159,7 +161,7 @@
       // Scene 1 (0.0-1.0s): ink-black cleared stage; the real teva-bike-logo.png
       // spring-blooms from zero at dead center, snappy power3 settle, no bounce.
       tl.fromTo(
-        "#cta-logo-wrap",
+        "#cta04-logo-wrap",
         { scale: 0, opacity: 0 },
         { scale: 1, opacity: 1, duration: 0.5, ease: "power3.out" },
         0.05,
@@ -167,7 +169,7 @@
 
       // small brand rule-stub tags the incoming product card
       tl.fromTo(
-        "#cta-rule",
+        "#cta04-rule",
         { scaleX: 0, opacity: 0 },
         { scaleX: 1, opacity: 1, duration: 0.4, ease: "power2.out" },
         0.95,
@@ -176,7 +178,7 @@
       // Scene 2 (1.0-2.2s): logo lockup settled; spike33-user-purple.webp slides in
       // as a small supporting product card, lower-left, asymmetric 70/30.
       tl.fromTo(
-        "#cta-card",
+        "#cta04-card",
         { x: -60, opacity: 0 },
         { x: 0, opacity: 1, duration: 0.55, ease: "power3.out" },
         1.0,
@@ -184,7 +186,7 @@
 
       // cue "זמין עכשיו בטבע בייק" flash-arrives beneath the logo
       tl.fromTo(
-        "#cta-line1",
+        "#cta04-line1",
         { scale: 0.94, opacity: 0 },
         { scale: 1, opacity: 1, duration: 0.28, ease: "power2.out" },
         1.35,
@@ -193,7 +195,7 @@
       // Scene 3 (2.2-4.5s): cue "לינק בביו" lands via per-word fade (right-to-left
       // reading order — DOM order matches Hebrew logical order under dir:rtl).
       tl.fromTo(
-        "#cta-line2 .cta-word",
+        "#cta04-line2 .cta04-word",
         { opacity: 0, y: 14 },
         { opacity: 1, y: 0, duration: 0.3, ease: "power2.out", stagger: 0.15 },
         2.3,
@@ -201,7 +203,7 @@
 
       // thin brand-pink underline draws beneath it, right-to-left, and holds
       tl.fromTo(
-        "#cta-underline",
+        "#cta04-underline",
         { scaleX: 0 },
         { scaleX: 1, duration: 0.45, ease: "power2.out" },
         2.8,
@@ -210,7 +212,7 @@
       // Full lockup holds dead static for the back half of the frame — subtle
       // jitter only, no further motion; this is the video's final hold.
       (function () {
-        var el = document.getElementById("cta-content");
+        var el = document.getElementById("cta04-content");
         var phase = { p: 0 };
         var CYCLES = 1;
         var IDLE_START = 2.9;
