@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
+import { downloadCsv } from '@/lib/csv-export'
+import WhatsappOptinBadge from '@/components/WhatsappOptinBadge'
 
 type Reg = {
   id: string
@@ -20,6 +22,8 @@ type Reg = {
   total_amount: number
   payment_status: string
   payment_link: string | null
+  whatsapp_optin: boolean | null
+  whatsapp_optin_at: string | null
 }
 
 const DAY_LABEL: Record<string, string> = { yaad: 'יעד 16.8', yarden: 'ירדן 18.8', misgav: 'משגב 20.8' }
@@ -47,6 +51,7 @@ export default function CampAdminPage() {
   const [loading, setLoading] = useState(true)
   const [dayFilter, setDayFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [waOnly, setWaOnly] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
 
   // שליחת הודעה לנרשמים
@@ -125,7 +130,8 @@ export default function CampAdminPage() {
 
   const filtered = regs.filter(r =>
     (dayFilter === 'all' || r.days?.includes(dayFilter)) &&
-    (statusFilter === 'all' || r.payment_status === statusFilter),
+    (statusFilter === 'all' || r.payment_status === statusFilter) &&
+    (!waOnly || r.whatsapp_optin),
   )
 
   // כמה נמענים בקהל שנבחר בחלון ההודעה
@@ -164,14 +170,21 @@ export default function CampAdminPage() {
       String(r.total_amount),
       STATUS_LABEL[r.payment_status] ?? r.payment_status,
     ])
-    const body = [head, ...rows].map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
-    const url = URL.createObjectURL(new Blob(['\uFEFF' + body], { type: 'text/csv;charset=utf-8' }))
     const dayPart = dayFilter === 'all' ? 'כל-הימים' : (DAY_LABEL[dayFilter] ?? dayFilter).replace(/\s/g, '-')
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `ימי-שיא-${dayPart}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadCsv(`ימי-שיא-${dayPart}.csv`, head, rows)
+  }
+
+  // ייצוא מי שאישר לקבל וואטסאפ, מתוך הרשימה המסוננת כרגע
+  const csvWhatsapp = () => {
+    const head = ['רוכב', 'הורה', 'טלפון הורה', 'מייל', 'אישר וואטסאפ בתאריך']
+    const rows = filtered.filter(r => r.whatsapp_optin).map(r => [
+      `${r.rider_first_name} ${r.rider_last_name}`,
+      r.parent_name,
+      r.parent_phone,
+      r.parent_email,
+      r.whatsapp_optin_at ? fmtDate(r.whatsapp_optin_at) : '',
+    ])
+    downloadCsv('ימי-שיא-אישרו-וואטסאפ.csv', head, rows)
   }
 
   const selStyle: React.CSSProperties = {
@@ -211,6 +224,13 @@ export default function CampAdminPage() {
           <a href={waLink('0505358071', summaryText)} target="_blank" rel="noopener noreferrer" style={btnStyle}>
             שליחת סיכום לטל
           </a>
+          <button onClick={csvWhatsapp} disabled={filtered.filter(r => r.whatsapp_optin).length === 0} style={{ ...btnStyle, opacity: filtered.filter(r => r.whatsapp_optin).length === 0 ? 0.45 : 1 }}>
+            ייצוא מאושרי וואטסאפ ל-CSV ({filtered.filter(r => r.whatsapp_optin).length})
+          </button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#e8efe9', fontSize: 12, cursor: 'pointer' }}>
+            <input type="checkbox" checked={waOnly} onChange={e => setWaOnly(e.target.checked)} style={{ width: 15, height: 15, accentColor: '#b5e853', cursor: 'pointer' }} />
+            אישרו וואטסאפ בלבד
+          </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#7a8f7d', fontSize: 12 }}>
             יום
             <select aria-label="סינון לפי יום" value={dayFilter} onChange={e => setDayFilter(e.target.value)} style={selStyle}>
@@ -343,6 +363,7 @@ export default function CampAdminPage() {
               <th style={th}>בריאות</th>
               <th style={th}>סכום</th>
               <th style={th}>תשלום</th>
+              <th style={th}>וואטסאפ</th>
               <th style={th}>נרשם</th>
             </tr>
           </thead>
@@ -386,6 +407,7 @@ export default function CampAdminPage() {
                       {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k} style={{ background: '#0d0f0e', color: '#e8efe9' }}>{v}</option>)}
                     </select>
                   </td>
+                  <td style={td}><WhatsappOptinBadge optedIn={r.whatsapp_optin} optedAt={r.whatsapp_optin_at} /></td>
                   <td style={{ ...td, color: '#7a8f7d', whiteSpace: 'nowrap' }}>{fmtDate(r.created_at)}</td>
                 </tr>
               )

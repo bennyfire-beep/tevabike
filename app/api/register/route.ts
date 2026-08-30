@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,10 +92,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'חסרים שדות חובה' }, { status: 400 })
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !serviceKey) {
+      // Booleans only — never log the secret itself, just whether it's present,
+      // so a missing-env-var report says exactly which var to go add.
+      console.error(
+        `[register] missing env var(s), cannot save registration: NEXT_PUBLIC_SUPABASE_URL=${!!url} SUPABASE_SERVICE_ROLE_KEY=${!!serviceKey}`
+      )
+      return NextResponse.json({ error: 'השרת לא מוגדר נכון' }, { status: 500 })
+    }
+    const supabase = createClient(url, serviceKey)
 
     // Campaign attribution — optional, capped, and never allowed to block a
     // registration. `source` is the coarse channel used for grouping.
@@ -128,6 +136,7 @@ export async function POST(req: Request) {
       utm_source,
       utm_medium,
       utm_campaign,
+      ...whatsappOptinFields(body.whatsapp_optin === true, 'youth_registration'),
     })
 
     if (error) {

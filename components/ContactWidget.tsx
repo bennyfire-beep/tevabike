@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback, useId } from 'react'
 import { usePathname } from 'next/navigation'
 import { LEAD_INTERESTS, LEAD_BRANCHES } from '@/lib/leads'
+import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 
 // Public "צור קשר" floating button + modal lead form.
 // Bottom-left, stacked ABOVE the accessibility link that lives in the root
@@ -28,6 +29,7 @@ export default function ContactWidget() {
   const [interest, setInterest] = useState('')
   const [branch, setBranch]     = useState('')
   const [message, setMessage]   = useState('')
+  const [whatsappOptin, setWhatsappOptin] = useState(false)
   const [utm, setUtm] = useState<{ utm_source?: string; utm_medium?: string; utm_campaign?: string }>({})
 
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -100,12 +102,12 @@ export default function ContactWidget() {
       const r = await fetch('/api/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full_name: fullName, phone, interest, branch, message, ...utm }),
+        body: JSON.stringify({ full_name: fullName, phone, interest, branch, message, whatsapp_optin: whatsappOptin, ...utm }),
       })
       const d = await r.json().catch(() => ({}))
       if (r.ok && d.ok) {
         setDone(true)
-        setFullName(''); setPhone(''); setInterest(''); setBranch(''); setMessage('')
+        setFullName(''); setPhone(''); setInterest(''); setBranch(''); setMessage(''); setWhatsappOptin(false)
       } else {
         setError(d.error || 'אירעה שגיאה, נסו שוב')
       }
@@ -230,6 +232,16 @@ export default function ContactWidget() {
                   <label htmlFor="cw-msg" style={labelStyle}>הודעה <span style={{ color: '#8a7fa5', fontWeight: 500 }}>(לא חובה)</span></label>
                   <textarea id="cw-msg" value={message} onChange={e => setMessage(e.target.value)} rows={3} style={{ ...field, resize: 'vertical' }} />
                 </div>
+
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', marginBottom: 16, fontSize: 13.5, color: INK }}>
+                  <input
+                    type="checkbox"
+                    checked={whatsappOptin}
+                    onChange={e => setWhatsappOptin(e.target.checked)}
+                    style={{ width: 19, height: 19, marginTop: 1, accentColor: PURPLE, cursor: 'pointer', flexShrink: 0 }}
+                  />
+                  <span>{WHATSAPP_OPTIN_LABEL}</span>
+                </label>
 
                 {error && (
                   <p role="alert" style={{ margin: '0 0 14px', color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontWeight: 600 }}>{error}</p>

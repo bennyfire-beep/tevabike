@@ -7,6 +7,8 @@ import {
   PAYMENT_METHODS, PAYMENT_METHOD_LABEL, PAYMENT_STATUSES, PAYMENT_STATUS_LABEL,
   type PaymentMethod, type PaymentStatus,
 } from '@/lib/workshop-payment'
+import { downloadCsv } from '@/lib/csv-export'
+import WhatsappOptinBadge from '@/components/WhatsappOptinBadge'
 
 type Reg = {
   id: string
@@ -21,6 +23,8 @@ type Reg = {
   payment_status: string
   utm_source: string | null
   utm_medium: string | null
+  whatsapp_optin: boolean | null
+  whatsapp_optin_at: string | null
 }
 
 const DATES = [
@@ -50,6 +54,7 @@ export default function WorkshopsAdminPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const [waOnly, setWaOnly] = useState(false)
 
   // Inline payment editing. Only one card is open at a time, so a single draft
   // is enough. The notes line is written by the server, not here.
@@ -78,10 +83,25 @@ export default function WorkshopsAdminPage() {
   }, [])
 
   const current = useMemo(
-    () => regs.filter((r) => r.workshop_date === tab && r.payment_status !== 'cancelled'),
-    [regs, tab]
+    () => regs
+      .filter((r) => r.workshop_date === tab && r.payment_status !== 'cancelled')
+      .filter((r) => !waOnly || r.whatsapp_optin),
+    [regs, tab, waOnly]
   )
   const paidCount = current.filter((r) => r.payment_status === 'paid').length
+
+  function exportCsv() {
+    downloadCsv(
+      `סדנת-איר-באג-${tab}-אישרו-וואטסאפ.csv`,
+      ['שם', 'טלפון', 'מייל', 'גיל', 'תאריך סדנה', 'אישר וואטסאפ בתאריך'],
+      current
+        .filter((r) => r.whatsapp_optin)
+        .map((r) => [
+          r.full_name, r.phone, r.email, r.age ?? '', r.workshop_date,
+          r.whatsapp_optin_at ? new Date(r.whatsapp_optin_at).toLocaleString('he-IL') : '',
+        ]),
+    )
+  }
 
   function startEdit(r: Reg) {
     setEditingId(r.id)
@@ -189,7 +209,7 @@ export default function WorkshopsAdminPage() {
       </div>
 
       {/* Actions */}
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <button
           onClick={copyPhones}
           disabled={current.length === 0}
@@ -197,6 +217,17 @@ export default function WorkshopsAdminPage() {
         >
           {copied ? '✓ הועתק!' : '📋 העתק רשימת טלפונים'}
         </button>
+        <button
+          onClick={exportCsv}
+          disabled={current.filter((r) => r.whatsapp_optin).length === 0}
+          className="px-4 py-2 rounded-lg bg-lime-950 border border-lime-800 text-lime-300 text-sm font-semibold disabled:opacity-40"
+        >
+          ייצוא מאושרי וואטסאפ ל-CSV ({current.filter((r) => r.whatsapp_optin).length})
+        </button>
+        <label className="flex items-center gap-2 text-stone-300 text-sm cursor-pointer">
+          <input type="checkbox" checked={waOnly} onChange={(e) => setWaOnly(e.target.checked)} className="w-[15px] h-[15px] accent-lime-400 cursor-pointer" />
+          אישרו וואטסאפ בלבד
+        </label>
       </div>
 
       {loading && <p className="text-stone-400">טוען...</p>}
@@ -239,6 +270,9 @@ export default function WorkshopsAdminPage() {
                   מקור: {sourceLabel(r.utm_source, r.utm_medium)} · נרשם:{' '}
                   {new Date(r.created_at).toLocaleDateString('he-IL')}
                   {r.notes ? ` · 📝 ${r.notes}` : ''}
+                </div>
+                <div className="mt-1.5">
+                  <WhatsappOptinBadge optedIn={r.whatsapp_optin} optedAt={r.whatsapp_optin_at} />
                 </div>
               </div>
               <div className="flex gap-2 items-center flex-wrap">

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 
 const MATNAS_URL = 'https://www.matnasmatteasher.org.il/%D7%9E%D7%97%D7%9C%D7%A7%D7%AA-%D7%A1%D7%A4%D7%95%D7%A8%D7%98/'
 
@@ -8,12 +9,33 @@ const MATNAS_URL = 'https://www.matnasmatteasher.org.il/%D7%9E%D7%97%D7%9C%D7%A7
 const PROMO_ENDS = new Date('2026-09-01T00:00:00+03:00')
 const promoActive = () => new Date() < PROMO_ENDS
 
+// חוגי ילדים ונוער — כל הסניפים הפעילים.
 const BRANCHES = [
   { value: 'משגב', label: 'משגב', day: 'ראשון וחמישי 15:30–17:00' },
   { value: 'ביריה', label: 'ביריה', day: 'שני 15:45–17:15' },
   { value: 'מטה אשר', label: 'מטה אשר', day: 'שלישי', external: true },
   { value: 'פרוד-אמירים', label: 'פרוד-אמירים', day: 'רביעי 15:45–17:00' },
   { value: 'אחר', label: 'אחר', day: '' },
+]
+
+// מבוגרים — כרגע פעיל רק משגב (ביריה, מטה אשר ופרוד-אמירים הן חוגי ילדים/נוער
+// בלבד ולא רלוונטיות למבוגרים). לוח הזמנים המלא מוצג בנפרד, ב-MISGAV_ADULT_SESSIONS.
+const ADULT_BRANCHES = [
+  { value: 'משגב', label: 'משגב', day: '' },
+  { value: 'אחר', label: 'אחר', day: '' },
+]
+
+// פירוט האימונים במשגב למבוגרים — הנרשם בוחר אימון אחד מתוך החמישה (radio
+// יחיד). dayIndex (0=ראשון..4=חמישי) נשמר בשדה chosen_day הקיים — אותו שדה
+// שכבר משמש למסלול "פעם בשבוע" של ילדים — ומגיע במייל האישור דרך DAY_LABEL
+// שם, בלי צורך בעמודה נוספת. sent as class_type so the coordinator screen
+// (which already renders class_type next to the branch) shows which session.
+const MISGAV_ADULT_SESSIONS = [
+  { dayIndex: 0, day: "יום א'", type: 'טכני', time: '6:30–8:00' },
+  { dayIndex: 1, day: "יום ב'", type: 'כושר ואושר', time: '6:00–7:15' },
+  { dayIndex: 2, day: "יום ג'", type: 'כושר נשים', time: '6:00–7:15' },
+  { dayIndex: 3, day: "יום ד'", type: 'חשמלי טכני', time: '6:00–7:15' },
+  { dayIndex: 4, day: "יום ה'", type: 'נשים טכני', time: '6:00–7:15' },
 ]
 
 // Summer 2026 tracks. Friday (יומועדון) is cancelled, so the only remaining
@@ -56,6 +78,7 @@ export default function RegisterPage() {
     email: '',
     notes: '',
   })
+  const [whatsappOptin, setWhatsappOptin] = useState(false)
   const [utm, setUtm] = useState<{ utm_source?: string; utm_medium?: string; utm_campaign?: string }>({})
 
   // Capture campaign tags from the landing URL and keep them for the session,
@@ -113,6 +136,18 @@ export default function RegisterPage() {
       setError('בחרו יום קבוע — ראשון או חמישי')
       return
     }
+    if (!isKids && form.branch === 'משגב' && !form.chosen_day) {
+      setError('בחרו אימון')
+      return
+    }
+
+    // מבוגר שבחר משגב: תואמים את chosen_day לאימון שנבחר, ומעדכנים את
+    // class_type לשם האימון (למשל "כושר ואושר") כדי שהרכזת תראה בדיוק
+    // לאיזה אימון נרשמו — לא רק לאיזה יום.
+    const misgavSession =
+      !isKids && form.branch === 'משגב'
+        ? MISGAV_ADULT_SESSIONS.find((s) => String(s.dayIndex) === form.chosen_day)
+        : null
 
     setSending(true)
     try {
@@ -126,9 +161,11 @@ export default function RegisterPage() {
           membership_plan: isKids ? 'center' : form.membership_plan || null,
           // A twice-weekly student attends both days, so no single chosen day.
           chosen_day: form.track === 'twice_weekly' ? null : form.chosen_day || null,
+          class_type: misgavSession ? misgavSession.type : form.class_type,
           amount_monthly: TRACKS.find((t) => t.value === form.track)?.price ?? null,
           registration_type: type,
           promo_code: promo ? 'BOOST5' : null,
+          whatsapp_optin: whatsappOptin,
           ...utm,
         }),
       })
@@ -180,7 +217,7 @@ export default function RegisterPage() {
         <div className="grid grid-cols-2 gap-3 mb-6">
           <button
             type="button"
-            onClick={() => setType('kids')}
+            onClick={() => { setType('kids'); set('chosen_day', '') }}
             className={`p-5 rounded-xl border text-right transition ${
               type === 'kids' ? 'bg-lime-400 text-stone-950 border-lime-400' : 'bg-stone-900 border-stone-700 hover:border-stone-500'
             }`}
@@ -191,7 +228,7 @@ export default function RegisterPage() {
           </button>
           <button
             type="button"
-            onClick={() => setType('adults')}
+            onClick={() => { setType('adults'); set('chosen_day', '') }}
             className={`p-5 rounded-xl border text-right transition ${
               type === 'adults' ? 'bg-lime-400 text-stone-950 border-lime-400' : 'bg-stone-900 border-stone-700 hover:border-stone-500'
             }`}
@@ -217,11 +254,15 @@ export default function RegisterPage() {
               <div>
                 <label className="block text-sm text-stone-400 mb-1.5">איפה נוח לכם להתאמן? *</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {BRANCHES.map((b) => (
+                  {(isKids ? BRANCHES : ADULT_BRANCHES).map((b) => (
                     <button
                       key={b.value}
                       type="button"
-                      onClick={() => set('branch', b.value)}
+                      onClick={() => {
+                        set('branch', b.value)
+                        // המסלול הישן שייך רק ל"משגב" אצל מבוגרים — סניף אחר מבטל אותו.
+                        if (!isKids && b.value !== 'משגב') set('chosen_day', '')
+                      }}
                       className={`py-3 px-2 rounded-lg border text-sm transition ${
                         form.branch === b.value
                           ? 'bg-lime-400 text-stone-950 border-lime-400 font-semibold'
@@ -238,6 +279,39 @@ export default function RegisterPage() {
                   ))}
                 </div>
               </div>
+
+              {/* מבוגרים + משגב — בחירת אימון אחד מתוך החמישה (radio יחיד) */}
+              {!isKids && form.branch === 'משגב' && (
+                <fieldset className="space-y-2 border-0 p-0 m-0">
+                  <legend className="text-sm text-stone-300 font-semibold mb-1.5">באיזה אימון תרצו להשתתף? *</legend>
+                  {MISGAV_ADULT_SESSIONS.map((s) => {
+                    const selected = form.chosen_day === String(s.dayIndex)
+                    return (
+                      <label
+                        key={s.dayIndex}
+                        className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition ${
+                          selected
+                            ? 'bg-lime-400 text-stone-950 border-lime-400 font-semibold'
+                            : 'bg-stone-950 border-stone-700 text-stone-300 hover:border-stone-500'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <input
+                            type="radio"
+                            name="misgav-session"
+                            value={s.dayIndex}
+                            checked={selected}
+                            onChange={() => set('chosen_day', String(s.dayIndex))}
+                            className="w-4 h-4 accent-lime-700 cursor-pointer shrink-0"
+                          />
+                          <span>{s.day} · {s.type}</span>
+                        </span>
+                        <span dir="ltr" className={`text-xs ${selected ? 'text-stone-800' : 'text-stone-500'}`}>{s.time}</span>
+                      </label>
+                    )
+                  })}
+                </fieldset>
+              )}
             </Section>
 
             {/* מטה אשר – מעבר ישיר לאתר המתנ"ס */}
@@ -326,14 +400,18 @@ export default function RegisterPage() {
                   </Section>
                 )}
 
-                <Section title="ניסיון">
-                  <Field
-                    label="ניסיון קודם ברכיבה"
-                    value={form.class_type}
-                    onChange={(v) => set('class_type', v)}
-                    placeholder="מתחיל / רכב שנה / מתקדם"
-                  />
-                </Section>
+                {/* אצל מבוגר שנרשם למשגב, סוג האימון כבר נקבע מהבחירה למעלה —
+                    שדה "ניסיון קודם" חופשי היה רק מבלבל לצד זה. */}
+                {!(!isKids && form.branch === 'משגב') && (
+                  <Section title="ניסיון">
+                    <Field
+                      label="ניסיון קודם ברכיבה"
+                      value={form.class_type}
+                      onChange={(v) => set('class_type', v)}
+                      placeholder="מתחיל / רכב שנה / מתקדם"
+                    />
+                  </Section>
+                )}
 
                 <Section title={isKids ? 'ההורה' : 'יצירת קשר'}>
                   {isKids && <Field label="שם ההורה *" value={form.full_name} onChange={(v) => set('full_name', v)} />}
@@ -349,6 +427,16 @@ export default function RegisterPage() {
                     textarea
                   />
                 </Section>
+
+                <label className="flex items-start gap-2.5 cursor-pointer text-sm text-stone-300 select-none">
+                  <input
+                    type="checkbox"
+                    checked={whatsappOptin}
+                    onChange={(e) => setWhatsappOptin(e.target.checked)}
+                    className="mt-0.5 w-[18px] h-[18px] accent-lime-400 cursor-pointer shrink-0"
+                  />
+                  <span>{WHATSAPP_OPTIN_LABEL}</span>
+                </label>
 
                 {error && <div className="bg-red-950 border border-red-800 text-red-200 rounded-lg p-3 text-sm">{error}</div>}
 
