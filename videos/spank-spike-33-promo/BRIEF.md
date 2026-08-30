@@ -33,12 +33,13 @@ color.
   שחור/קרם (black/cream)
 - Site brand tokens (app/shop/page.tsx `C` object): brand #D4288A, brandHover
   #B51E77, dark #0C1814, green #152A1E, greenMid #1F3D2A, offWhite #F5F2EE
-- user-media/spike33-user-photo-purple.webp — user-supplied real photo of the
-  Spike 33 grips (purple pair), confirmed by the user as their own photo/subject.
-  This is the **primary real close-up reference** for the product shots —
-  build macro/hands-on-grip shots from this exact product look and color.
-  MUST crop out the face entirely (explicit user instruction, privacy) — hands
-  and product only, no identifiable person in frame.
+- user-media/spike33-user-photo-purple-cropped.webp — cropped from the user's
+  own photo of the Spike 33 grips (purple pair). Cropped to hands/grip/product
+  only — face removed entirely, per explicit user instruction. This is the
+  **primary real close-up reference** for the product shots — build
+  macro/hands-on-grip shots from this exact product look and color. The
+  original uncropped photo is not kept in the project tree; note it still
+  exists in this branch's earlier git history (flagged to the user).
 
 ## Customizations
 
