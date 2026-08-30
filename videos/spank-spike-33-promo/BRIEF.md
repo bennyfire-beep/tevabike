@@ -68,4 +68,12 @@ color.
 - Brand look is rugged-MTB-first: dark/earthy grade leads, the site's actual
   pink is accent-only (logo/CTA); purple (from the real product photo) is the
   other accent, alongside black as the dominant product color.
+- Design system resolution: chose the `broadside` preset (dark ink-black
+  canvas, single bold accent, massive lowercase Barlow display, IBM Plex Mono
+  chrome) — its "atoms are sacred" system takes one accent color, remapped to
+  our brand pink (#D4288A). Purple stays out of the design-system tokens and
+  instead reads as the true color of the featured close-up product footage
+  itself (the real cropped grip photo) — graphic elements (CTA card, text,
+  backgrounds) stay single-accent pink for internal consistency; purple
+  shows up as documentary product color, not a second UI accent.
 - No storyboard review; single build straight to a finished video from this brief.
