@@ -99,7 +99,7 @@
       height: 4px;
       margin-left: -85px;
       background: #d4288a;
-      transform-origin: 50% 50%;
+      transform-origin: 100% 50%; /* draws right-to-left, matching the Hebrew reading direction */
     }
 
     #cta04-rule {
@@ -132,6 +132,14 @@
 
   <div id="cta04-bg" class="clip" data-start="0" data-duration="4.5" data-track-index="0"></div>
 
+  <!--
+    Everything below is nested inside this one root-level clip on purpose: a
+    root-level (direct #root child) timed element is auto-forced to
+    position:absolute; inset:0 by the runtime's own layout pass, which would
+    stomp the hand-authored offsets on the card/rule/logo below. Nesting them
+    inside a single full-bleed wrapper opts them out of that auto-layout, so
+    their own CSS positioning (and only that) applies.
+  -->
   <div id="cta04-content" class="clip" data-start="0" data-duration="4.5" data-track-index="1">
     <div id="cta04-logo-wrap" data-start="0.05" data-duration="4.45">
       <img src="assets/teva-bike-logo.png" alt="" />
@@ -145,12 +153,12 @@
       </div>
       <div id="cta04-underline"></div>
     </div>
-  </div>
 
-  <div id="cta04-rule" class="clip" data-start="0.95" data-duration="3.55" data-track-index="0"></div>
+    <div id="cta04-rule" data-start="0.95" data-duration="3.55"></div>
 
-  <div id="cta04-card" class="clip" data-start="1.0" data-duration="3.5" data-track-index="0">
-    <img src="assets/spike33-user-purple.webp" alt="" />
+    <div id="cta04-card" data-start="1.0" data-duration="3.5">
+      <img src="assets/spike33-user-purple.webp" alt="" />
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
