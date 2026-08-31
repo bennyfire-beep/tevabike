@@ -231,7 +231,7 @@ export async function GET(request: NextRequest) {
         method:  'POST',
         headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from:    'TevaBike Admin <admin@tevbike.com>',
+          from:    'TevaBike Admin <admin@mail.tevabike.com>',
           to:      [BENNY_EMAIL],
           subject: `🚵 טבע בייק — דוח שכר מדריכים ${monthLabel(month)}`,
           html:    buildHtml(report, month, totalHours, totalSalary),
