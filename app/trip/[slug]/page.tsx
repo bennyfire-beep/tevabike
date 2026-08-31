@@ -255,7 +255,7 @@ export default function TripRegistrationPage() {
         {trip.gallery?.length > 0 && (
           <div className="mt-10 -mx-6 sm:mx-0">
             <div className="grid grid-cols-3 gap-1.5">
-              {trip.gallery.slice(0, 3).map((src, i) => (
+              {trip.gallery.slice(0, 6).map((src, i) => (
                 <div
                   key={i}
                   className="aspect-square overflow-hidden bg-panel"
