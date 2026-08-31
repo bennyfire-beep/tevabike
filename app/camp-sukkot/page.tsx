@@ -123,6 +123,9 @@ export default function SukkotCampPage() {
           מיועד לכיתות ו&apos; ומעלה · 2,450 ₪ למשתתף · מינימום 10 משתתפים לפתיחת המחנה.<br />
           רוכבים שאינם חברי טבע בייק — נדרש אישור בני או טל לפני ההרשמה.
         </p>
+        <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.9, margin: '0 0 24px' }}>
+          כניסה לבריכה תלויה במזג האוויר — במידה והבריכה תהיה פתוחה, היא תתקיים במשמר העמק.
+        </p>
 
         <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 12px' }}>לוז המחנה</h2>
         <img
