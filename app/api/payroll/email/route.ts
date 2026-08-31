@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
     method: 'POST',
     headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: 'TevaBike Admin <admin@tevbike.com>',
+    from: 'TevaBike Admin <admin@mail.tevabike.com>',
       to: RECIPIENTS,
       subject: `🚵 טבע בייק — דוח שכר מדריכים ${p.monthLabel}`,
       html: buildHtml(p),
