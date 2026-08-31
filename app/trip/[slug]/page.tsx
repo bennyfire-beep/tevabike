@@ -219,7 +219,7 @@ export default function TripRegistrationPage() {
         )}
 
         <p className="eyebrow">{trip.destination}</p>
-        <h1 className="font-display text-5xl sm:text-6xl leading-none mb-4">
+        <h1 className="font-display text-6xl sm:text-7xl leading-none mb-4">
           {trip.title}
         </h1>
         {trip.subtitle && (
