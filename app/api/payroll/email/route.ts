@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 // Email the monthly payroll report (per-instructor totals + session breakdown).
 //
 // Uses Resend, the same email service the monthly salary cron already uses
-// (RESEND_API_KEY, from admin@tevbike.com). If the key isn't configured (e.g.
+// (RESEND_API_KEY, from admin@mail.tevabike.com). If the key isn't configured (e.g.
 // local dev), we return { ok:false, reason:'no_email_service' } so the client
 // can fall back to a mailto: link instead.
 
