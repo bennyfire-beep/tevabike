@@ -163,7 +163,7 @@ export default function TripRegistrationPage() {
   if (loading)
     return (
       <Shell>
-        <p className="text-stone-400">טוען…</p>
+        <p className="text-stone-400 text-lg">טוען…</p>
       </Shell>
     )
 
@@ -171,7 +171,7 @@ export default function TripRegistrationPage() {
     return (
       <Shell>
         <h1 className="font-display text-3xl mb-3">הקישור לא תקין</h1>
-        <p className="text-stone-400 leading-relaxed">
+        <p className="text-stone-400 text-lg leading-relaxed">
           הדף הזה פתוח רק למי שקיבל קישור אישי. אם קיבלתם קישור ואתם רואים את
           ההודעה הזו, כתבו לבני ונשלח קישור חדש.
         </p>
@@ -183,10 +183,10 @@ export default function TripRegistrationPage() {
       <Shell>
         <div className="border-r-2 border-brand pr-5">
           <h1 className="font-display text-4xl mb-4">נרשמת. </h1>
-          <p className="text-lg text-stone-300 leading-relaxed mb-6">
+          <p className="text-xl text-stone-300 leading-relaxed mb-6">
             {form.name_he}, הפרטים שלך התקבלו.
           </p>
-          <p className="text-stone-400 leading-relaxed">
+          <p className="text-stone-400 text-lg leading-relaxed">
             אשלח לך פרטי העברה למקדמה של ₪{trip.deposit_ils} בוואטסאפ. המקום
             נשמר ברגע שהמקדמה מתקבלת.
           </p>
@@ -223,7 +223,7 @@ export default function TripRegistrationPage() {
           {trip.title}
         </h1>
         {trip.subtitle && (
-          <p className="text-stone-400 text-lg">{trip.subtitle}</p>
+          <p className="text-stone-400 text-xl">{trip.subtitle}</p>
         )}
 
         <dl className="mt-10 grid grid-cols-3 border-t border-line">
@@ -247,7 +247,7 @@ export default function TripRegistrationPage() {
             </li>
           ))}
         </ul>
-        <p className="mt-6 text-sm text-stone-400 leading-relaxed">
+        <p className="mt-6 text-base text-stone-400 leading-relaxed">
           <strong className="text-stone-200">לא כולל:</strong> טיסות, אוכל (יש
           מטבח מאובזר בשאלה), ביטוח נסיעות, השכרת אופניים.
         </p>
@@ -270,7 +270,7 @@ export default function TripRegistrationPage() {
                 </div>
               ))}
             </div>
-            <p className="px-6 sm:px-0 mt-3 text-xs text-stone-500">
+            <p className="px-6 sm:px-0 mt-3 text-sm text-stone-500">
               מתוך השאלה שהזמנו
             </p>
           </div>
@@ -310,7 +310,7 @@ export default function TripRegistrationPage() {
                   לרוכב
                 </p>
                 {!atLowerTier && (
-                  <p className="text-sm text-stone-400 mt-3 leading-relaxed">
+                  <p className="text-base text-stone-400 mt-3 leading-relaxed">
                     {toGo === 1 ? 'עוד נרשם אחד' : `עוד ${toGo} נרשמים`} והמחיר
                     יורד ל־€{Number(trip.price_large_group).toLocaleString()}{' '}
                     <strong className="text-stone-200">לכולם</strong>, כולל מי
@@ -318,7 +318,7 @@ export default function TripRegistrationPage() {
                   </p>
                 )}
                 {atLowerTier && (
-                  <p className="text-sm text-stone-400 mt-3 leading-relaxed">
+                  <p className="text-base text-stone-400 mt-3 leading-relaxed">
                     הגענו למחיר המוזל. הוא חל על כל הנרשמים, כולל הראשונים.
                   </p>
                 )}
@@ -327,7 +327,7 @@ export default function TripRegistrationPage() {
           )
         })()}
 
-        <p className="mt-5 text-sm text-stone-400 leading-relaxed">
+        <p className="mt-5 text-base text-stone-400 leading-relaxed">
           השאלה נשכרת במחיר קבוע לשבוע, לא לפי מספר אנשים — לכן ככל שנהיה יותר,
           זול יותר לכל אחד. המחיר הסופי ייקבע במועד התשלום המלא לפי מספר
           המשתתפים בפועל.
@@ -407,25 +407,25 @@ export default function TripRegistrationPage() {
           </div>
 
           {passportWarning && (
-            <p className="text-amber-400 text-sm border-r-2 border-amber-400 pr-4">
+            <p className="text-amber-400 text-base border-r-2 border-amber-400 pr-4">
               {passportWarning}
             </p>
           )}
 
           <div>
-            <label className="block mb-2 text-sm text-stone-300">
+            <label className="block mb-2 text-base text-stone-300">
               צילום הדרכון
             </label>
-            <p className="text-xs text-stone-500 mb-3">
+            <p className="text-sm text-stone-500 mb-3">
               עמוד הפרטים בלבד. נשמר מוצפן ומשמש רק להזמנת הטיסה.
             </p>
             <input
               type="file"
               accept="image/*,application/pdf"
               onChange={(e) => setPassportFile(e.target.files?.[0] ?? null)}
-              className="block w-full text-sm text-stone-400
+              className="block w-full text-base text-stone-400
                 file:ml-4 file:py-2.5 file:px-5 file:border file:border-line
-                file:bg-transparent file:text-brand file:text-sm
+                file:bg-transparent file:text-brand file:text-base
                 hover:file:border-brand file:cursor-pointer cursor-pointer"
             />
           </div>
@@ -433,7 +433,7 @@ export default function TripRegistrationPage() {
           <Divider>ציוד</Divider>
 
           <div>
-            <label className="block mb-3 text-sm text-stone-300">
+            <label className="block mb-3 text-base text-stone-300">
               מידת חולצה <span className="text-brand">*</span>
             </label>
             <Choices
@@ -459,7 +459,7 @@ export default function TripRegistrationPage() {
                   onChange={(v) => set('rental_height_cm', v)}
                 />
                 <div>
-                  <label className="block mb-3 text-sm text-stone-300">
+                  <label className="block mb-3 text-base text-stone-300">
                     מידת אופניים <span className="text-brand">*</span>
                   </label>
                   <Choices
@@ -475,7 +475,7 @@ export default function TripRegistrationPage() {
 
           {trip.rental_shop_name && (
             <div className="bg-panel border border-line p-6">
-              <p className="text-sm text-stone-300 leading-relaxed">
+              <p className="text-base text-stone-300 leading-relaxed">
                 אנחנו עובדים עם{' '}
                 <strong className="text-stone-100">
                   {trip.rental_shop_name}
@@ -485,17 +485,17 @@ export default function TripRegistrationPage() {
 
               {trip.rental_coupon && (
                 <div className="mt-5 border border-brand p-4 text-center">
-                  <p className="text-[10px] tracking-[.16em] text-stone-400 mb-2">
+                  <p className="text-xs tracking-[.16em] text-stone-400 mb-2">
                     קוד ההנחה שלכם
                   </p>
-                  <p className="font-mono text-brand tracking-[.2em] text-xl">
+                  <p className="font-mono text-brand tracking-[.2em] text-2xl">
                     {trip.rental_coupon}
                   </p>
                 </div>
               )}
 
               {trip.rental_note && (
-                <p className="text-sm text-stone-400 mt-5 leading-relaxed">
+                <p className="text-base text-stone-400 mt-5 leading-relaxed">
                   {trip.rental_note}
                 </p>
               )}
@@ -506,7 +506,7 @@ export default function TripRegistrationPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-block mt-5 border border-brand text-brand
-                    px-6 py-3 text-sm transition-colors hover:bg-brand hover:text-ink
+                    px-6 py-3 text-base transition-colors hover:bg-brand hover:text-ink
                     focus-visible:outline focus-visible:outline-2
                     focus-visible:outline-offset-2 focus-visible:outline-brand"
                 >
@@ -514,7 +514,7 @@ export default function TripRegistrationPage() {
                 </a>
               )}
 
-              <p className="text-xs text-stone-500 mt-5 leading-relaxed">
+              <p className="text-sm text-stone-500 mt-5 leading-relaxed">
                 השכרת האופניים אינה חלק מהחבילה. ההתקשרות והתשלום הם בינך לבין
                 החנות.
               </p>
@@ -524,13 +524,13 @@ export default function TripRegistrationPage() {
           <Divider>ביטוח</Divider>
 
           <div className="bg-panel border border-line p-5">
-            <p className="text-sm text-stone-300 leading-relaxed">
+            <p className="text-base text-stone-300 leading-relaxed">
               <strong className="text-stone-100">ביטוח הוא חובה.</strong> רכיבת
               הרים דורשת פוליסה לספורט אתגרי הכוללת חילוץ אווירי, הטסה רפואית,
               אשפוז וניתוחים. רכישת הביטוח באחריותך.
             </p>
             {trip.insurance_agent && (
-              <p className="text-sm text-stone-400 mt-4">
+              <p className="text-base text-stone-400 mt-4">
                 סוכן הביטוח שלנו: {trip.insurance_agent} ·{' '}
                 <a
                   href={`tel:${trip.insurance_phone}`}
@@ -568,7 +568,7 @@ export default function TripRegistrationPage() {
 
       {/* terms */}
       <Section title="תנאי ביטול">
-        <div className="text-sm text-stone-400 leading-relaxed space-y-4 max-h-72 overflow-y-auto border border-line p-5 bg-panel">
+        <div className="text-base text-stone-400 leading-relaxed space-y-4 max-h-72 overflow-y-auto border border-line p-5 bg-panel">
           <p>
             דמי ביטול ייכנסו לתוקף עם קבלת הודעת ביטול בכתב מאת הלקוח למייל
             bennyfire@gmail.com. באחריות הלקוח לוודא שההודעה הגיעה ליעדה ולקבל
@@ -630,14 +630,14 @@ export default function TripRegistrationPage() {
       {/* submit */}
       <div className="mt-14 pt-10 border-t border-line">
         {error && (
-          <p className="mb-5 text-amber-400 text-sm border-r-2 border-amber-400 pr-4">
+          <p className="mb-5 text-amber-400 text-base border-r-2 border-amber-400 pr-4">
             {error}
           </p>
         )}
         <button
           onClick={submit}
           disabled={sending}
-          className="w-full sm:w-auto bg-brand text-ink font-medium tracking-wide
+          className="w-full sm:w-auto bg-brand text-ink font-medium tracking-wide text-lg
             px-12 py-4 border border-brand transition-colors
             hover:bg-transparent hover:text-brand
             focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
@@ -646,7 +646,7 @@ export default function TripRegistrationPage() {
         >
           {sending ? 'שולח…' : 'שולח/ת הרשמה'}
         </button>
-        <p className="mt-5 text-sm text-stone-500 leading-relaxed">
+        <p className="mt-5 text-base text-stone-500 leading-relaxed">
           אחרי השליחה אשלח פרטי העברה למקדמה של ₪{trip.deposit_ils}. המקום נשמר
           ברגע שהמקדמה מתקבלת.
         </p>
@@ -681,7 +681,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           font-weight:400;letter-spacing:-.01em;
         }
         .eyebrow{
-          font-size:11px;font-weight:600;letter-spacing:.22em;
+          font-size:13px;font-weight:600;letter-spacing:.22em;
           color:var(--brand);margin-bottom:14px;
         }
         input,textarea{color-scheme:dark}
@@ -712,7 +712,7 @@ function Section({
 }) {
   return (
     <section className="mb-16">
-      <h2 className="font-display text-2xl mb-7">{title}</h2>
+      <h2 className="font-display text-3xl mb-7">{title}</h2>
       {children}
     </section>
   )
@@ -727,10 +727,10 @@ function Stat({
 }) {
   return (
     <div className="py-4 pl-4 border-l border-line last:border-l-0">
-      <dt className="text-[10px] tracking-[.13em] text-stone-500 mb-1.5">
+      <dt className="text-xs tracking-[.13em] text-stone-500 mb-1.5">
         {label}
       </dt>
-      <dd className="text-sm text-stone-100 leading-snug">{children}</dd>
+      <dd className="text-base text-stone-100 leading-snug">{children}</dd>
     </div>
   )
 }
@@ -747,13 +747,13 @@ function PriceTier({
   return (
     <div className={`p-7 relative ${active ? 'bg-panel' : 'bg-ink'}`}>
       {active && (
-        <span className="absolute top-4 left-4 text-[9px] tracking-[.16em] text-brand border border-brand px-2 py-0.5">
+        <span className="absolute top-4 left-4 text-[10px] tracking-[.16em] text-brand border border-brand px-2 py-0.5">
           המחיר כרגע
         </span>
       )}
-      <p className="text-[10px] tracking-[.13em] text-stone-500 mb-3">{label}</p>
+      <p className="text-xs tracking-[.13em] text-stone-500 mb-3">{label}</p>
       <p
-        className={`font-display text-4xl ${
+        className={`font-display text-5xl ${
           active ? 'text-brand' : 'text-stone-600'
         }`}
       >
@@ -766,7 +766,7 @@ function PriceTier({
 function Divider({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-4 pt-4">
-      <span className="text-[10px] tracking-[.22em] text-brand shrink-0">
+      <span className="text-xs tracking-[.22em] text-brand shrink-0">
         {children}
       </span>
       <span className="h-px flex-1 bg-line" />
@@ -798,10 +798,10 @@ function Field({
     focus:border-brand transition-colors`
   return (
     <div>
-      <label className="block mb-1.5 text-sm text-stone-300">
+      <label className="block mb-1.5 text-base text-stone-300">
         {label} {required && <span className="text-brand">*</span>}
       </label>
-      {hint && <p className="text-xs text-stone-500 mb-2">{hint}</p>}
+      {hint && <p className="text-sm text-stone-500 mb-2">{hint}</p>}
       {textarea ? (
         <textarea
           rows={3}
@@ -839,7 +839,7 @@ function Choices({
           key={o}
           type="button"
           onClick={() => onChange(o)}
-          className={`px-5 py-2.5 border text-sm transition-colors
+          className={`px-5 py-2.5 border text-base transition-colors
             focus-visible:outline focus-visible:outline-2
             focus-visible:outline-offset-2 focus-visible:outline-brand
             ${
@@ -904,7 +904,7 @@ function Toggle({
           </svg>
         )}
       </span>
-      <span className="text-sm text-stone-200 leading-snug">{label}</span>
+      <span className="text-base text-stone-200 leading-snug">{label}</span>
     </button>
   )
 }
