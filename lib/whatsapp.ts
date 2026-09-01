@@ -9,6 +9,20 @@
 
 export const WHATSAPP_GRAPH_VERSION = 'v26.0'
 
+/**
+ * Digits only, country code 972, no leading 0 — the format Meta's Cloud API
+ * uses everywhere (conversation.wa_id, the `to` field on a send/template
+ * call, wa.me links). The one normalizer every WhatsApp entry point should
+ * share, so a phone typed as "052-570-8084" and one already stored as
+ * "972525708084" always resolve to the same wa_id.
+ */
+export function normalizeToWaId(raw: string): string {
+  const d = (raw || '').replace(/\D/g, '')
+  if (d.startsWith('972')) return d
+  if (d.startsWith('0')) return `972${d.slice(1)}`
+  return `972${d}`
+}
+
 /** Meta only lets a business reply for free within 24h of the customer's last message. */
 export const REPLY_WINDOW_MS = 24 * 60 * 60 * 1000
 

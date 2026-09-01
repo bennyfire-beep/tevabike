@@ -59,4 +59,5 @@ export const SOURCE_LABEL: Record<string, string> = {
   google:    'גוגל — ממומן',
   whatsapp:  'וואטסאפ',
   staff:     'הוזן ע״י צוות',
+  manual:    'הוזן ידנית',
 }

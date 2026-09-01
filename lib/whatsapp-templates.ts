@@ -1,4 +1,4 @@
-import { WHATSAPP_GRAPH_VERSION } from '@/lib/whatsapp'
+import { WHATSAPP_GRAPH_VERSION, normalizeToWaId } from '@/lib/whatsapp'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pre-approved WhatsApp template sends — as opposed to the free-form replies
@@ -17,14 +17,6 @@ import { WHATSAPP_GRAPH_VERSION } from '@/lib/whatsapp'
 const TEMPLATE_NAME = process.env.WHATSAPP_REGISTRATION_TEMPLATE_NAME
 
 export type TemplateSendResult = { skipped: true } | { skipped?: false; ok: boolean }
-
-/** Digits only, country code 972, no leading 0 — the format Meta's `to` field expects (see conversation.wa_id in app/api/whatsapp/send). */
-function normalizeIlPhone(raw: string): string {
-  const d = (raw || '').replace(/\D/g, '')
-  if (d.startsWith('972')) return d
-  if (d.startsWith('0')) return `972${d.slice(1)}`
-  return `972${d}`
-}
 
 /**
  * Sends the pre-approved `registration_confirmation` template to `phone`:
@@ -62,7 +54,7 @@ export async function sendRegistrationConfirmation(
       },
       body: JSON.stringify({
         messaging_product: 'whatsapp',
-        to: normalizeIlPhone(phone),
+        to: normalizeToWaId(phone),
         type: 'template',
         template: {
           name: TEMPLATE_NAME,
