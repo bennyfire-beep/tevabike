@@ -51,6 +51,10 @@ const admin = () =>
     { auth: { persistSession: false } }
   )
 
+// most trips are priced in EUR (adult chalet trips); youth trips are priced
+// in ILS — trip.price_currency picks the right symbol everywhere below
+const currencySymbol = (trip: any) => (trip.price_currency === 'ILS' ? '₪' : '€')
+
 const heDate = (iso: string) =>
   new Date(iso + 'T00:00:00').toLocaleDateString('he-IL', {
     day: 'numeric',
@@ -173,7 +177,7 @@ export async function GET(req: NextRequest) {
             trip.title,
             `אבן דרך: ${milestone.days} יום לפני היציאה — ${LABELS[milestone.kind]}`,
             `נרשמים: ${headcount}`,
-            `מחיר בתוקף: €${price}`,
+            `מחיר בתוקף: ${currencySymbol(trip)}${price}`,
             '',
             `נשלחו: ${sent}`,
             failed ? `נכשלו: ${failed}` : '',
@@ -210,7 +214,7 @@ function balanceBlurb(trip: any, headcount: number, price: number) {
     ? heDate(trip.balance_due_date)
     : `${trip.balance_days_before} יום לפני היציאה`
   return (
-    `מחיר סופי: €${price.toLocaleString()} (לפי ${headcount} נרשמים)\n` +
+    `מחיר סופי: ${currencySymbol(trip)}${price.toLocaleString()} (לפי ${headcount} נרשמים)\n` +
     `מהסכום הזה כבר שולמה מקדמה של ₪${trip.deposit_ils} בהרשמה.\n` +
     `היתרה תחושב לפי שער העברות והמחאות ביום התשלום, כפי שמופיע בתנאים.\n` +
     `יש להשלים את התשלום עד ${due}.\n`
@@ -325,11 +329,11 @@ function buildEmail(
       subject: `${trip.title} — צריך את פרטי הטיסה שלך`,
       body:
         `היי ${name},\n\n` +
-        `נשאר חודש. אני מזמין עכשיו את ההסעות משדה התעופה בז׳נבה, ` +
+        `נשאר חודש. אני מזמין עכשיו את ההסעות, ` +
         `ובשביל זה אני צריך לדעת מתי כל אחד נוחת ומתי טס חזרה.\n\n` +
         `תשיב למייל הזה עם צילום של כרטיס הטיסה, או פשוט תכתוב לי:\n\n` +
-        `- מספר טיסת ההלוך ושעת הנחיתה בז׳נבה\n` +
-        `- מספר טיסת החזור ושעת ההמראה מז׳נבה\n\n` +
+        `- מספר טיסת ההלוך ושעת הנחיתה ב${trip.arrival_airport}\n` +
+        `- מספר טיסת החזור ושעת ההמראה מ${trip.departure_airport}\n\n` +
         `חשוב שזה יגיע בימים הקרובים. ההסעה מסודרת לפי שעות הנחיתה בפועל, ` +
         `ואם פרט אחד חסר — כל הקבוצה מחכה.\n\n` +
         `בערך עשרה ימים לפני היציאה אשלח לכולם את הפרטים הסופיים: ` +
