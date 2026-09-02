@@ -119,7 +119,7 @@ export default function MorzineYouthPage() {
         </h1>
 
         <p style={{ color: TEXT, fontSize: 15, lineHeight: 1.8, margin: '0 0 8px' }}>
-          יוצאים לחוויה של פעם בחיים במורזין 2026! רוכב/ת יקר/ה, אנו שמחים שהחלטת לצאת
+          יוצאים לחוויה של פעם בחיים במורזין 2027! רוכב/ת יקר/ה, אנו שמחים שהחלטת לצאת
           לחופשת אופניים בלתי נשכחת בירת האופניים של אירופה.
         </p>
         <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.9, margin: '0 0 24px' }}>
@@ -325,7 +325,7 @@ export default function MorzineYouthPage() {
         display: 'flex', alignItems: 'center', gap: 16, justifyContent: 'center', flexWrap: 'wrap',
       }}>
         <div style={{ minWidth: 150 }}>
-          <div style={{ color: MUTED, fontSize: 12 }}>חופשת רכיבה במורזין 2026</div>
+          <div style={{ color: MUTED, fontSize: 12 }}>חופשת רכיבה במורזין 2027</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: PINK }}>{PRICE.toLocaleString()} ₪</div>
         </div>
         <button
