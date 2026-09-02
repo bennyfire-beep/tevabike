@@ -152,6 +152,7 @@ export default function Home() {
             <a href="/camp-sukkot" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מחנה סוכות</a>
             <a href="/workshop-airbag" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>סדנת איר באג</a>
             <a href="#why" className="nav-link">למה אנחנו</a>
+            <a href="/shop" className="nav-link">חנות</a>
             <a href="/register" className="btn-primary" style={{ padding: '8px 22px', fontSize: 14, borderRadius: 8 }}>
               הרשמה
             </a>
@@ -555,6 +556,7 @@ export default function Home() {
                 { label: 'חוגים',    href: '#classes'  },
                 { label: 'הרשמה',   href: '/register' },
                 { label: 'למה אנחנו', href: '#why'    },
+                { label: 'חנות',     href: '/shop'    },
                 { label: 'ניהול',    href: '/admin'    },
               ].map(l => (
                 <div key={l.label} style={{ marginBottom: 10 }}>
