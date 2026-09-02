@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 // הרשמה לחופשת רכיבה לנוער במורזין 2027
 //
 // שומר את ההרשמה בטבלה המשותפת trip_registrations, תחת ה-trip
-// שסלאגו morzine-2026-youth — כך שהיא נכנסת אוטומטית למערכת
+// שסלאגו morzine-2027-youth — כך שהיא נכנסת אוטומטית למערכת
 // התזכורות (app/api/cron/trip-reminders/route.ts) בדיוק כמו
 // נרשמי מורזין מבוגרים, בלי קוד נוסף.
 // ============================================================
@@ -14,7 +14,7 @@ import { createClient } from '@supabase/supabase-js'
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
-const SLUG = 'morzine-2026-youth'
+const SLUG = 'morzine-2027-youth'
 const ADMIN_EMAILS = ['bennyfire@gmail.com', 'talmatoki@gmail.com']
 const FROM = 'טבע בייק <info@mail.tevabike.com>'
 
