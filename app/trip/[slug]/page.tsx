@@ -40,6 +40,8 @@ type Trip = {
   gallery: string[]
   show_chalet_name: boolean
   rental_note: string | null
+  floorplans: string[] | null
+  floorplan_title: string | null
 }
 
 const SHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
@@ -65,6 +67,7 @@ export default function TripRegistrationPage() {
   const [sending, setSending] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
+  const [lightbox, setLightbox] = useState<string | null>(null)
 
   const [form, setForm] = useState({
     name_he: '',
@@ -256,9 +259,13 @@ export default function TripRegistrationPage() {
           <div className="mt-10 -mx-6 sm:mx-0">
             <div className="grid grid-cols-3 gap-1.5">
               {trip.gallery.slice(0, 6).map((src, i) => (
-                <div
+                <button
                   key={i}
-                  className="aspect-square overflow-hidden bg-panel"
+                  type="button"
+                  onClick={() => setLightbox(src)}
+                  className="aspect-square overflow-hidden bg-panel cursor-zoom-in
+                    focus-visible:outline focus-visible:outline-2
+                    focus-visible:outline-offset-2 focus-visible:outline-brand"
                 >
                   <img
                     src={src}
@@ -267,12 +274,36 @@ export default function TripRegistrationPage() {
                     className="w-full h-full object-cover"
                     style={{ filter: 'saturate(.85)' }}
                   />
-                </div>
+                </button>
               ))}
             </div>
             <p className="px-6 sm:px-0 mt-3 text-sm text-stone-500">
               מתוך השאלה שהזמנו
             </p>
+          </div>
+        )}
+
+        {trip.floorplans && trip.floorplans.length > 0 && (
+          <div className="mt-10 -mx-6 sm:mx-0">
+            {trip.floorplan_title && (
+              <h3 className="px-6 sm:px-0 font-display text-2xl mb-5">
+                {trip.floorplan_title}
+              </h3>
+            )}
+            <div className="px-6 sm:px-0 space-y-4">
+              {trip.floorplans.map((src, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setLightbox(src)}
+                  className="block w-full overflow-hidden bg-stone-100 border border-line cursor-zoom-in
+                    focus-visible:outline focus-visible:outline-2
+                    focus-visible:outline-offset-2 focus-visible:outline-brand"
+                >
+                  <img src={src} alt="" className="w-full h-auto" />
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </Section>
@@ -651,6 +682,39 @@ export default function TripRegistrationPage() {
           ברגע שהמקדמה מתקבלת.
         </p>
       </div>
+
+      {lightbox && (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="סגירת תצוגה מוגדלת"
+          onClick={() => setLightbox(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setLightbox(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            background: 'rgba(14,28,23,.92)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px',
+            cursor: 'zoom-out',
+          }}
+        >
+          <img
+            src={lightbox}
+            alt=""
+            referrerPolicy="no-referrer"
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'contain',
+              background: '#fff',
+            }}
+          />
+        </div>
+      )}
     </Shell>
   )
 }

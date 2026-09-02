@@ -43,5 +43,6 @@ next-env.d.ts
 .vercel
 tevabike/
 *.jpg
+!public/**/*.jpg
 *.pptx
 kinetic-sediment*
