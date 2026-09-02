@@ -15,8 +15,15 @@ const BRANCHES = [
   { value: 'ביריה', label: 'ביריה', day: 'שני 15:45–17:15' },
   { value: 'מטה אשר', label: 'מטה אשר', day: 'שלישי', external: true },
   { value: 'פרוד-אמירים', label: 'פרוד-אמירים', day: 'רביעי 15:45–17:00' },
+  { value: 'צורית-גילון', label: 'צורית-גילון', day: 'שלישי 14:45–15:45' },
   { value: 'אחר', label: 'אחר', day: '' },
 ]
+
+// חוג בית-ספרי חד-מסלולי — יום, מחיר ומדריך קבועים, אין בחירת מסלול/יום.
+const GILON_BRANCH = 'צורית-גילון'
+const GILON_PRICE = 270
+const GILON_DAY_INDEX = '2' // שלישי (0=ראשון..6=שבת), תואם ל-groups.days_of_week/DAY_LABEL בשרת
+const GILON_INSTRUCTOR = 'ארז דגן'
 
 // מבוגרים — כרגע פעיל רק משגב (ביריה, מטה אשר ופרוד-אמירים הן חוגי ילדים/נוער
 // בלבד ולא רלוונטיות למבוגרים). לוח הזמנים המלא מוצג בנפרד, ב-MISGAV_ADULT_SESSIONS.
@@ -112,6 +119,7 @@ export default function RegisterPage() {
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
   const isKids = type === 'kids'
   const isMatteAsher = form.branch === 'מטה אשר'
+  const isGilon = form.branch === GILON_BRANCH
   const promo = promoActive()
 
   async function submit() {
@@ -128,11 +136,11 @@ export default function RegisterPage() {
       )
       return
     }
-    if (isKids && !form.track) {
+    if (isKids && !isGilon && !form.track) {
       setError('בחרו מסלול הרשמה')
       return
     }
-    if (isKids && form.track === 'once_weekly' && !form.chosen_day) {
+    if (isKids && !isGilon && form.track === 'once_weekly' && !form.chosen_day) {
       setError('בחרו יום קבוע — ראשון או חמישי')
       return
     }
@@ -162,7 +170,7 @@ export default function RegisterPage() {
           // A twice-weekly student attends both days, so no single chosen day.
           chosen_day: form.track === 'twice_weekly' ? null : form.chosen_day || null,
           class_type: misgavSession ? misgavSession.type : form.class_type,
-          amount_monthly: TRACKS.find((t) => t.value === form.track)?.price ?? null,
+          amount_monthly: isGilon ? GILON_PRICE : (TRACKS.find((t) => t.value === form.track)?.price ?? null),
           registration_type: type,
           promo_code: promo ? 'BOOST5' : null,
           whatsapp_optin: whatsappOptin,
@@ -262,6 +270,17 @@ export default function RegisterPage() {
                         set('branch', b.value)
                         // המסלול הישן שייך רק ל"משגב" אצל מבוגרים — סניף אחר מבטל אותו.
                         if (!isKids && b.value !== 'משגב') set('chosen_day', '')
+                        // צורית-גילון: מסלול, יום ומדריך קבועים — אין בחירה, נקבע אוטומטית.
+                        if (isKids && b.value === GILON_BRANCH) {
+                          set('track', 'once_weekly')
+                          set('chosen_day', GILON_DAY_INDEX)
+                          set('class_type', GILON_INSTRUCTOR)
+                        } else if (isKids && form.branch === GILON_BRANCH) {
+                          // יציאה מגילון חזרה לסניף אחר — מנקים כדי לא לגרור ערכים לא רלוונטיים.
+                          set('track', '')
+                          set('chosen_day', '')
+                          set('class_type', '')
+                        }
                       }}
                       className={`py-3 px-2 rounded-lg border text-sm transition ${
                         form.branch === b.value
@@ -326,7 +345,30 @@ export default function RegisterPage() {
               </a>
             ) : (
               <>
-                {isKids && (
+                {isKids && isGilon && (
+                  <Section title="פרטי החוג">
+                    <div className="rounded-lg border border-stone-700 bg-stone-950 p-4 space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-stone-400">יום ושעה</span>
+                        <span className="font-semibold">שלישי, 14:45–15:45</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-stone-400">מדריך</span>
+                        <span className="font-semibold">{GILON_INSTRUCTOR}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-stone-400">מסלול</span>
+                        <span className="font-semibold">פעם בשבוע</span>
+                      </div>
+                      <div className="flex justify-between border-t border-stone-800 pt-2">
+                        <span className="text-stone-400">מחיר</span>
+                        <span className="font-bold text-lime-400">₪{GILON_PRICE} לחודש</span>
+                      </div>
+                    </div>
+                  </Section>
+                )}
+
+                {isKids && !isGilon && (
                   <Section title="מסלול הרשמה">
                     <div className="space-y-2">
                       {TRACKS.map((p) => {
@@ -402,7 +444,7 @@ export default function RegisterPage() {
 
                 {/* אצל מבוגר שנרשם למשגב, סוג האימון כבר נקבע מהבחירה למעלה —
                     שדה "ניסיון קודם" חופשי היה רק מבלבל לצד זה. */}
-                {!(!isKids && form.branch === 'משגב') && (
+                {!(!isKids && form.branch === 'משגב') && !isGilon && (
                   <Section title="ניסיון">
                     <Field
                       label="ניסיון קודם ברכיבה"
