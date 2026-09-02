@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { analyzeFileWithGemini } from '@/lib/gemini'
+import { buildICS } from '@/lib/ics'
 
 // ============================================================
 // נתיב: app/api/trip/register/route.ts
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     // ---- verify the trip and the access code ----
     const { data: trip } = await db
       .from('trips')
-      .select('id, slug, title, access_code, is_open, deposit_ils, trip_start, trip_end, balance_days_before, bank_details, bit_phone, payment_note')
+      .select('id, slug, title, access_code, is_open, deposit_ils, trip_start, trip_end, balance_days_before, bank_details, bit_phone, payment_note, workshop_date, workshop_start, workshop_end, workshop_location, workshop_note')
       .eq('slug', slug)
       .maybeSingle()
 
@@ -176,6 +177,21 @@ export async function POST(req: NextRequest) {
     const riderEmail = s('email')
     if (riderEmail) {
       const firstName = s('name_he').split(' ')[0]
+
+      // workshop ("מפגש היכרות") — only if a date was actually set for it
+      const hasWorkshop = Boolean(trip.workshop_date)
+      const workshopIcs =
+        hasWorkshop && trip.workshop_start && trip.workshop_end
+          ? buildICS({
+              title: `מפגש היכרות — ${trip.title}`,
+              date: trip.workshop_date,
+              startTime: trip.workshop_start,
+              endTime: trip.workshop_end,
+              location: trip.workshop_location,
+              timezone: 'Asia/Jerusalem',
+            })
+          : null
+
       try {
         await resend.emails.send({
           from: 'Teva Bike <info@mail.tevabike.com>',
@@ -209,10 +225,20 @@ export async function POST(req: NextRequest) {
             `יתרת התשלום עד ${trip.balance_days_before} יום לפני היציאה.`,
             `אעדכן אותך במחיר הסופי לפי מספר המשתתפים.`,
             ``,
+            ...(hasWorkshop
+              ? [
+                  `--------------------------------------------`,
+                  `מפגש היכרות`,
+                  `--------------------------------------------`,
+                  trip.workshop_note || '',
+                  workshopIcs ? `מצורף ליומן (קובץ .ics).` : '',
+                  ``,
+                ]
+              : []),
             `מה שיגיע ממני בהמשך:`,
             `- נספח ציוד ואריזת אופניים`,
             `- תזכורת לביטוח נסיעות`,
-            `- הצעה לסדנת הכנה לפני הנסיעה`,
+            ...(hasWorkshop ? [] : [`- הצעה לסדנת הכנה לפני הנסיעה`]),
             ``,
             `שאלות — אני זמין.`,
             ``,
@@ -222,6 +248,15 @@ export async function POST(req: NextRequest) {
           ]
             .filter((l) => l !== '')
             .join('\n'),
+          attachments: workshopIcs
+            ? [
+                {
+                  filename: 'mifgash-hikarut.ics',
+                  content: Buffer.from(workshopIcs, 'utf-8'),
+                  contentType: 'text/calendar',
+                },
+              ]
+            : undefined,
         })
       } catch (mailErr) {
         console.error('rider confirmation failed:', mailErr)

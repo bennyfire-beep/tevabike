@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { Resend } from 'resend'
+import { Resend, type Attachment } from 'resend'
+import { buildICS } from '@/lib/ics'
 
 // ============================================================
 // נתיב: app/api/cron/trip-reminders/route.ts
 // רץ פעם ביום ב-06:00. שולח תזכורות אוטומטיות לנרשמים.
 //
-//  110 יום לפני  →  תשלום יתרה (לפי מספר הנרשמים בפועל)
 //  105 יום לפני  →  נספח ציוד ואריזת אופניים
+//   96 יום לפני  →  תזכורת מפגש היכרות (10 ימים לפניו) + יתרת תשלום
 //   90 יום לפני  →  ביטוח נסיעות
-//   60 יום לפני  →  סדנת הכנה
+//   77 יום לפני  →  יתרת תשלום סופית
 //   30 יום לפני  →  בקשת פרטי טיסה (להזמנת הסעות)
 //   10 יום לפני  →  פרטים אחרונים והסעות
+//
+// workshop_reminder נשלח רק אם workshop_date מוגדר (ואז חוזר לצרף
+// את אותו .ics), ו-balance_final רק אם balance_final_note מוגדר.
 //
 // כל מייל נשלח פעם אחת בלבד לכל נרשם
 // (unique על registration_id + kind בטבלת trip_emails)
@@ -21,10 +25,10 @@ export const runtime = 'nodejs'
 export const maxDuration = 60
 
 const MILESTONES = [
-  { days: 110, kind: 'payment' },
   { days: 105, kind: 'equipment' },
+  { days: 96, kind: 'workshop_reminder' },
   { days: 90, kind: 'insurance' },
-  { days: 60, kind: 'workshop' },
+  { days: 77, kind: 'balance_final' },
   { days: 30, kind: 'flights' },
   { days: 10, kind: 'final' },
 ] as const
@@ -32,10 +36,10 @@ const MILESTONES = [
 type Kind = (typeof MILESTONES)[number]['kind']
 
 const LABELS: Record<Kind, string> = {
-  payment: 'תשלום יתרה',
   equipment: 'נספח ציוד',
+  workshop_reminder: 'תזכורת מפגש היכרות',
   insurance: 'ביטוח נסיעות',
-  workshop: 'סדנת הכנה',
+  balance_final: 'יתרת תשלום סופית',
   flights: 'בקשת פרטי טיסה',
   final: 'פרטים אחרונים',
 }
@@ -82,6 +86,11 @@ export async function GET(req: NextRequest) {
 
     const milestone = MILESTONES.find((m) => m.days === daysOut)
     if (!milestone) continue
+
+    // both new milestones depend on content that may not be filled in —
+    // skip the whole milestone for this trip if it isn't there
+    if (milestone.kind === 'workshop_reminder' && !trip.workshop_date) continue
+    if (milestone.kind === 'balance_final' && !trip.balance_final_note) continue
 
     // live headcount → the price everyone actually pays
     const { data: regs } = await db
@@ -130,6 +139,7 @@ export async function GET(req: NextRequest) {
           replyTo: 'bennyfire@gmail.com',
           subject: mail.subject,
           text: mail.body,
+          attachments: mail.attachments,
         })
         await db.from('trip_emails').insert({
           trip_id: trip.id,
@@ -188,42 +198,62 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ ok: true, sent: totalSent, failed: totalFailed })
 }
 
+// balance section shared by workshop_reminder and balance_final — see the
+// EUR/ILS note in the PR description: price is quoted in EUR, the deposit
+// was paid in ILS, and — exactly like the site's terms and the previous
+// "payment" milestone email — the conversion is deliberately left to the
+// bank/transfer exchange rate on the day of payment rather than computed
+// here, so the two currencies are stated separately instead of subtracted
+// into one figure.
+function balanceBlurb(trip: any, headcount: number, price: number) {
+  const due = trip.balance_due_date
+    ? heDate(trip.balance_due_date)
+    : `${trip.balance_days_before} יום לפני היציאה`
+  return (
+    `מחיר סופי: €${price.toLocaleString()} (לפי ${headcount} נרשמים)\n` +
+    `מהסכום הזה כבר שולמה מקדמה של ₪${trip.deposit_ils} בהרשמה.\n` +
+    `היתרה תחושב לפי שער העברות והמחאות ביום התשלום, כפי שמופיע בתנאים.\n` +
+    `יש להשלים את התשלום עד ${due}.\n`
+  )
+}
+
+function workshopIcs(trip: any): string | null {
+  if (!trip.workshop_date || !trip.workshop_start || !trip.workshop_end)
+    return null
+  return buildICS({
+    title: `מפגש היכרות — ${trip.title}`,
+    date: trip.workshop_date,
+    startTime: trip.workshop_start,
+    endTime: trip.workshop_end,
+    location: trip.workshop_location,
+    timezone: 'Asia/Jerusalem',
+  })
+}
+
 // ------------------------------------------------------------
 // the six emails
 // ------------------------------------------------------------
 function buildEmail(
   kind: Kind,
   ctx: { trip: any; name: string; headcount: number; price: number }
-): { subject: string; body: string } {
+): { subject: string; body: string; attachments?: Attachment[] } {
   const { trip, name, headcount, price } = ctx
   const sign = '\n\nבני\nטבע בייק\n054-570-8084'
 
-  if (kind === 'payment')
+  if (kind === 'balance_final')
     return {
-      subject: `${trip.title} — תשלום יתרה`,
+      subject: `${trip.title} — יתרת התשלום הסופית`,
       body:
         `היי ${name},\n\n` +
-        `נשארו כ-110 ימים ל${trip.title}, וזה הזמן לסגור את התשלום.\n\n` +
-        `נרשמו לטיול ${headcount} רוכבים, ולכן המחיר הסופי שלך הוא ` +
-        `€${price.toLocaleString()}.\n` +
-        `מהסכום הזה יורדת המקדמה של ₪${trip.deposit_ils} ששילמת בהרשמה.\n\n` +
-        `היתרה תחושב לפי שער העברות והמחאות ביום התשלום, כפי שמופיע בתנאים.\n` +
-        `יש להשלים את התשלום עד ${trip.balance_days_before} יום לפני היציאה.\n\n` +
+        `${trip.balance_final_note}\n\n` +
+        `--------------------------------------------\n` +
+        `פרטי התשלום\n` +
+        `--------------------------------------------\n` +
+        balanceBlurb(trip, headcount, price) +
+        '\n' +
         (trip.bank_details
-          ? `להעברה בנקאית:\n${trip.bank_details}\n\n`
-          : `אשלח לך פרטי העברה בהודעה נפרדת.\n\n`) +
-        `--------------------------------------------\n` +
-        `ביטוח נסיעות — לעשות עכשיו\n` +
-        `--------------------------------------------\n` +
-        `מומלץ מאוד לרכוש ביטוח נסיעות כבר עכשיו, ולא לקראת הטיול. ביטוח ` +
-        `שנרכש כ-90 יום מראש מכסה גם ביטול או קיצור של הטיול עקב פציעה או ` +
-        `בעיה רפואית — כיסוי שלא ניתן לקבל אם רוכשים אותו סמוך ליציאה.\n\n` +
-        `חשוב לוודא שהפוליסה כוללת ספורט אתגרי ורכיבת אופני הרים — ביטוח ` +
-        `נסיעות רגיל לא מכסה את זה.\n\n` +
-        (trip.insurance_agent
-          ? `לשאלות ולרכישה: ${trip.insurance_agent} — ${trip.insurance_phone}\n\n`
-          : '') +
-        `החופשה: ${heDate(trip.trip_start)} עד ${heDate(trip.trip_end)}` +
+          ? `להעברה בנקאית:\n${trip.bank_details}\n`
+          : `אשלח לך פרטי העברה בהודעה נפרדת.\n`) +
         sign,
     }
 
@@ -265,26 +295,30 @@ function buildEmail(
         sign,
     }
 
-  if (kind === 'workshop')
+  if (kind === 'workshop_reminder') {
+    const ics = workshopIcs(trip)
     return {
-      subject: `${trip.title} — סדנת הכנה, 60 יום לצאת`,
+      subject: `${trip.title} — תזכורת: מפגש היכרות בעוד 10 ימים`,
       body:
         `היי ${name},\n\n` +
-        `נשארו חודשיים. זה בדיוק הזמן להתחיל להתכונן פיזית וטכנית.\n\n` +
-        `הירידות במורזין ארוכות בהרבה ממה שאנחנו רגילים אליו בארץ — ` +
-        `ירידה אחת יכולה להיות 1,400 מטר ברצף. הידיים והרגליים מרגישות ` +
-        `את זה ביום השני אם לא מגיעים מוכנים.\n\n` +
-        `אנחנו מריצים סדנת הכנה לרכיבת אלפים` +
-        (trip.workshop_price_ils
-          ? `, במחיר מיוחד של ₪${trip.workshop_price_ils} לנרשמי הטיול.\n\n`
-          : `, במחיר מיוחד לנרשמי הטיול.\n\n`) +
-        `בסדנה: עבודה על מיקום גוף בירידות ארוכות, בלימה נכונה שלא שורפת ` +
-        `אצבעות, וקריאת מסלול במהירות.\n\n` +
-        (trip.workshop_url ? `לפרטים והרשמה:\n${trip.workshop_url}\n\n` : '') +
-        `גם אם לא תגיע לסדנה — תתחיל לרכב יותר ולעבוד על אחיזה. ` +
-        `זה ישתלם לך ביום הראשון.` +
+        `${trip.workshop_reminder_note}\n\n` +
+        (ics ? `מצורף שוב ליומן (קובץ .ics).\n\n` : '') +
+        `--------------------------------------------\n` +
+        `יתרת התשלום\n` +
+        `--------------------------------------------\n` +
+        balanceBlurb(trip, headcount, price) +
         sign,
+      attachments: ics
+        ? [
+            {
+              filename: 'mifgash-hikarut.ics',
+              content: Buffer.from(ics, 'utf-8'),
+              contentType: 'text/calendar',
+            },
+          ]
+        : undefined,
     }
+  }
 
   if (kind === 'flights')
     return {
