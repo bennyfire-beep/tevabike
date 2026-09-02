@@ -22,6 +22,7 @@ type Trip = {
   size_large: number
   deposit_ils: number
   is_open: boolean
+  price_currency: 'EUR' | 'ILS'
 }
 
 type Reg = {
@@ -33,16 +34,20 @@ type Reg = {
   birth_date: string
   phone: string
   email: string | null
-  passport_number: string
-  passport_expiry: string
+  passport_number: string | null
+  passport_expiry: string | null
   passport_file: string | null
-  shirt_size: string
+  shirt_size: string | null
   wants_rental: boolean
   rental_size: string | null
   rental_height_cm: number | null
   wants_insurance: boolean
   dietary: string | null
   notes: string | null
+  parent_phone: string | null
+  id_number: string | null
+  health_declared: boolean
+  insurance_committed: boolean
   payment_status: string
   amount_paid_ils: number | null
   outbound_flight: string | null
@@ -88,12 +93,15 @@ const waLink = (phone: string, text: string) => {
 }
 
 // passport must be valid 6 months past the return date
-const passportExpiringSoon = (expiry: string, tripEnd: string) => {
+const passportExpiringSoon = (expiry: string | null, tripEnd: string) => {
+  if (!expiry) return false
   const e = new Date(expiry)
   const need = new Date(tripEnd)
   need.setMonth(need.getMonth() + 6)
   return e < need
 }
+
+const fmtDayOrDash = (iso: string | null) => (iso ? fmtDay(iso) : '—')
 
 const daysUntil = (iso: string) =>
   Math.ceil(
@@ -189,14 +197,20 @@ export default function TripsAdminPage() {
       ? trip.price_large_group
       : trip.price_small_group
     : 0
+  const priceSymbol = trip?.price_currency === 'ILS' ? '₪' : '€'
 
-  const link = trip
-    ? `https://www.tevabike.com/trip/${trip.slug}?k=${trip.access_code ?? ''}`
-    : ''
+  // the youth trip has its own bespoke page rather than the generic
+  // /trip/[slug] registration flow, so it needs no access-code link at all
+  const link =
+    trip?.slug === 'morzine-2027-youth'
+      ? 'https://www.tevabike.com/morzine-2027'
+      : trip
+        ? `https://www.tevabike.com/trip/${trip.slug}?k=${trip.access_code ?? ''}`
+        : ''
 
   // shirt tally
   const shirts = active.reduce<Record<string, number>>((acc, r) => {
-    acc[r.shirt_size] = (acc[r.shirt_size] || 0) + 1
+    if (r.shirt_size) acc[r.shirt_size] = (acc[r.shirt_size] || 0) + 1
     return acc
   }, {})
 
@@ -269,7 +283,7 @@ export default function TripsAdminPage() {
               label="מקדמות שהתקבלו"
               value={`₪${(paidDeposit.length * trip.deposit_ils).toLocaleString()}`}
             />
-            <Card label="מחיר בתוקף" value={`€${currentPrice}`} />
+            <Card label="מחיר בתוקף" value={`${priceSymbol}${currentPrice}`} />
             <Card
               label="ימים ליציאה"
               value={String(daysUntil(trip.trip_start))}
@@ -290,7 +304,9 @@ export default function TripsAdminPage() {
               flexWrap: 'wrap',
             }}
           >
-            <span style={{ fontSize: 12, color: '#7a8f7d' }}>קישור פרטי</span>
+            <span style={{ fontSize: 12, color: '#7a8f7d' }}>
+              {trip.slug === 'morzine-2027-youth' ? 'קישור לדף ההרשמה' : 'קישור פרטי'}
+            </span>
             <code
               style={{
                 fontSize: 12,
@@ -440,9 +456,11 @@ export default function TripsAdminPage() {
                       השכרה {r.rental_size}
                     </span>
                   )}
-                  <span style={{ fontSize: 12, color: '#7a8f7d' }}>
-                    {r.shirt_size}
-                  </span>
+                  {r.shirt_size && (
+                    <span style={{ fontSize: 12, color: '#7a8f7d' }}>
+                      {r.shirt_size}
+                    </span>
+                  )}
                   <span style={{ fontSize: 11, color: '#4a5a50' }}>
                     {fmtDate(r.created_at)}
                   </span>
@@ -469,18 +487,26 @@ export default function TripsAdminPage() {
                       <Row k="תאריך לידה" v={fmtDay(r.birth_date)} />
                       <Row k="טלפון" v={r.phone} ltr />
                       <Row k="אימייל" v={r.email ?? '—'} ltr />
-                      <Row k="מס׳ דרכון" v={r.passport_number} ltr />
-                      <Row
-                        k="תוקף דרכון"
-                        v={fmtDay(r.passport_expiry)}
-                        warn={expiring}
-                      />
+                      {r.id_number && <Row k="ת״ז" v={r.id_number} ltr />}
+                      {r.parent_phone && (
+                        <Row k="טלפון הורה רשום" v={r.parent_phone} ltr />
+                      )}
+                      {r.passport_number && (
+                        <Row k="מס׳ דרכון" v={r.passport_number} ltr />
+                      )}
+                      {r.passport_expiry && (
+                        <Row
+                          k="תוקף דרכון"
+                          v={fmtDayOrDash(r.passport_expiry)}
+                          warn={expiring}
+                        />
+                      )}
                       <Row
                         k="צילום דרכון"
                         v={r.passport_file ? 'הועלה' : 'חסר'}
                         warn={!r.passport_file}
                       />
-                      <Row k="חולצה" v={r.shirt_size} />
+                      {r.shirt_size && <Row k="חולצה" v={r.shirt_size} />}
                       <Row
                         k="השכרת אופניים"
                         v={
@@ -492,6 +518,20 @@ export default function TripsAdminPage() {
                         }
                       />
                       <Row k="ביטוח — לחזור אליו" v={r.wants_insurance ? 'כן' : 'לא'} />
+                      {r.parent_phone && (
+                        <>
+                          <Row
+                            k="הצהרת בריאות"
+                            v={r.health_declared ? 'אושרה' : 'לא אושרה'}
+                            warn={!r.health_declared}
+                          />
+                          <Row
+                            k="התחייבות ביטוח נסיעות"
+                            v={r.insurance_committed ? 'אושרה' : 'לא אושרה'}
+                            warn={!r.insurance_committed}
+                          />
+                        </>
+                      )}
                       <Row k="טיסת הלוך" v={r.outbound_flight ?? '—'} ltr />
                       <Row k="טיסת חזור" v={r.return_flight ?? '—'} ltr />
                       {r.dietary && <Row k="תזונה" v={r.dietary} />}
