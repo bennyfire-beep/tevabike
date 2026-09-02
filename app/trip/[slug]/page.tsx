@@ -45,10 +45,12 @@ type Trip = {
   chalet_description: string | null
   chalet_specs: { columns: string[]; rows: string[][] } | null
   chalet_notes: string | null
+  flights_note: string | null
 }
 
 const SHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
 const BIKE_SIZES = ['S', 'M', 'L', 'XL']
+const FLIGHT_SUBHEADINGS = ['מה לחפש:', 'אופניים']
 
 const heDate = (iso: string) =>
   new Date(iso + 'T00:00:00').toLocaleDateString('he-IL', {
@@ -380,6 +382,18 @@ export default function TripRegistrationPage() {
                   <img src={src} alt="" className="w-full h-auto" />
                 </button>
               ))}
+            </div>
+          </div>
+        )}
+
+        {trip.flights_note && (
+          <div
+            className="mt-10 border border-brand p-6"
+            style={{ background: 'rgba(240,196,25,.08)' }}
+          >
+            <h3 className="font-display text-2xl mb-4 text-brand">טיסות</h3>
+            <div className="text-stone-200 leading-relaxed space-y-4">
+              <Prose text={trip.flights_note} subheadings={FLIGHT_SUBHEADINGS} />
             </div>
           </div>
         )}
@@ -901,6 +915,48 @@ function PriceTier({
         €{price.toLocaleString()}
       </p>
     </div>
+  )
+}
+
+// Renders text with blank-line paragraph breaks and single line breaks
+// preserved. Any line matching `subheadings` (exact, after trim) is styled
+// as a small bold sub-heading instead of plain prose.
+function Prose({
+  text,
+  subheadings = [],
+  className = '',
+}: {
+  text: string
+  subheadings?: string[]
+  className?: string
+}) {
+  const paragraphs = text.split(/\n{2,}/)
+  return (
+    <>
+      {paragraphs.map((para, pi) => {
+        const lines = para.split('\n')
+        return (
+          <p key={pi} className={className}>
+            {lines.map((line, li) =>
+              subheadings.includes(line.trim()) ? (
+                <strong
+                  key={li}
+                  className="block text-stone-100 font-semibold mt-3 mb-1 first:mt-0"
+                >
+                  {line}
+                </strong>
+              ) : (
+                <span key={li}>
+                  {line}
+                  {li < lines.length - 1 &&
+                    !subheadings.includes(lines[li + 1]?.trim()) && <br />}
+                </span>
+              )
+            )}
+          </p>
+        )
+      })}
+    </>
   )
 }
 
