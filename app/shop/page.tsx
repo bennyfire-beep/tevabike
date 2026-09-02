@@ -1,4 +1,4 @@
-// app/shop/page.tsx — דף חנות טבע בייק (גרסה 4 — כמות + עלות משלוח)
+// app/shop/page.tsx — דף חנות טבע בייק (גרסה 5 — בחירה מרובה + תשלום ישיר בארבוקס)
 "use client";
 
 import { useState } from "react";
@@ -24,6 +24,7 @@ type Product = {
   image: string;
 };
 
+// סדר הקבוע הזה משמש גם לבניית מפתח הצירוף (COMBO) — אל תשנה סדר בלי לעדכן ARBOX_LINKS.
 const PRODUCTS: Product[] = [
   {
     slug: "spank-spoon-35",
@@ -60,50 +61,69 @@ const PRODUCTS: Product[] = [
   },
 ];
 
-// עלות משלוח: 50 ₪, חינם מעל 600 ₪ (רק כשנבחר "משלוח" — איסוף עצמי תמיד חינם)
-const SHIPPING_COST = 50;
+// קישורי תשלום בארבוקס לכל צירוף אפשרי (7 = 3 בודדים + 3 זוגות + שלישיה).
+const ARBOX_LINKS: Record<string, string> = {
+  "spank-spoon-35": "https://arbox.link/Ww_B1s0m",
+  "spank-spike-33-grip": "https://arbox.link/b47ZV4mf",
+  "spank-spoon-pedals": "https://arbox.link/sJ4q7GJJ",
+  "spank-spoon-35+spank-spike-33-grip": "https://arbox.link/Z3G-I2NI",
+  "spank-spike-33-grip+spank-spoon-pedals": "https://arbox.link/argsWl45",
+  "spank-spoon-35+spank-spoon-pedals": "https://arbox.link/irFHdfoU",
+  "spank-spoon-35+spank-spike-33-grip+spank-spoon-pedals": "https://arbox.link/dVxDfHUx",
+};
+
+function comboKey(slugs: string[]): string {
+  return PRODUCTS.filter((p) => slugs.includes(p.slug))
+    .map((p) => p.slug)
+    .join("+");
+}
+
+const SHIPPING_COST = 35;
 const FREE_SHIPPING_THRESHOLD = 600;
 
 type Status = "idle" | "sending" | "done" | "error";
 
 export default function ShopPage() {
-  const [openSlug, setOpenSlug] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [variantBySlug, setVariantBySlug] = useState<Record<string, string>>({});
+  const [panelOpen, setPanelOpen] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [form, setForm] = useState({
-    variant: "",
-    quantity: "1",
     customer_name: "",
     customer_phone: "",
     fulfillment: "pickup" as "pickup" | "delivery",
     delivery_address: "",
   });
 
-  const openProduct = PRODUCTS.find((p) => p.slug === openSlug) || null;
-  const quantity = Math.max(1, parseInt(form.quantity, 10) || 1);
-  const subtotal = (openProduct?.price ?? 0) * quantity;
+  const selectedSlugs = PRODUCTS.filter((p) => selected[p.slug]).map((p) => p.slug);
+  const selectedProducts = PRODUCTS.filter((p) => selected[p.slug]);
+  const subtotal = selectedProducts.reduce((sum, p) => sum + p.price, 0);
   const shipping =
-    form.fulfillment === "delivery" && subtotal < FREE_SHIPPING_THRESHOLD ? SHIPPING_COST : 0;
+    form.fulfillment === "delivery" && subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD
+      ? SHIPPING_COST
+      : 0;
   const total = subtotal + shipping;
+  const key = comboKey(selectedSlugs);
+  const payLink = ARBOX_LINKS[key];
+
+  function toggle(slug: string) {
+    setSelected((s) => ({ ...s, [slug]: !s[slug] }));
+    setVariantBySlug((v) =>
+      v[slug] ? v : { ...v, [slug]: PRODUCTS.find((p) => p.slug === slug)!.variants[0] }
+    );
+    setStatus("idle");
+  }
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
-  function openOrder(p: Product) {
-    setOpenSlug(p.slug);
-    setStatus("idle");
-    setForm({
-      variant: p.variants[0],
-      quantity: "1",
-      customer_name: "",
-      customer_phone: "",
-      fulfillment: "pickup",
-      delivery_address: "",
-    });
-  }
-
   async function submit() {
-    if (!openProduct) return;
+    if (selectedSlugs.length === 0) return;
+    if (!payLink) {
+      alert("הצירוף הזה עדיין לא זמין להזמנה. נסה שילוב אחר או פנה אלינו בוואטסאפ.");
+      return;
+    }
     if (!form.customer_name.trim() || !form.customer_phone.trim()) {
       alert("נא למלא שם וטלפון");
       return;
@@ -118,10 +138,11 @@ export default function ShopPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          product_slug: openProduct.slug,
-          product_name: openProduct.name,
-          color: form.variant,
-          quantity: String(quantity),
+          items: selectedProducts.map((p) => ({
+            product_slug: p.slug,
+            product_name: p.name,
+            variant: variantBySlug[p.slug] || p.variants[0],
+          })),
           customer_name: form.customer_name,
           customer_phone: form.customer_phone,
           fulfillment: form.fulfillment,
@@ -130,7 +151,12 @@ export default function ShopPage() {
           total_amount: total,
         }),
       });
-      setStatus(res.ok ? "done" : "error");
+      if (res.ok) {
+        setStatus("done");
+        window.location.href = payLink;
+      } else {
+        setStatus("error");
+      }
     } catch {
       setStatus("error");
     }
@@ -142,7 +168,6 @@ export default function ShopPage() {
 
   return (
     <main dir="rtl" className="min-h-screen" style={{ background: C.dark, color: C.offWhite }}>
-      {/* Hero */}
       <section className="relative overflow-hidden px-6 pt-16 pb-10 text-center">
         <div
           className="absolute inset-0"
@@ -158,58 +183,129 @@ export default function ShopPage() {
             <span style={{ color: C.brand }}>רוכבים איתו בעצמנו.</span>
           </h1>
           <p className="text-lg leading-relaxed" style={{ color: "#D8E2DC" }}>
-            חלקים נבחרים במחירי הכי משתלמים — ישירות מהמדריכים של טבע בייק אליכם.
+            חלקים נבחרים במחירי הכי משתלמים — סמנו מה שאתם צריכים ותשלמו על הכל ביחד.
           </p>
         </div>
       </section>
 
-      {/* Products */}
-      <section className="px-6 pb-16">
+      <section className="px-6 pb-8">
         <div className="max-w-4xl mx-auto grid sm:grid-cols-3 gap-5">
-          {PRODUCTS.map((p) => (
-            <div
-              key={p.slug}
-              className="rounded-2xl p-5 border flex flex-col text-center"
-              style={{ background: C.green, borderColor: C.greenMid }}
-            >
+          {PRODUCTS.map((p) => {
+            const isChecked = !!selected[p.slug];
+            return (
               <div
-                className="mb-4 mx-auto rounded-xl overflow-hidden flex items-center justify-center"
-                style={{ width: "100%", aspectRatio: "1 / 1", background: C.dark }}
+                key={p.slug}
+                className="rounded-2xl p-5 border flex flex-col text-center transition"
+                style={{
+                  background: C.green,
+                  borderColor: isChecked ? C.brand : C.greenMid,
+                }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.image} alt={p.name} className="w-full h-full object-contain" />
+                <label className="flex items-center justify-center gap-2 mb-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggle(p.slug)}
+                    className="w-5 h-5 accent-current"
+                    style={{ accentColor: C.brand }}
+                  />
+                  <span className="text-sm font-bold" style={{ color: "#D8E2DC" }}>
+                    הוסף להזמנה
+                  </span>
+                </label>
+
+                <div
+                  className="mb-4 mx-auto rounded-xl overflow-hidden flex items-center justify-center"
+                  style={{ width: "100%", aspectRatio: "1 / 1", background: C.dark }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={p.image} alt={p.name} className="w-full h-full object-contain" />
+                </div>
+                <p className="text-xs font-bold tracking-widest mb-1" style={{ color: C.brand }}>
+                  {p.brand}
+                </p>
+                <h3 className="text-lg font-black mb-1">{p.name}</h3>
+                <p className="text-xs mb-4 leading-relaxed flex-1" style={{ color: "#9FB3A8" }}>
+                  {p.spec}
+                </p>
+                <div className="mb-4">
+                  <span className="text-2xl font-black">{p.price} ₪</span>
+                  <span className="text-xs mr-2 line-through" style={{ color: "#7E948A" }}>
+                    {p.marketPrice} ₪
+                  </span>
+                </div>
+
+                {isChecked && (
+                  <div className="mt-auto">
+                    <p className="text-xs mb-2" style={{ color: "#9FB3A8" }}>{p.variantLabel}</p>
+                    <div className="flex flex-wrap gap-1.5 justify-center">
+                      {p.variants.map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setVariantBySlug((s) => ({ ...s, [p.slug]: v }))}
+                          className="rounded-md px-2 py-1 text-xs border transition"
+                          style={
+                            (variantBySlug[p.slug] || p.variants[0]) === v
+                              ? { background: C.brand, borderColor: C.brand, color: "#fff", fontWeight: 700 }
+                              : { background: C.dark, borderColor: C.greenMid, color: "#D8E2DC" }
+                          }
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              <p className="text-xs font-bold tracking-widest mb-1" style={{ color: C.brand }}>
-                {p.brand}
-              </p>
-              <h3 className="text-lg font-black mb-1">{p.name}</h3>
-              <p className="text-xs mb-4 leading-relaxed flex-1" style={{ color: "#9FB3A8" }}>
-                {p.spec}
-              </p>
-              <div className="mb-4">
-                <span className="text-2xl font-black">{p.price} ₪</span>
-                <span className="text-xs mr-2 line-through" style={{ color: "#7E948A" }}>
-                  {p.marketPrice} ₪
-                </span>
-              </div>
-              <button
-                onClick={() => openOrder(p)}
-                className="w-full rounded-xl py-3 font-bold transition hover:opacity-90"
-                style={{ background: C.brand, color: "#fff" }}
-              >
-                הזמן
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
-      {/* Order panel */}
-      {openProduct && (
+      {selectedSlugs.length > 0 && (
+        <div
+          className="sticky bottom-0 z-40 border-t px-6 py-4"
+          style={{ background: C.green, borderColor: C.greenMid }}
+        >
+          <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+            <p style={{ color: "#D8E2DC" }}>
+              {selectedProducts.map((p) => p.name).join(" + ")}
+              <br />
+              <span className="text-sm" style={{ color: "#9FB3A8" }}>
+                {subtotal} ₪
+                {form.fulfillment === "delivery" &&
+                  (shipping === 0 ? " · משלוח חינם" : ` · משלוח ${shipping} ₪`)}
+              </span>
+            </p>
+            <button
+              onClick={() => setPanelOpen(true)}
+              className="rounded-xl px-6 py-3 font-black transition hover:opacity-90"
+              style={{ background: C.brand, color: "#fff" }}
+            >
+              המשך להזמנה — {total} ₪
+            </button>
+          </div>
+        </div>
+      )}
+
+      <section className="px-6 py-8 text-center">
+        <div
+          className="max-w-2xl mx-auto rounded-xl p-4 text-xs leading-relaxed space-y-1"
+          style={{ background: C.green, border: `1px solid ${C.greenMid}`, color: "#9FB3A8" }}
+        >
+          <p>האחריות על המוצרים והאחריות על המשלוח הן באחריות פאן רייד.</p>
+          <p>
+            החלפות והחזרות בתיאום מראש מול מחסני החברה — לתיאום: 0509446696.
+          </p>
+        </div>
+      </section>
+
+      {panelOpen && (
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
           style={{ background: "rgba(0,0,0,0.6)" }}
-          onClick={() => setOpenSlug(null)}
+          onClick={() => setPanelOpen(false)}
         >
           <div
             className="w-full max-w-md rounded-2xl p-6 space-y-4 border"
@@ -219,76 +315,52 @@ export default function ShopPage() {
             {status === "done" ? (
               <div className="text-center space-y-4 py-6">
                 <div className="text-5xl">✅</div>
-                <h2 className="text-2xl font-black">ההזמנה התקבלה!</h2>
+                <h2 className="text-2xl font-black">מעביר אותך לתשלום…</h2>
                 <p style={{ color: "#D8E2DC" }}>
-                  {openProduct.name} · {form.variant} · כמות {quantity}
+                  {selectedProducts.map((p) => p.name).join(" + ")}
                   <br />
                   סה״כ לתשלום: <b style={{ color: C.offWhite }}>{total} ₪</b>
-                  {shipping === 0 && form.fulfillment === "delivery" && " (משלוח חינם)"}
-                  <br />
-                  ניצור איתך קשר בקרוב לתיאום תשלום.
                   <br />
                   <span style={{ color: "#9FB3A8", fontSize: 13 }}>
-                    ההזמנה נשלחת אליך ישירות ממחסן פאן רייד.
+                    אם לא הועברת אוטומטית, <a href={payLink} style={{ color: C.brand }}>לחץ כאן לתשלום</a>.
                   </span>
                 </p>
-                <button
-                  onClick={() => setOpenSlug(null)}
-                  className="rounded-xl px-6 py-2 font-bold"
-                  style={{ background: C.brand, color: "#fff" }}
-                >
-                  סגור
-                </button>
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-black">{openProduct.name}</h2>
-                  <button onClick={() => setOpenSlug(null)} className="text-xl opacity-70">✕</button>
+                  <h2 className="text-xl font-black">פרטי הזמנה</h2>
+                  <button onClick={() => setPanelOpen(false)} className="text-xl opacity-70">✕</button>
                 </div>
 
-                <div>
-                  <p className="text-sm mb-2" style={{ color: "#9FB3A8" }}>{openProduct.variantLabel}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {openProduct.variants.map((v) => (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => set("variant", v)}
-                        className="rounded-lg px-3 py-2 text-sm border transition"
-                        style={
-                          form.variant === v
-                            ? { background: C.brand, borderColor: C.brand, color: "#fff", fontWeight: 700 }
-                            : { background: C.dark, borderColor: C.greenMid, color: "#D8E2DC" }
-                        }
-                      >
-                        {v}
-                      </button>
-                    ))}
+                <div
+                  className="rounded-lg p-3 text-sm space-y-1"
+                  style={{ background: C.dark, border: `1px solid ${C.greenMid}` }}
+                >
+                  {selectedProducts.map((p) => (
+                    <div key={p.slug} className="flex justify-between" style={{ color: "#D8E2DC" }}>
+                      <span>{p.name} ({variantBySlug[p.slug] || p.variants[0]})</span>
+                      <span>{p.price} ₪</span>
+                    </div>
+                  ))}
+                  {form.fulfillment === "delivery" && (
+                    <div className="flex justify-between" style={{ color: "#D8E2DC" }}>
+                      <span>משלוח</span>
+                      <span>{shipping === 0 ? "חינם" : `${shipping} ₪`}</span>
+                    </div>
+                  )}
+                  <div
+                    className="flex justify-between font-bold pt-1 mt-1"
+                    style={{ borderTop: `1px solid ${C.greenMid}`, color: C.offWhite }}
+                  >
+                    <span>סה״כ</span>
+                    <span>{total} ₪</span>
                   </div>
-                </div>
-
-                <div>
-                  <p className="text-sm mb-2" style={{ color: "#9FB3A8" }}>כמות</p>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => set("quantity", String(Math.max(1, quantity - 1)))}
-                      className="rounded-lg w-10 h-10 text-lg font-bold border"
-                      style={{ background: C.dark, borderColor: C.greenMid, color: C.offWhite }}
-                    >
-                      −
-                    </button>
-                    <span className="text-lg font-bold w-6 text-center">{quantity}</span>
-                    <button
-                      type="button"
-                      onClick={() => set("quantity", String(quantity + 1))}
-                      className="rounded-lg w-10 h-10 text-lg font-bold border"
-                      style={{ background: C.dark, borderColor: C.greenMid, color: C.offWhite }}
-                    >
-                      +
-                    </button>
-                  </div>
+                  {form.fulfillment === "delivery" && shipping > 0 && (
+                    <p className="text-xs pt-1" style={{ color: "#7E948A" }}>
+                      משלוח חינם בהזמנה מעל {FREE_SHIPPING_THRESHOLD} ₪
+                    </p>
+                  )}
                 </div>
 
                 <input
@@ -344,41 +416,18 @@ export default function ShopPage() {
                   />
                 )}
 
-                <div
-                  className="rounded-lg p-3 text-sm space-y-1"
-                  style={{ background: C.dark, border: `1px solid ${C.greenMid}` }}
-                >
-                  <div className="flex justify-between" style={{ color: "#D8E2DC" }}>
-                    <span>מוצר × {quantity}</span>
-                    <span>{subtotal} ₪</span>
-                  </div>
-                  {form.fulfillment === "delivery" && (
-                    <div className="flex justify-between" style={{ color: "#D8E2DC" }}>
-                      <span>משלוח</span>
-                      <span>{shipping === 0 ? "חינם" : `${shipping} ₪`}</span>
-                    </div>
-                  )}
-                  <div
-                    className="flex justify-between font-bold pt-1 mt-1"
-                    style={{ borderTop: `1px solid ${C.greenMid}`, color: C.offWhite }}
-                  >
-                    <span>סה״כ</span>
-                    <span>{total} ₪</span>
-                  </div>
-                  {form.fulfillment === "delivery" && shipping > 0 && (
-                    <p className="text-xs pt-1" style={{ color: "#7E948A" }}>
-                      משלוח חינם בהזמנה מעל {FREE_SHIPPING_THRESHOLD} ₪
-                    </p>
-                  )}
-                </div>
+                <p className="text-xs leading-relaxed" style={{ color: "#7E948A" }}>
+                  לחיצה על "מעבר לתשלום" תעביר אותך לעמוד תשלום מאובטח. החלפות והחזרות בתיאום מראש
+                  מול מחסני החברה — 0509446696.
+                </p>
 
                 <button
                   onClick={submit}
-                  disabled={status === "sending"}
+                  disabled={status === "sending" || !payLink}
                   className="w-full rounded-xl py-3 font-black transition disabled:opacity-50 hover:opacity-90"
                   style={{ background: C.brand, color: "#fff" }}
                 >
-                  {status === "sending" ? "שולח..." : `אישור הזמנה — ${total} ₪`}
+                  {status === "sending" ? "שולח..." : `מעבר לתשלום — ${total} ₪`}
                 </button>
 
                 {status === "error" && (
