@@ -150,7 +150,6 @@ export default function Home() {
           <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
             <a href="#classes" className="nav-link">חוגים</a>
             <a href="/camp-sukkot" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מחנה סוכות</a>
-            <a href="/morzine-2027" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מורזין נוער</a>
             <a href="/workshop-airbag" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>סדנת איר באג</a>
             <a href="#why" className="nav-link">למה אנחנו</a>
             <a href="/register" className="btn-primary" style={{ padding: '8px 22px', fontSize: 14, borderRadius: 8 }}>
@@ -552,7 +551,6 @@ export default function Home() {
               <h4 style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 18px', letterSpacing: '0.05em' }}>ניווט מהיר</h4>
               {[
                 { label: 'מחנה סוכות', href: '/camp-sukkot' },
-                { label: 'מורזין נוער', href: '/morzine-2027' },
                 { label: 'סדנת איר באג', href: '/workshop-airbag' },
                 { label: 'חוגים',    href: '#classes'  },
                 { label: 'הרשמה',   href: '/register' },
