@@ -126,6 +126,15 @@ export default function MorzineYouthPage() {
           (התקציר מנוסח בלשון זכר מטעמי נוחות בלבד, אך פונה לכל המינים באופן שווה)
         </p>
 
+        <video
+          src="/morzine-youth-video.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 14, marginBottom: 26 }}
+        />
+
         {/* פרטי החופשה */}
         <h2 style={h2}>📅 פרטי החופשה</h2>
         <div style={card}>
