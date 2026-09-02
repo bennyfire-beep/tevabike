@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 
-const BRANCHES = ['משגב', 'מצובה', 'ביריה', 'אמירים']
+const BRANCHES = ['משגב', 'ביריה', 'מטה אשר', 'פרוד-אמירים', 'צורית-גילון']
 const LEVELS   = ['מתחילים', 'כללי', 'מתקדם']
 const DAYS_HE  = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
 
