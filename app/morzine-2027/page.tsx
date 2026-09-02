@@ -7,9 +7,9 @@ import { useState } from 'react'
 // (חלק המבוגרים יתווסף בהמשך לאותו עמוד)
 // ============================================================
 
-const BG = '#0d0f0e'
-const PANEL = '#141716'
-const BORDER = '#252b27'
+const BG = '#1a1f1c'
+const PANEL = '#232a26'
+const BORDER = '#38443d'
 const TEXT = '#e8efe9'
 const MUTED = '#7a8f7d'
 const PINK = '#ec4899'
