@@ -197,7 +197,7 @@ export default function MorzineYouthPage() {
             color: TEXT, fontWeight: 700, fontSize: 15, cursor: 'pointer', marginBottom: 32,
           }}
         >
-          {showTerms ? '▲' : '▼'} תנאים כלליים והסדרי ביטול — למי שרוצה לקרוא לפני ההרשמה
+          {showTerms ? '▲' : '▼'} תנאים כלליים והסדרי ביטול — מומלץ לקרוא
         </button>
         {showTerms && (
           <div style={{ ...card, color: MUTED, fontSize: 13, lineHeight: 1.9, maxHeight: 340, overflowY: 'auto' }}>
