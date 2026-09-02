@@ -42,6 +42,9 @@ type Trip = {
   rental_note: string | null
   floorplans: string[] | null
   floorplan_title: string | null
+  chalet_description: string | null
+  chalet_specs: { columns: string[]; rows: string[][] } | null
+  chalet_notes: string | null
 }
 
 const SHIRT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
@@ -280,6 +283,80 @@ export default function TripRegistrationPage() {
             <p className="px-6 sm:px-0 mt-3 text-sm text-stone-500">
               מתוך השאלה שהזמנו
             </p>
+          </div>
+        )}
+
+        {(trip.chalet_description || trip.chalet_specs || trip.chalet_notes) && (
+          <div className="mt-10 -mx-6 sm:mx-0">
+            <h3 className="px-6 sm:px-0 font-display text-2xl mb-5">הדירה</h3>
+            <div className="px-6 sm:px-0 space-y-6">
+              {trip.chalet_description && (
+                <p className="text-stone-300 leading-relaxed whitespace-pre-line">
+                  {trip.chalet_description}
+                </p>
+              )}
+
+              {trip.chalet_specs &&
+                (() => {
+                  const specs = trip.chalet_specs
+                  const lastCol = specs.columns.length - 1
+                  return (
+                    <div className="overflow-x-auto border border-line">
+                      <table className="w-full border-collapse text-sm" style={{ minWidth: 420 }}>
+                        <thead>
+                          <tr className="bg-panel">
+                            {specs.columns.map((col, i) => (
+                              <th
+                                key={i}
+                                scope="col"
+                                className={`py-2.5 px-3 font-normal text-xs tracking-[.08em] whitespace-nowrap border-b border-line
+                                  ${i === 0 ? 'text-stone-500' : 'text-center'}
+                                  ${i === lastCol ? 'text-brand' : i === 0 ? '' : 'text-stone-500'}`}
+                              >
+                                {col}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {specs.rows.map((row, ri) => (
+                            <tr key={ri} className="border-b border-line last:border-b-0">
+                              {row.map((cell, ci) =>
+                                ci === 0 ? (
+                                  <th
+                                    key={ci}
+                                    scope="row"
+                                    className="py-3 px-3 text-stone-100 font-medium text-right whitespace-nowrap"
+                                  >
+                                    {cell}
+                                  </th>
+                                ) : (
+                                  <td
+                                    key={ci}
+                                    className={`py-3 px-3 text-center whitespace-nowrap ${
+                                      ci === lastCol
+                                        ? 'text-brand font-medium'
+                                        : 'text-stone-300'
+                                    }`}
+                                  >
+                                    {cell}
+                                  </td>
+                                )
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                })()}
+
+              {trip.chalet_notes && (
+                <p className="text-base text-stone-400 leading-relaxed whitespace-pre-line">
+                  {trip.chalet_notes}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
