@@ -1,0 +1,241 @@
+<template>
+<div id="root" data-composition-id="02-product-intro" data-width="1080" data-height="1920" data-duration="5.5">
+  <style>
+    @font-face {
+      font-family: "Heebo";
+      src: url("assets/fonts/Heebo-900-hebrew.woff2") format("woff2");
+      font-weight: 900;
+      font-style: normal;
+      font-display: block;
+    }
+
+    #root {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    /* full-bleed ground — never on #root itself */
+    .pi2-bg {
+      position: absolute;
+      inset: 0;
+      background: #0C1814;
+    }
+
+    /* the single camera-driven world — holds only what the zoom-out reveals */
+    .pi2-world {
+      position: absolute;
+      inset: 0;
+      transform-origin: 50% 50%;
+      will-change: transform;
+    }
+
+    .pi2-grip {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 630px;
+      height: 1920px;
+      overflow: hidden;
+    }
+    .pi2-grip img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+    }
+
+    /* invisible camera target — real grip texture on the lower grip, no hand */
+    .pi2-anchor {
+      position: absolute;
+      left: 200px;
+      top: 1400px;
+      width: 1px;
+      height: 1px;
+    }
+
+    /* overlay layers — screen-space, unaffected by the world transform */
+    .pi2-scrim {
+      position: absolute;
+      left: 0;
+      top: 1050px;
+      width: 1080px;
+      height: 543px;
+      background: linear-gradient(
+        to bottom,
+        rgba(12, 24, 20, 0) 0%,
+        rgba(12, 24, 20, 0.55) 22%,
+        rgba(12, 24, 20, 0.92) 100%
+      );
+      opacity: 0;
+    }
+
+    .pi2-title {
+      position: absolute;
+      left: 0;
+      top: 1096px;
+      width: 1080px;
+      padding: 0 60px;
+      box-sizing: border-box;
+      text-align: center;
+      direction: rtl;
+      font-family: "Heebo", sans-serif;
+      font-weight: 900;
+      font-size: 118px;
+      line-height: 0.95;
+      letter-spacing: -0.02em;
+      color: #F5F2EE;
+      opacity: 0;
+    }
+
+    .pi2-subtitle {
+      position: absolute;
+      left: 0;
+      top: 1272px;
+      width: 1080px;
+      text-align: center;
+      direction: rtl;
+      font-family: monospace;
+      font-weight: 600;
+      font-size: 30px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #D4288A;
+      opacity: 0;
+    }
+
+    /* real crop of public/SPIKE33MAIN123.webp isolating just the black grip
+       (the color the site actually sells) at its native ~4:1 strip ratio —
+       the source file is a 6-color swatch chart, not a single product shot,
+       so the card is sized to that real aspect instead of forcing a square
+       crop that would have cut off the branded end cap. */
+    .pi2-hero-card {
+      position: absolute;
+      left: 640px;
+      top: 640px;
+      width: 400px;
+      height: 100px;
+      border: 1px solid #282627;
+      background: #0C1814;
+      overflow: hidden;
+      opacity: 0;
+    }
+    .pi2-hero-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+  </style>
+
+  <div class="pi2-bg clip" data-start="0" data-duration="5.5" data-track-index="0"></div>
+
+  <div class="pi2-world clip" id="pi2-world" data-start="0" data-duration="5.5" data-track-index="1">
+    <div class="pi2-grip">
+      <img src="assets/spike33-user-purple.webp" alt="" />
+    </div>
+    <div class="pi2-anchor" id="pi2-anchor"></div>
+  </div>
+
+  <div class="pi2-scrim clip" id="pi2-scrim" data-start="1.05" data-duration="4.45" data-track-index="2"></div>
+
+  <div class="pi2-title clip" id="pi2-title" data-start="1.2" data-duration="4.3" data-track-index="3" dir="rtl">ספייק 33</div>
+
+  <div class="pi2-hero-card clip" id="pi2-hero-card" data-start="3.2" data-duration="2.3" data-track-index="4">
+    <img src="assets/spike33-hero.webp" alt="" />
+  </div>
+
+  <div class="pi2-subtitle clip" id="pi2-subtitle" data-start="3.35" data-duration="2.15" data-track-index="5" dir="rtl">מבית SPANK</div>
+
+  <script src="vendor/gsap.min.js"></script>
+  <script>
+    (function () {
+      var VIEWPORT_WIDTH = 1080;
+      var VIEWPORT_HEIGHT = 1920;
+      var OPEN_SCALE = 5; // extreme close-up on the grip texture at t=0
+
+      var rootEl = document.getElementById("root");
+      var worldEl = document.getElementById("pi2-world");
+      var anchorEl = document.getElementById("pi2-anchor");
+      var scrimEl = document.getElementById("pi2-scrim");
+      var titleEl = document.getElementById("pi2-title");
+      var subtitleEl = document.getElementById("pi2-subtitle");
+      var heroCardEl = document.getElementById("pi2-hero-card");
+
+      // measure the real laid-out anchor center — never hand-derived
+      var rootRect = rootEl.getBoundingClientRect();
+      var aRect = anchorEl.getBoundingClientRect();
+      var anchorX = aRect.left + aRect.width / 2 - rootRect.left;
+      var anchorY = aRect.top + aRect.height / 2 - rootRect.top;
+      var offsetX = anchorX - VIEWPORT_WIDTH / 2;
+      var offsetY = anchorY - VIEWPORT_HEIGHT / 2;
+
+      // single source of truth for the camera; single-wrapper form: T = -offset * S
+      var cam = {
+        scale: OPEN_SCALE,
+        x: -offsetX * OPEN_SCALE,
+        y: -offsetY * OPEN_SCALE,
+      };
+      function applyCamera() {
+        worldEl.style.transform =
+          "translate(" + cam.x + "px, " + cam.y + "px) scale(" + cam.scale + ")";
+      }
+      applyCamera(); // seed frame 0 — punched-in on the grip texture
+
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+
+      // Scene 1→2: ONE continuous decelerating zoom-out, running from t=0,
+      // completing as Scene 3 locks. No zoom-in anywhere; camera static after.
+      tl.to(
+        cam,
+        {
+          scale: 1,
+          x: 0,
+          y: 0,
+          duration: 3.2,
+          ease: "expo.out",
+          onUpdate: applyCamera,
+        },
+        0
+      );
+
+      // Scene 2: cue "ספייק 33" flash-arrives over a soft ink-black scrim,
+      // an overlay on the still-moving world, not part of the zoom.
+      tl.fromTo(scrimEl, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power1.out" }, 1.05);
+      tl.fromTo(
+        titleEl,
+        { opacity: 0, y: 18 },
+        { opacity: 1, y: 0, duration: 0.22, ease: "power2.out" },
+        1.2
+      );
+
+      // Scene 3: camera has locked — hero.webp settles in via a soft power3
+      // slide-crossfade, "מבית SPANK" lands beneath as a supporting label.
+      tl.fromTo(
+        heroCardEl,
+        { opacity: 0, x: 50 },
+        { opacity: 1, x: 0, duration: 0.7, ease: "power3.out" },
+        3.2
+      );
+      tl.fromTo(
+        subtitleEl,
+        { opacity: 0, y: 14 },
+        { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" },
+        3.35
+      );
+
+      // the video's one deliberate held beat — a brief settle, subtle jitter
+      // only, then dead static to the end (no drift/breathing).
+      tl.to(cam, { x: 3, y: -2, duration: 0.14, ease: "power1.inOut", onUpdate: applyCamera }, 3.9);
+      tl.to(cam, { x: -2, y: 2, duration: 0.14, ease: "power1.inOut", onUpdate: applyCamera }, 4.04);
+      tl.to(cam, { x: 0, y: 0, duration: 0.18, ease: "power1.inOut", onUpdate: applyCamera }, 4.18);
+
+      window.__timelines["02-product-intro"] = tl;
+    })();
+  </script>
+</div>
+</template>

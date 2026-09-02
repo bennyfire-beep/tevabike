@@ -1,0 +1,251 @@
+<template>
+<div
+  id="root"
+  data-composition-id="04-cta"
+  data-start="0"
+  data-width="1080"
+  data-height="1920"
+  data-duration="4.5"
+>
+  <style>
+    @font-face {
+      font-family: "HeeboHebrew";
+      src: url("assets/fonts/Heebo-900-hebrew.woff2") format("woff2");
+      font-weight: 900;
+      font-style: normal;
+      font-display: block;
+    }
+
+    #root {
+      position: relative;
+      width: 1080px;
+      height: 1920px;
+      overflow: hidden;
+    }
+
+    #root .clip {
+      position: absolute;
+      inset: 0;
+    }
+
+    /* full-bleed ground, lives on a class="clip" layer, never on #root itself */
+    #cta04-bg {
+      background: #0c1814;
+    }
+
+    #cta04-content {
+      /* wrapper only — persists the whole duration, individually-timed children live inside */
+    }
+
+    #cta04-logo-wrap {
+      position: absolute;
+      left: 50%;
+      top: 560px;
+      width: 380px;
+      margin-left: -190px;
+      transform-origin: 50% 50%;
+      will-change: transform;
+    }
+    #cta04-logo-wrap img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    #cta04-line1 {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 700px;
+      text-align: center;
+      direction: rtl;
+      font-family: "HeeboHebrew", sans-serif;
+      font-weight: 900;
+      font-size: 52px;
+      line-height: 1.2;
+      color: #f5f2ee;
+      transform-origin: 50% 50%;
+    }
+
+    #cta04-line2-wrap {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 850px;
+      height: 110px;
+    }
+    #cta04-line2 {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      text-align: center;
+      direction: rtl;
+      font-family: "HeeboHebrew", sans-serif;
+      font-weight: 900;
+      font-size: 44px;
+      line-height: 1.15;
+      color: #f5f2ee;
+    }
+    #cta04-line2 .cta04-word {
+      display: inline-block;
+      transform-origin: 50% 50%;
+    }
+    #cta04-underline {
+      position: absolute;
+      left: 50%;
+      top: 78px;
+      width: 170px;
+      height: 4px;
+      margin-left: -85px;
+      background: #d4288a;
+      transform-origin: 100% 50%; /* draws right-to-left, matching the Hebrew reading direction */
+    }
+
+    #cta04-rule {
+      position: absolute;
+      left: 70px;
+      top: 1120px;
+      width: 36px;
+      height: 3px;
+      background: #d4288a;
+      transform-origin: 0% 50%;
+    }
+
+    #cta04-card {
+      position: absolute;
+      left: 70px;
+      top: 1150px;
+      width: 300px;
+      height: 430px;
+      overflow: hidden;
+      background: #1a1819;
+      will-change: transform;
+    }
+    #cta04-card img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  </style>
+
+  <div id="cta04-bg" class="clip" data-start="0" data-duration="4.5" data-track-index="0"></div>
+
+  <!--
+    Everything below is nested inside this one root-level clip on purpose: a
+    root-level (direct #root child) timed element is auto-forced to
+    position:absolute; inset:0 by the runtime's own layout pass, which would
+    stomp the hand-authored offsets on the card/rule/logo below. Nesting them
+    inside a single full-bleed wrapper opts them out of that auto-layout, so
+    their own CSS positioning (and only that) applies.
+  -->
+  <div id="cta04-content" class="clip" data-start="0" data-duration="4.5" data-track-index="1">
+    <div id="cta04-logo-wrap" data-start="0.05" data-duration="4.45">
+      <img src="assets/teva-bike-logo.png" alt="" />
+    </div>
+
+    <div id="cta04-line1" data-start="1.3" data-duration="3.2">זמין עכשיו בטבע בייק</div>
+
+    <div id="cta04-line2-wrap" data-start="2.2" data-duration="2.3">
+      <div id="cta04-line2">
+        <span class="cta04-word">לינק</span> <span class="cta04-word">בביו</span>
+      </div>
+      <div id="cta04-underline"></div>
+    </div>
+
+    <div id="cta04-rule" data-start="0.95" data-duration="3.55"></div>
+
+    <div id="cta04-card" data-start="1.0" data-duration="3.5">
+      <img src="assets/spike33-user-purple.webp" alt="" />
+    </div>
+  </div>
+
+  <script src="vendor/gsap.min.js"></script>
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+
+      // Scene 1 (0.0-1.0s): ink-black cleared stage; the real teva-bike-logo.png
+      // spring-blooms from zero at dead center, snappy power3 settle, no bounce.
+      tl.fromTo(
+        "#cta04-logo-wrap",
+        { scale: 0, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.5, ease: "power3.out" },
+        0.05,
+      );
+
+      // small brand rule-stub tags the incoming product card
+      tl.fromTo(
+        "#cta04-rule",
+        { scaleX: 0, opacity: 0 },
+        { scaleX: 1, opacity: 1, duration: 0.4, ease: "power2.out" },
+        0.95,
+      );
+
+      // Scene 2 (1.0-2.2s): logo lockup settled; spike33-user-purple.webp slides in
+      // as a small supporting product card, lower-left, asymmetric 70/30.
+      tl.fromTo(
+        "#cta04-card",
+        { x: -60, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.55, ease: "power3.out" },
+        1.0,
+      );
+
+      // cue "זמין עכשיו בטבע בייק" flash-arrives beneath the logo
+      tl.fromTo(
+        "#cta04-line1",
+        { scale: 0.94, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.28, ease: "power2.out" },
+        1.35,
+      );
+
+      // Scene 3 (2.2-4.5s): cue "לינק בביו" lands via per-word fade (right-to-left
+      // reading order — DOM order matches Hebrew logical order under dir:rtl).
+      tl.fromTo(
+        "#cta04-line2 .cta04-word",
+        { opacity: 0, y: 14 },
+        { opacity: 1, y: 0, duration: 0.3, ease: "power2.out", stagger: 0.15 },
+        2.3,
+      );
+
+      // thin brand-pink underline draws beneath it, right-to-left, and holds
+      tl.fromTo(
+        "#cta04-underline",
+        { scaleX: 0 },
+        { scaleX: 1, duration: 0.45, ease: "power2.out" },
+        2.8,
+      );
+
+      // Full lockup holds dead static for the back half of the frame — subtle
+      // jitter only, no further motion; this is the video's final hold.
+      (function () {
+        var el = document.getElementById("cta04-content");
+        var phase = { p: 0 };
+        var CYCLES = 1;
+        var IDLE_START = 2.9;
+        var IDLE_DUR = 4.5 - IDLE_START;
+        var Y_AMP = 2;
+        var SCALE_AMP = 0.01;
+        tl.to(
+          phase,
+          {
+            p: Math.PI * 2 * CYCLES,
+            duration: IDLE_DUR,
+            ease: "none",
+            onUpdate: function () {
+              var s = Math.sin(phase.p);
+              el.style.transform =
+                "translateY(" + (s * Y_AMP).toFixed(2) + "px) scale(" + (1 + s * SCALE_AMP).toFixed(4) + ")";
+            },
+          },
+          IDLE_START,
+        );
+      })();
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines["04-cta"] = tl;
+    })();
+  </script>
+</div>
+</template>

@@ -1,0 +1,153 @@
+<template>
+  <style>
+    /* Heebo 900 (Hebrew subset) — the only script-appropriate weight-900 sans available to this
+       project; Barlow (frame.md's display face) ships no Hebrew glyphs, so this frame's kinetic
+       type uses the closest-matching geometric grotesque that actually covers the script. */
+    @font-face {
+      font-family: "Heebo";
+      src: url("assets/fonts/Heebo-900-hebrew.woff2") format("woff2");
+      font-weight: 900;
+      font-style: normal;
+      font-display: block;
+    }
+
+    #root {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent; /* ground is painted by the .p01pain-bg clip, never on #root */
+      container-type: size;
+    }
+
+    .clip {
+      position: absolute;
+      inset: 0;
+    }
+
+    .p01pain-bg {
+      background: #0c1814; /* frame.md ink-black */
+    }
+
+    .p01pain-inner {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 83%; /* caption keep-out band, held even though captions are disabled on this project */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 5.5cqw;
+    }
+
+    .p01pain-textwrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.8cqh;
+      max-width: 78cqw;
+    }
+
+    .p01pain-text {
+      margin: 0;
+      font-family: "Heebo", sans-serif;
+      font-weight: 900;
+      font-size: 11cqw;
+      line-height: 1.14;
+      letter-spacing: -0.01em;
+      color: #f5f2ee; /* frame.md cream */
+      text-align: center;
+      direction: rtl;
+      unicode-bidi: isolate;
+      transform-origin: 50% 50%;
+    }
+
+    .p01pain-underline {
+      width: 44cqw;
+      height: 0.55cqw;
+      background: #d4288a; /* frame.md fire-orange token = brand pink per storyboard */
+      transform-origin: 0% 50%;
+    }
+  </style>
+
+  <div
+    id="root"
+    data-composition-id="01-pain"
+    data-width="1080"
+    data-height="1920"
+    data-duration="3.9"
+  >
+    <div class="clip p01pain-bg" data-start="0" data-duration="3.9" data-track-index="0"></div>
+
+    <!-- Scene 1 (0.0–1.6s): cue 1 flash-in hard cut, holds bare, no product. -->
+    <div id="p01pain-cue1" class="clip" data-start="0" data-duration="1.6" data-track-index="1">
+      <div class="p01pain-inner">
+        <div class="p01pain-textwrap">
+          <div class="p01pain-text" dir="rtl">מזיעים.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 2 (1.6–3.5s): the runtime unmounts cue 1 / mounts cue 2 at exactly t=1.6s — the
+         hard cut is the clip boundary itself, no roll/blur authored. Cue 2 flash-in lands the
+         same way, then a pink underline draws left→right beneath it and the frame settles. -->
+    <div id="p01pain-cue2" class="clip" data-start="1.6" data-duration="2.3" data-track-index="1">
+      <div class="p01pain-inner">
+        <div class="p01pain-textwrap" id="p01pain-textwrap-2">
+          <div class="p01pain-text" dir="rtl">האחיזה נחלשת.</div>
+          <div class="p01pain-underline" id="p01pain-underline"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    const tl = gsap.timeline({ paused: true });
+
+    // Scene 1 — cue 1 "מזיעים." flash-in hard cut: opacity never ramps (no fade), a fast
+    // power3 settle on scale is the only motion, reading as an instant slam rather than a bounce.
+    tl.fromTo(
+      "#p01pain-cue1 .p01pain-text",
+      { scale: 1.08 },
+      { scale: 1, duration: 0.18, ease: "power3.out" },
+      0.02,
+    );
+
+    // Scene 2 — cue 2 "האחיזה נחלשת." flash-in, same treatment, same scale.
+    tl.fromTo(
+      "#p01pain-cue2 .p01pain-text",
+      { scale: 1.08 },
+      { scale: 1, duration: 0.18, ease: "power3.out" },
+      1.62,
+    );
+
+    // Brand-pink underline draws left → right beneath cue 2 as it lands, then holds.
+    tl.fromTo(
+      "#p01pain-underline",
+      { scaleX: 0 },
+      { scaleX: 1, duration: 0.42, ease: "power2.out" },
+      1.82,
+    );
+
+    // Settle-and-hold to the frame's end — subtle jitter only, never breathing/drift.
+    const jitter = { p: 0 };
+    tl.to(
+      jitter,
+      {
+        p: Math.PI * 2 * 4,
+        duration: 1.0,
+        ease: "none",
+        onUpdate: () => {
+          const dx = Math.sin(jitter.p) * 1.4;
+          const dy = Math.cos(jitter.p * 0.6) * 0.9;
+          gsap.set("#p01pain-textwrap-2", { x: dx, y: dy });
+        },
+      },
+      2.5,
+    );
+
+    window.__timelines["01-pain"] = tl;
+  </script>
+</template>

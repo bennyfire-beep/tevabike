@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <!-- Environment-specific workaround: this session's outbound network policy blocks
+         cdn.jsdelivr.net (403 at the proxy), so the CDN load never completes and no
+         GSAP timeline runs at all. Vendored the exact same gsap@3.14.2 dist build
+         locally instead (byte-for-byte from npm's registry.npmjs.org, which IS
+         reachable here) so `hyperframes check`/`preview`/`render` work in this
+         sandbox. assemble-index.mjs regenerates this tag from the CDN URL on any
+         future re-assembly -- re-apply this swap if that happens in the same
+         network-restricted environment; a normal internet-connected environment
+         does not need it and can keep the CDN reference. -->
+    <script src="vendor/gsap.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: #000;
+      }
+      #root {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: #F5F2EE;
+      }
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="18"
+      data-width="1080"
+      data-height="1920"
+    >
+      <div
+        id="el-01-pain"
+        class="scene"
+        data-composition-id="01-pain"
+        data-composition-src="compositions/frames/01-pain.html"
+        data-start="0"
+        data-duration="3.9"
+        data-track-index="0"
+      ></div>
+
+      <div
+        id="el-02-product-intro"
+        class="scene"
+        data-composition-id="02-product-intro"
+        data-composition-src="compositions/frames/02-product-intro.html"
+        data-start="3.5"
+        data-duration="5.5"
+        data-track-index="1"
+      ></div>
+
+      <div
+        id="el-03-benefits"
+        class="scene"
+        data-composition-id="03-benefits"
+        data-composition-src="compositions/frames/03-benefits.html"
+        data-start="8.5"
+        data-duration="5.4"
+        data-track-index="0"
+      ></div>
+
+      <div
+        id="el-04-cta"
+        class="scene"
+        data-composition-id="04-cta"
+        data-composition-src="compositions/frames/04-cta.html"
+        data-start="13.5"
+        data-duration="4.5"
+        data-track-index="1"
+      ></div>
+
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+      // ── frame transitions (injected by transitions.mjs) ──
+      (function () { var tl = window.__timelines["main"];
+        tl.to("#el-01-pain", { scale: 2.5, opacity: 0, filter: "blur(8px)", duration: 0.4, ease: "power3.in" }, 3.5);
+        tl.fromTo("#el-02-product-intro", { scale: 0.5, opacity: 0, filter: "blur(8px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.4, ease: "power3.out" }, 3.5);
+        tl.to("#el-02-product-intro", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 8.5);
+        tl.fromTo("#el-03-benefits", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 8.5);
+        tl.to("#el-03-benefits", { scaleX: 0, transformOrigin: "left center", duration: 0.4, ease: "power3.inOut" }, 13.5);
+        tl.fromTo("#el-04-cta", { scaleX: 0, transformOrigin: "right center", opacity: 1 }, { scaleX: 1, transformOrigin: "right center", duration: 0.4, ease: "power3.inOut" }, 13.5);
+        tl.to({}, { duration: 18 }, 0); // full-span anchor — main.duration() == composition total (Studio master duration)
+      })();
+    </script>
+  </body>
+</html>

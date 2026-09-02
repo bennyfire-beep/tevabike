@@ -1,0 +1,254 @@
+<template>
+  <style>
+    @font-face {
+      font-family: "Heebo";
+      src: url("assets/fonts/Heebo-900-hebrew.woff2") format("woff2");
+      font-weight: 900;
+      font-style: normal;
+      font-display: block;
+    }
+
+    #root {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      container-type: size;
+      font-family: "Heebo", sans-serif;
+    }
+
+    .clip {
+      position: absolute;
+      inset: 0;
+    }
+
+    /* ---------- background (real macro photo, dimmed) ---------- */
+    .f3b-bg-layer {
+      position: absolute;
+      inset: -6% -6%; /* pad so scale/pan tweens never expose an edge */
+      width: 112%;
+      height: 112%;
+      object-fit: cover;
+    }
+    #f3b-bg-1 {
+      object-position: 50% 50%;
+    }
+    #f3b-bg-2 {
+      object-position: 62% 40%; /* reframed toward the compound/texture region */
+    }
+    .f3b-scrim {
+      position: absolute;
+      inset: 0;
+      background: rgba(12, 24, 20, 0.38);
+    }
+    .f3b-scrim::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(12, 24, 20, 0.55) 0%,
+        rgba(12, 24, 20, 0.18) 42%,
+        rgba(12, 24, 20, 0) 62%
+      );
+    }
+
+    /* ---------- text ---------- */
+    .f3b-text-wrap {
+      position: absolute;
+      inset: 0;
+    }
+    .f3b-cue {
+      position: absolute;
+      top: 19cqh;
+      right: 5.5cqw;
+      left: 5.5cqw;
+      direction: rtl;
+      text-align: right;
+    }
+    .f3b-line1 {
+      display: inline-flex;
+      align-items: baseline;
+      white-space: nowrap;
+      font-size: 6.4cqw;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      color: #f5f2ee;
+      line-height: 1.08;
+    }
+    .f3b-line2 {
+      margin-top: 1.6cqh;
+      font-size: 5cqw;
+      font-weight: 600;
+      color: #f5f2ee;
+      line-height: 1.15;
+    }
+    .f3b-line2 .f3b-w {
+      display: inline-block;
+      margin-inline-start: 0.32em;
+    }
+    .f3b-caret {
+      display: inline-block;
+      width: 0.68cqw;
+      height: 0.82em;
+      margin-inline-start: 0.14em;
+      background: #f5f2ee;
+      transform: translateY(0.05em);
+    }
+    .f3b-key {
+      position: relative;
+      display: inline-block;
+    }
+    .f3b-key-bar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -0.14em;
+      height: 0.1em;
+      background: #d4288a;
+      transform: scaleX(0);
+      transform-origin: 100% 50%; /* draws right-to-left, matching RTL reading direction */
+    }
+  </style>
+
+  <div id="root" data-composition-id="03-benefits" data-width="1080" data-height="1920" data-duration="5.4">
+    <!-- track 0: full-bleed macro background, dimmed for legibility -->
+    <div class="clip" data-start="0" data-duration="5.4" data-track-index="0">
+      <img
+        id="f3b-bg-1"
+        class="f3b-bg-layer"
+        src="assets/spike33-user-purple.webp"
+        alt=""
+      />
+      <img
+        id="f3b-bg-2"
+        class="f3b-bg-layer"
+        src="assets/spike33-user-purple.webp"
+        alt=""
+      />
+      <div class="f3b-scrim"></div>
+    </div>
+
+    <!-- track 1: kinetic Hebrew statement relay -->
+    <div class="clip" data-start="0" data-duration="5.4" data-track-index="1">
+      <div class="f3b-text-wrap">
+        <!-- Scene 1 (0.0-2.2s): statement 1 -->
+        <div id="f3b-cue1" class="f3b-cue">
+          <div class="f3b-line1">
+            <span id="f3b-cue1-text"></span><span id="f3b-cue1-caret" class="f3b-caret"></span>
+          </div>
+          <div class="f3b-line2">
+            <span id="f3b-cue1-w1" class="f3b-w">גם</span><span id="f3b-cue1-w2" class="f3b-w">כשמזיעים.</span>
+          </div>
+        </div>
+
+        <!-- Scene 3 (2.6-5.0s): statement 2 -->
+        <div id="f3b-cue2" class="f3b-cue">
+          <div id="f3b-cue2-line1" class="f3b-line1">
+            <span id="f3b-cue2-w1" class="f3b-w">רכב</span>
+            <span id="f3b-cue2-w2" class="f3b-w" style="margin-inline-start: 0.32em">רך</span>
+            <span id="f3b-cue2-w3" class="f3b-w f3b-key" style="margin-inline-start: 0.32em"
+              >שבולם<span id="f3b-cue2-underline" class="f3b-key-bar"></span
+            ></span>
+            <span id="f3b-cue2-w4" class="f3b-w" style="margin-inline-start: 0.32em">רעידות</span>
+          </div>
+          <div class="f3b-line2">
+            <span id="f3b-cue2-w5" class="f3b-w">בשטח</span><span id="f3b-cue2-w6" class="f3b-w">מחוספס.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var CUE1_L1 = "אחיזה מקסימלית —";
+
+      var textEl = document.getElementById("f3b-cue1-text");
+      var caretEl = document.getElementById("f3b-cue1-caret");
+
+      // cue 2 is authored discrete (hard-cut flash-in below) — hide it up front.
+      // Immediate gsap.set (not tl.set at 0): a zero-duration set placed at
+      // position 0 inside a paused timeline does not render while the
+      // playhead sits exactly at 0.
+      gsap.set("#f3b-cue2-line1", { opacity: 0 });
+
+      var tl = gsap.timeline({ paused: true });
+
+      // ---- Scene 1 (0.0-2.2s): statement 1 builds and holds ----
+
+      // caret idle-blinks from t=0, then keeps blinking through the typing window
+      var blink = { p: 0 };
+      tl.to(
+        blink,
+        {
+          p: Math.PI * 2 * 2,
+          duration: 1.5,
+          ease: "none",
+          onUpdate: function () {
+            caretEl.style.opacity = Math.sin(blink.p) > 0 ? "1" : "0";
+          },
+        },
+        0.15,
+      );
+      tl.set(caretEl, { opacity: 0 }, 1.65);
+
+      // line 1 types on, char-by-char (RTL: substring(0,n) reveals right-to-left)
+      var typeLen = { v: 0 };
+      tl.to(
+        typeLen,
+        {
+          v: CUE1_L1.length,
+          duration: 0.8,
+          ease: "power1.inOut",
+          onUpdate: function () {
+            textEl.textContent = CUE1_L1.substring(0, Math.floor(typeLen.v));
+          },
+        },
+        0.15,
+      );
+
+      // line 2 lands a half-beat later, per-word staggered fade
+      tl.fromTo("#f3b-cue1-w1", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, 1.05);
+      tl.fromTo("#f3b-cue1-w2", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, 1.22);
+
+      // ---- Scene 2 (2.2-2.6s): hard cut clears cue 1 ----
+      tl.set("#f3b-cue1", { opacity: 0 }, 2.2);
+
+      // ---- Scene 3 (2.6-5.0s): reframe + statement 2 ----
+
+      // soft crossfade pan onto the compound/texture region of the same photo
+      tl.fromTo("#f3b-bg-2", { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "power2.inOut" }, 2.6);
+      tl.fromTo(
+        ["#f3b-bg-1", "#f3b-bg-2"],
+        { scale: 1.04, x: 0, y: 0 },
+        { scale: 1.12, x: -16, y: 10, duration: 2.4, ease: "sine.inOut" },
+        2.6,
+      );
+
+      // cue 2 line 1 flash-in (hard cut, no fade/slide)
+      tl.set("#f3b-cue2-line1", { opacity: 1 }, 2.7);
+
+      // brand-pink underline draws beneath the key word ("שבולם" / absorbs)
+      tl.fromTo("#f3b-cue2-underline", { scaleX: 0 }, { scaleX: 1, duration: 0.45, ease: "power2.out" }, 2.85);
+
+      // cue 2 line 2, per-word staggered fade
+      tl.fromTo("#f3b-cue2-w5", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, 3.05);
+      tl.fromTo("#f3b-cue2-w6", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, 3.22);
+
+      // settle: one brief, finite micro-jitter, then a dead-static hold to the end
+      var holdStart = 3.7,
+        cycle = 0.6,
+        holdDur = 5.0 - holdStart,
+        settleRepeat = Math.max(0, Math.floor(holdDur / cycle) - 1);
+      tl.to(
+        "#f3b-cue2",
+        { scale: 1.008, duration: cycle / 2, ease: "sine.inOut", yoyo: true, repeat: settleRepeat },
+        holdStart,
+      );
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines["03-benefits"] = tl;
+    })();
+  </script>
+</template>
