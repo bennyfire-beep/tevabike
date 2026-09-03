@@ -80,6 +80,7 @@ export default function AttendancePage() {
   const [showNew, setShowNew]         = useState(false)
   const [newGroupId, setNewGroupId]   = useState('')
   const [newInstructor, setNewInst]   = useState('')
+  const [newInstructor2, setNewInst2] = useState('')
   const [newHours, setNewHours]       = useState('1.5')
   const [creating, setCreating]       = useState(false)
 
@@ -186,9 +187,16 @@ export default function AttendancePage() {
     const g = groups.find(x => x.id === newGroupId)
     if (!g) return
     setCreating(true)
+    const ids = [newInstructor, newInstructor2].filter(Boolean)
     const { data, error } = await supabase
       .from('class_sessions')
-      .insert({ group_id: g.id, class_name: g.name, branch: g.branch, session_date: date, start_time: g.start_time, end_time: g.end_time, instructor_id: newInstructor || null, duration: parseFloat(newHours) || 1.5, status: 'open' })
+      .insert({
+        group_id: g.id, class_name: g.name, branch: g.branch, session_date: date,
+        start_time: g.start_time, end_time: g.end_time,
+        instructor_id: newInstructor || null,
+        instructor_ids: ids.length ? ids : null,
+        duration: parseFloat(newHours) || 1.5, status: 'open',
+      })
       .select('id, class_name, branch, session_date, duration, instructor_id, status, notes, group_id, start_time, end_time, type, activity_name, instructor_ids')
       .single()
     if (error) { alert(error.message); setCreating(false); return }
@@ -196,6 +204,7 @@ export default function AttendancePage() {
     setSessions(p => [...p, s])
     loadAttendance(s)
     setShowNew(false)
+    setNewInst2('')
     setCreating(false)
   }
 
@@ -415,6 +424,13 @@ export default function AttendancePage() {
               <select value={newInstructor} onChange={e => setNewInst(e.target.value)} style={inp}>
                 <option value="">ללא מדריך</option>
                 {instructors.filter(i => i.active).map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: '#7a8f7d', display: 'block', marginBottom: 4 }}>🤝 מדריך שותף (אופציונלי)</label>
+              <select value={newInstructor2} onChange={e => setNewInst2(e.target.value)} style={inp}>
+                <option value="">ללא</option>
+                {instructors.filter(i => i.active && i.id !== newInstructor).map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>
             </div>
             <div>
