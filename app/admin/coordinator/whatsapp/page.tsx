@@ -99,6 +99,11 @@ export default function WhatsAppPage() {
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState('')
 
+  // Suggest-only Gemini draft — fills the composer for the coordinator to
+  // review/edit, never sends on its own.
+  const [suggesting, setSuggesting] = useState(false)
+  const [suggestError, setSuggestError] = useState('')
+
   const [team, setTeam] = useState<TeamMember[]>([])
   const [assignSaving, setAssignSaving] = useState(false)
   const [assignError, setAssignError] = useState('')
@@ -280,6 +285,27 @@ export default function WhatsAppPage() {
       setSendError('שליחת ההודעה נכשלה: ' + (e as Error).message)
     } finally {
       setSending(false)
+    }
+  }
+
+  /** Fills the composer with a Gemini draft — the coordinator still edits and presses שליחה. */
+  async function suggestReply() {
+    if (!selected) return
+    setSuggesting(true)
+    setSuggestError('')
+    try {
+      const res = await fetch('/api/whatsapp/suggest', {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({ conversation_id: selected.id }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) { setSuggestError(d.error ?? 'הצעת התשובה נכשלה'); return }
+      setDraft(d.suggestion ?? '')
+    } catch (e) {
+      setSuggestError('הצעת התשובה נכשלה: ' + (e as Error).message)
+    } finally {
+      setSuggesting(false)
     }
   }
 
@@ -488,6 +514,17 @@ export default function WhatsAppPage() {
             {windowOpen ? (
               <div className="shrink-0 p-3 border-t border-stone-800 bg-stone-950">
                 {sendError && <p className="text-red-400 text-xs mb-2">{sendError}</p>}
+                {suggestError && <p className="text-red-400 text-xs mb-2">{suggestError}</p>}
+                <div className="flex justify-end mb-2">
+                  <button
+                    onClick={suggestReply}
+                    disabled={suggesting}
+                    title="Gemini יציע טיוטה — עדיין אפשר לערוך לפני שליחה"
+                    className="px-3 py-1.5 rounded-lg bg-stone-800 border border-stone-600 text-xs font-bold disabled:opacity-50"
+                  >
+                    {suggesting ? 'חושב...' : '💡 הצע תשובה'}
+                  </button>
+                </div>
                 <div className="flex gap-2">
                   <input
                     value={draft}

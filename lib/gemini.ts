@@ -38,6 +38,38 @@ export async function analyzeFileWithGemini(file: File, prompt: string): Promise
   return res.text ?? "";
 }
 
+export type WhatsAppHistoryMessage = { direction: 'inbound' | 'outbound'; body: string }
+
+/**
+ * Drafts one suggested WhatsApp reply — suggest-only: this is text for a
+ * coordinator to review and edit before sending, never sent on its own.
+ * knowledgeBase is the static policy/schedule text (lib/whatsapp-knowledge.ts);
+ * dynamicContext is prices/dates pulled live at call time (lib/site-content.ts).
+ */
+export async function suggestWhatsAppReply(
+  history: WhatsAppHistoryMessage[],
+  knowledgeBase: string,
+  dynamicContext: string,
+): Promise<string> {
+  const transcript = history
+    .map(m => `${m.direction === 'inbound' ? 'לקוח' : 'טבע בייק'}: ${m.body}`)
+    .join('\n')
+
+  const prompt = `אתה עוזר לרכז/ת של טבע בייק לנסח טיוטת תשובה בוואטסאפ ללקוח.
+זו הצעה בלבד — קואורדינטור אנושי יקרא, יערוך במידת הצורך, ורק אז ישלח. אל תמציא עובדות, מחירים או תאריכים שלא מופיעים במידע שלמטה; אם משהו לא ידוע — תגיד "לבדוק מול הצוות" במקום לנחש.
+
+${knowledgeBase}
+
+${dynamicContext ? `## מידע עדכני שנמשך מהאתר עכשיו\n${dynamicContext}\n` : ''}
+## השיחה עד כה (הישן למעלה)
+${transcript}
+
+כתוב אך ורק את הטיוטה המוצעת להודעה הבאה של טבע בייק ללקוח — בלי הקדמות, בלי "הנה הצעה", רק את הטקסט עצמו.`
+
+  const res = await ai.models.generateContent({ model: GEMINI_MODEL, contents: prompt })
+  return (res.text ?? '').trim()
+}
+
 /** Fetches a URL (YouTube link, or a direct link to an image/video/PDF already in
  *  storage) and sends it to Gemini. Used when the file itself already left the
  *  request — e.g. a public Supabase Storage URL. */
