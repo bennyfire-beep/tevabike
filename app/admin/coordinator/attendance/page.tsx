@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
 import { saveAttendance as persistAttendance } from '@/lib/attendance'
 import { useCoordinator } from '@/lib/coordinator-context'
-import { isBenny } from '@/lib/salary-access'
+import { isBenny, isSalaryAdmin } from '@/lib/salary-access'
 import RiderForm from '@/components/RiderForm'
 
 const BRANCH_COLOR: Record<string, string> = {
@@ -52,6 +52,13 @@ const inp: React.CSSProperties = {
 export default function AttendancePage() {
   const user  = useCoordinator()
   const canDelete = isBenny(user?.email)
+  // "סכום לתשלום למדריך" for a special activity — only Benny or Shir may see
+  // or edit it (lib/salary-access.ts). class_sessions.instructor_pay is
+  // revoked from the anon/authenticated Postgres roles entirely
+  // (20260820_lock_down_salary_data.sql), so it's read and written through
+  // /api/admin/special-activity-pay, which checks the caller's own token again
+  // server-side rather than trusting this flag.
+  const canSetPay = isSalaryAdmin(user?.email)
   const today = new Date().toISOString().split('T')[0]
 
   const [date, setDate]         = useState(today)
@@ -95,6 +102,14 @@ export default function AttendancePage() {
   const [spSearching, setSpSearching]     = useState(false)
   const [spCreating, setSpCreating]       = useState(false)
 
+  // "סכום לתשלום למדריך" for the selected special activity — salary-admin
+  // only, see canSetPay above.
+  const [payAmount, setPayAmount]       = useState('')
+  const [payLoading, setPayLoading]     = useState(false)
+  const [paySaving, setPaySaving]       = useState(false)
+  const [payError, setPayError]         = useState('')
+  const [paySavedMsg, setPaySavedMsg]   = useState('')
+
   useEffect(() => {
     if (!user) return
     // Load all instructors (active + inactive) so old sessions still resolve
@@ -125,6 +140,55 @@ export default function AttendancePage() {
     setLoadingSess(false)
   }
 
+  // ── "סכום לתשלום למדריך" — salary-admin only ────────────────────────────────
+  async function loadActivityPay(sessionId: string) {
+    setPayLoading(true)
+    setPayError('')
+    try {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token ?? ''
+      const res = await fetch(`/api/admin/special-activity-pay?session_id=${encodeURIComponent(sessionId)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) { setPayError(d.error ?? 'טעינת הסכום נכשלה'); return }
+      setPayAmount(d.amount != null ? String(d.amount) : '')
+    } catch (e) {
+      setPayError('טעינת הסכום נכשלה: ' + (e as Error).message)
+    } finally {
+      setPayLoading(false)
+    }
+  }
+
+  async function saveActivityPay() {
+    if (!selected) return
+    const trimmed = payAmount.trim()
+    const amount = trimmed === '' ? null : Number(trimmed)
+    if (amount != null && (!Number.isFinite(amount) || amount < 0)) {
+      setPayError('סכום לא תקין'); return
+    }
+    setPaySaving(true)
+    setPayError('')
+    setPaySavedMsg('')
+    try {
+      const { data } = await supabase.auth.getSession()
+      const token = data.session?.access_token ?? ''
+      const res = await fetch('/api/admin/special-activity-pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ session_id: selected.id, amount }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) { setPayError(d.error ?? 'שמירת הסכום נכשלה'); return }
+      setPaySavedMsg('✓ נשמר')
+      setTimeout(() => setPaySavedMsg(''), 3000)
+    } catch (e) {
+      setPayError('שמירת הסכום נכשלה: ' + (e as Error).message)
+    } finally {
+      setPaySaving(false)
+    }
+  }
+
   const loadAttendance = useCallback(async (s: Session) => {
     setSelected(s)
     setRiders([])
@@ -132,6 +196,10 @@ export default function AttendancePage() {
     setAdding(false)
     setSearchQ('')
     setSearchRes([])
+    setPayAmount('')
+    setPayError('')
+    setPaySavedMsg('')
+    if (s.type === 'special' && canSetPay) loadActivityPay(s.id)
 
     // Special activities aren't group-bound: their participant list lives in the
     // attendance rows created when the activity was set up.
@@ -181,7 +249,7 @@ export default function AttendancePage() {
     for (const a of attData ?? []) map[a.rider_id] = a.present
     for (const r of list) if (!(r.id in map)) map[r.id] = true
     setAtt(map)
-  }, [])
+  }, [canSetPay])
 
   async function createSession() {
     const g = groups.find(x => x.id === newGroupId)
@@ -611,6 +679,37 @@ export default function AttendancePage() {
                   )}
                 </div>
               </div>
+
+              {/* "סכום לתשלום למדריך" — only Benny or Shir see this at all;
+                  everyone else (including the instructor who reported the
+                  activity) never gets this card rendered. */}
+              {selected.type === 'special' && canSetPay && (
+                <div style={{ padding: '14px 20px', borderBottom: '1px solid #252b27', background: '#1c1424' }}>
+                  <label htmlFor="sp-pay-amount" style={{ display: 'block', fontSize: 12, color: '#c9bce0', marginBottom: 8, fontWeight: 700 }}>
+                    💰 סכום לתשלום למדריך (מוצג ונערך רק על ידי בני ושיר)
+                  </label>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                      id="sp-pay-amount"
+                      type="number" step="1" min="0" inputMode="decimal" dir="ltr"
+                      value={payAmount}
+                      onChange={e => setPayAmount(e.target.value)}
+                      placeholder="לא נקבע"
+                      disabled={payLoading}
+                      style={{ ...inp, width: 140 }}
+                    />
+                    <button
+                      onClick={saveActivityPay}
+                      disabled={paySaving || payLoading}
+                      style={{ background: (paySaving || payLoading) ? '#3a2f47' : '#c084fc', color: (paySaving || payLoading) ? '#8a7fa5' : '#0d0f0e', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 13, cursor: (paySaving || payLoading) ? 'default' : 'pointer' }}
+                    >
+                      {paySaving ? 'שומר...' : '💾 שמור סכום'}
+                    </button>
+                    {paySavedMsg && <span style={{ color: '#4cdb7a', fontSize: 13, fontWeight: 700 }}>{paySavedMsg}</span>}
+                  </div>
+                  {payError && <p role="alert" style={{ color: '#ff8080', fontSize: 13, margin: '8px 0 0' }}>{payError}</p>}
+                </div>
+              )}
 
               {adding && (
                 <div style={{ padding: '12px 20px', borderBottom: '1px solid #252b27', background: '#0d0f0e' }}>
