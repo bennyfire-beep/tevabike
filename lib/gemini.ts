@@ -44,12 +44,16 @@ export type WhatsAppHistoryMessage = { direction: 'inbound' | 'outbound'; body: 
  * Drafts one suggested WhatsApp reply — suggest-only: this is text for a
  * coordinator to review and edit before sending, never sent on its own.
  * knowledgeBase is the static policy/schedule text (lib/whatsapp-knowledge.ts);
- * dynamicContext is prices/dates pulled live at call time (lib/site-content.ts).
+ * dynamicContext is prices/dates pulled live at call time (lib/site-content.ts);
+ * styleExamples is real past question→answer pairs (lib/whatsapp-reply-examples.ts)
+ * — tone only, deliberately kept separate from knowledgeBase so a stale price
+ * in an old example can never out-rank the real one.
  */
 export async function suggestWhatsAppReply(
   history: WhatsAppHistoryMessage[],
   knowledgeBase: string,
   dynamicContext: string,
+  styleExamples: string = '',
 ): Promise<string> {
   const transcript = history
     .map(m => `${m.direction === 'inbound' ? 'לקוח' : 'טבע בייק'}: ${m.body}`)
@@ -61,6 +65,7 @@ export async function suggestWhatsAppReply(
 ${knowledgeBase}
 
 ${dynamicContext ? `## מידע עדכני שנמשך מהאתר עכשיו\n${dynamicContext}\n` : ''}
+${styleExamples ? `## דוגמאות סגנון מתשובות אמיתיות שהצוות נתן בעבר — לסגנון וטון בלבד, לא למחירים/עובדות (אלה עשויים להשתנות; המידע העובדתי היחיד הקביל הוא מה שמופיע למעלה)\n${styleExamples}\n` : ''}
 ## השיחה עד כה (הישן למעלה)
 ${transcript}
 

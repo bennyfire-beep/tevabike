@@ -3,6 +3,7 @@ import { whatsappServiceClient, requireCoordinator, canAccessConversation } from
 import { suggestWhatsAppReply } from '@/lib/gemini'
 import { WHATSAPP_KNOWLEDGE_BASE } from '@/lib/whatsapp-knowledge'
 import { fetchDynamicSiteContent } from '@/lib/site-content'
+import { formatReplyExamples } from '@/lib/whatsapp-reply-examples'
 
 // POST /api/whatsapp/suggest — { conversation_id }.
 //
@@ -14,6 +15,7 @@ export const maxDuration = 30
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const HISTORY_LIMIT = 15
+const EXAMPLES_LIMIT = 15
 
 export async function POST(req: NextRequest) {
   const admin = whatsappServiceClient()
@@ -69,9 +71,22 @@ export async function POST(req: NextRequest) {
     .reverse()
     .map(m => ({ direction: m.direction as 'inbound' | 'outbound', body: m.body ?? `[${m.msg_type ?? 'הודעה'}]` }))
 
+  const { data: examples, error: examplesErr } = await admin
+    .from('whatsapp_reply_examples')
+    .select('question_text, answer_text')
+    .eq('active', true)
+    .order('created_at', { ascending: false })
+    .limit(EXAMPLES_LIMIT)
+  if (examplesErr) {
+    // Style examples are a nice-to-have, not a hard requirement — a broken
+    // read here shouldn't block the suggestion itself.
+    console.error('[whatsapp/suggest] examples read failed:', examplesErr.message)
+  }
+
   try {
     const dynamicContext = await fetchDynamicSiteContent(admin)
-    const suggestion = await suggestWhatsAppReply(history, WHATSAPP_KNOWLEDGE_BASE, dynamicContext)
+    const styleExamples = formatReplyExamples(examples ?? [])
+    const suggestion = await suggestWhatsAppReply(history, WHATSAPP_KNOWLEDGE_BASE, dynamicContext, styleExamples)
     if (!suggestion) return NextResponse.json({ error: 'לא התקבלה הצעה מ-Gemini' }, { status: 502 })
     return NextResponse.json({ suggestion })
   } catch (e) {
