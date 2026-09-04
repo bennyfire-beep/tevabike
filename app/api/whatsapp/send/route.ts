@@ -30,7 +30,17 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response
   const { caller } = auth
 
-  let body: { conversation_id?: string; wa_id?: string; text?: string }
+  let body: {
+    conversation_id?: string
+    wa_id?: string
+    text?: string
+    // Set by the coordinator screen's suggestion card — see lib/gemini.ts and
+    // supabase/migrations/20260906_whatsapp_suggestions.sql. 'sent_as_is' is
+    // the "שלח" button; 'edited' is "ערוך" followed by שליחה. Both optional —
+    // a normal, suggestion-free send omits them entirely.
+    suggestion_id?: string
+    suggestion_outcome?: 'sent_as_is' | 'edited'
+  }
   try { body = await req.json() }
   catch { return NextResponse.json({ error: 'בקשה לא תקינה' }, { status: 400 }) }
 
@@ -120,6 +130,22 @@ export async function POST(req: NextRequest) {
     .update({ last_message_at: now })
     .eq('id', conversation.id)
   if (updateErr) console.error('[whatsapp/send] conversation update failed:', updateErr.message)
+
+  // ── 4. Tag the suggestion this came from, if any (stage-3 accuracy tracking) ──
+  const suggestionId = (body.suggestion_id ?? '').trim()
+  if (suggestionId && UUID.test(suggestionId) && body.suggestion_outcome) {
+    const { error: decideErr } = await admin
+      .from('whatsapp_suggestions')
+      .update({
+        outcome: body.suggestion_outcome,
+        final_text: text,
+        outbound_message_id: saved?.id ?? null,
+        decided_by: caller.name,
+        decided_at: now,
+      })
+      .eq('id', suggestionId)
+    if (decideErr) console.error('[whatsapp/send] suggestion outcome update failed:', decideErr.message)
+  }
 
   return NextResponse.json({ message: saved ?? null })
 }

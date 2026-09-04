@@ -32,6 +32,22 @@ type Message = {
 
 type TeamMember = { email: string; name: string; role: string }
 
+type Suggestion = {
+  id: string | null
+  text: string
+  unsure: boolean
+  category: string
+}
+
+const CATEGORY_LABEL: Record<string, string> = {
+  price: 'מחיר',
+  dates: 'תאריכים',
+  availability: 'מקום פנוי',
+  hours: 'שעות פעילות',
+  registration_link: 'קישור להרשמה',
+  other: 'אחר',
+}
+
 const POLL_MS = 10_000
 type FilterMode = 'all' | 'mine' | 'unassigned'
 
@@ -99,10 +115,20 @@ export default function WhatsAppPage() {
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState('')
 
-  // Suggest-only Gemini draft — fills the composer for the coordinator to
-  // review/edit, never sends on its own.
-  const [suggesting, setSuggesting] = useState(false)
-  const [suggestError, setSuggestError] = useState('')
+  // Suggest-only Gemini draft, auto-fetched whenever the open conversation's
+  // last message is an unanswered inbound one. Shown as a card with
+  // שלח/ערוך/דחה — never sent on its own; see lib/gemini.ts and
+  // app/api/whatsapp/suggest for the unsure/category contract.
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null)
+  const [suggestionLoading, setSuggestionLoading] = useState(false)
+  const [suggestionError, setSuggestionError] = useState('')
+  // The inbound message id the current `suggestion` (or an in-flight fetch)
+  // is for — guards against re-asking Gemini on every 10s poll tick when
+  // nothing in the conversation actually changed.
+  const [suggestionMsgId, setSuggestionMsgId] = useState<string | null>(null)
+  // Set by "ערוך" so the next normal שליחה tags its outcome as 'edited'
+  // instead of leaving the suggestion undecided.
+  const [pendingSuggestion, setPendingSuggestion] = useState<{ id: string; outcome: 'edited' } | null>(null)
 
   const [team, setTeam] = useState<TeamMember[]>([])
   const [assignSaving, setAssignSaving] = useState(false)
@@ -121,6 +147,10 @@ export default function WhatsAppPage() {
   // Read inside effects without retriggering them on every keystroke elsewhere.
   const selectedIdRef = useRef<string | null>(null)
   useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
+
+  // Guards the auto-draft effect further down against re-fetching for a
+  // pending message id it has already asked Gemini about.
+  const suggestionFetchedForRef = useRef<string | null>(null)
 
   const fetchConversations = useCallback(async () => {
     try {
@@ -156,8 +186,64 @@ export default function WhatsAppPage() {
     setMsgLoading(true)
     setSendError('')
     setAssignError('')
+    setSuggestion(null)
+    setSuggestionError('')
+    setSuggestionMsgId(null)
+    setPendingSuggestion(null)
+    suggestionFetchedForRef.current = null
     fetchMessages(id).finally(() => setMsgLoading(false))
   }
+
+  const selected = conversations.find(c => c.id === selectedId) ?? null
+  const windowOpen = selected ? isReplyWindowOpen(selected.last_inbound_at) : false
+
+  async function fetchSuggestion(conversationId: string, forMessageId?: string) {
+    if (forMessageId) {
+      setSuggestionMsgId(forMessageId)
+      setPendingSuggestion(null)
+    }
+    setSuggestionLoading(true)
+    setSuggestionError('')
+    try {
+      const res = await fetch('/api/whatsapp/suggest', {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({ conversation_id: conversationId }),
+      })
+      const d = await res.json().catch(() => ({}))
+      // A newer inbound message may have started its own auto-fetch while
+      // this one was in flight (e.g. two customer messages within the same
+      // ~10s poll window) — don't let a slower, now-stale response clobber
+      // the newer one. Only applies to the auto-fetch path (forMessageId
+      // set); "↻ הצע שוב" is a deliberate manual request and always applies.
+      if (forMessageId && suggestionFetchedForRef.current !== forMessageId) return
+      if (!res.ok) { setSuggestionError(d.error ?? 'הצעת התשובה נכשלה'); setSuggestion(null); return }
+      setSuggestion({ id: d.id ?? null, text: d.text ?? '', unsure: !!d.unsure, category: d.category ?? 'other' })
+    } catch (e) {
+      if (forMessageId && suggestionFetchedForRef.current !== forMessageId) return
+      setSuggestionError('הצעת התשובה נכשלה: ' + (e as Error).message)
+      setSuggestion(null)
+    } finally {
+      if (!forMessageId || suggestionFetchedForRef.current === forMessageId) setSuggestionLoading(false)
+    }
+  }
+
+  // The conversation's newest message, and whether it's an unanswered inbound
+  // one — the only case the suggestion card is for. Derived in render (not
+  // stored state) so a message that becomes stale (answered, or a new one
+  // arrived) hides the old card without any effect needing to clear it.
+  const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null
+  const pendingInboundId = windowOpen && lastMessage?.direction === 'inbound' ? lastMessage.id : null
+
+  // Auto-draft: whenever the open conversation's newest message becomes an
+  // unanswered inbound one, ask Gemini for a suggestion — guarded by
+  // suggestionFetchedForRef (a ref, not state) so this fires once per pending
+  // message, not once per 10s poll tick.
+  useEffect(() => {
+    if (!selectedId || !pendingInboundId || suggestionFetchedForRef.current === pendingInboundId) return
+    suggestionFetchedForRef.current = pendingInboundId
+    void fetchSuggestion(selectedId, pendingInboundId)
+  }, [selectedId, pendingInboundId])
 
   // Initial load + poll every 10s.
   useEffect(() => {
@@ -238,8 +324,6 @@ export default function WhatsAppPage() {
     }
   }
 
-  const selected = conversations.find(c => c.id === selectedId) ?? null
-  const windowOpen = selected ? isReplyWindowOpen(selected.last_inbound_at) : false
   const myEmail = (user?.email ?? '').toLowerCase()
 
   async function assign(nextAssignee: string | null) {
@@ -265,20 +349,26 @@ export default function WhatsAppPage() {
     }
   }
 
-  async function send() {
-    const text = draft.trim()
-    if (!text || !selected) return
+  async function sendText(text: string, suggestionMeta?: { id: string; outcome: 'sent_as_is' | 'edited' }) {
+    const trimmed = text.trim()
+    if (!trimmed || !selected) return
     setSending(true)
     setSendError('')
     try {
       const res = await fetch('/api/whatsapp/send', {
         method: 'POST',
         headers: await authHeaders(),
-        body: JSON.stringify({ conversation_id: selected.id, text }),
+        body: JSON.stringify({
+          conversation_id: selected.id,
+          text: trimmed,
+          ...(suggestionMeta ? { suggestion_id: suggestionMeta.id, suggestion_outcome: suggestionMeta.outcome } : {}),
+        }),
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) { setSendError(d.error ?? 'שליחת ההודעה נכשלה'); return }
       setDraft('')
+      setSuggestion(null)
+      setPendingSuggestion(null)
       await fetchMessages(selected.id)
       await fetchConversations()
     } catch (e) {
@@ -288,24 +378,38 @@ export default function WhatsAppPage() {
     }
   }
 
-  /** Fills the composer with a Gemini draft — the coordinator still edits and presses שליחה. */
-  async function suggestReply() {
-    if (!selected) return
-    setSuggesting(true)
-    setSuggestError('')
+  /** The composer's own שליחה button — tags the suggestion as 'edited' if "ערוך" opened it here first. */
+  async function send() {
+    const meta = pendingSuggestion ?? undefined
+    await sendText(draft, meta)
+  }
+
+  /** The suggestion card's "שלח" — sends the draft text unchanged. */
+  async function sendSuggestionAsIs() {
+    if (!suggestion || suggestion.unsure || !suggestion.text || !suggestion.id) return
+    await sendText(suggestion.text, { id: suggestion.id, outcome: 'sent_as_is' })
+  }
+
+  /** The suggestion card's "ערוך" — loads the draft into the composer for free editing before sending. */
+  function editSuggestion() {
+    if (!suggestion || suggestion.unsure || !suggestion.text) return
+    setDraft(suggestion.text)
+    setPendingSuggestion(suggestion.id ? { id: suggestion.id, outcome: 'edited' } : null)
+  }
+
+  /** The suggestion card's "דחה" — dismissed without sending; just a stage-3 outcome flag. */
+  async function rejectSuggestion() {
+    if (!suggestion || !suggestion.id) { setSuggestion(null); return }
+    const id = suggestion.id
+    setSuggestion(null)
     try {
-      const res = await fetch('/api/whatsapp/suggest', {
+      await fetch('/api/whatsapp/suggestions/reject', {
         method: 'POST',
         headers: await authHeaders(),
-        body: JSON.stringify({ conversation_id: selected.id }),
+        body: JSON.stringify({ suggestion_id: id }),
       })
-      const d = await res.json().catch(() => ({}))
-      if (!res.ok) { setSuggestError(d.error ?? 'הצעת התשובה נכשלה'); return }
-      setDraft(d.suggestion ?? '')
-    } catch (e) {
-      setSuggestError('הצעת התשובה נכשלה: ' + (e as Error).message)
-    } finally {
-      setSuggesting(false)
+    } catch {
+      // Best-effort — losing one outcome row isn't worth surfacing an error for.
     }
   }
 
@@ -512,34 +616,80 @@ export default function WhatsAppPage() {
             </div>
 
             {windowOpen ? (
-              <div className="shrink-0 p-3 border-t border-stone-800 bg-stone-950">
-                {sendError && <p className="text-red-400 text-xs mb-2">{sendError}</p>}
-                {suggestError && <p className="text-red-400 text-xs mb-2">{suggestError}</p>}
-                <div className="flex justify-end mb-2">
-                  <button
-                    onClick={suggestReply}
-                    disabled={suggesting}
-                    title="Gemini יציע טיוטה — עדיין אפשר לערוך לפני שליחה"
-                    className="px-3 py-1.5 rounded-lg bg-stone-800 border border-stone-600 text-xs font-bold disabled:opacity-50"
-                  >
-                    {suggesting ? 'חושב...' : '💡 הצע תשובה'}
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    value={draft}
-                    onChange={e => setDraft(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !sending) send() }}
-                    placeholder="הקלד/י הודעה..."
-                    className="flex-1 px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-sm"
-                  />
-                  <button
-                    onClick={send}
-                    disabled={sending || !draft.trim()}
-                    className="px-4 py-2 rounded-lg bg-lime-400 text-stone-950 font-bold text-sm disabled:opacity-40"
-                  >
-                    {sending ? 'שולח...' : 'שליחה'}
-                  </button>
+              <div className="shrink-0 border-t border-stone-800 bg-stone-950">
+                {/* הצעת תשובה — נטענת אוטומטית כשההודעה האחרונה היא מהלקוח וטרם נענתה */}
+                {pendingInboundId && pendingInboundId === suggestionMsgId && (suggestionLoading || suggestion || suggestionError) && (
+                  <div className="p-3 border-b border-stone-800 bg-stone-900/60">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-bold text-stone-400">
+                        💡 הצעת תשובה
+                        {suggestion && !suggestion.unsure && (
+                          <span className="mr-1.5 font-normal text-stone-500">
+                            · {CATEGORY_LABEL[suggestion.category] ?? suggestion.category}
+                          </span>
+                        )}
+                      </span>
+                      {selected && !suggestionLoading && (
+                        <button
+                          onClick={() => fetchSuggestion(selected.id)}
+                          className="text-[11px] text-stone-500 hover:text-stone-300"
+                        >
+                          ↻ הצע שוב
+                        </button>
+                      )}
+                    </div>
+                    {suggestionLoading && <p className="text-xs text-stone-500">חושב על הצעת תשובה...</p>}
+                    {!suggestionLoading && suggestionError && <p className="text-xs text-red-400">{suggestionError}</p>}
+                    {!suggestionLoading && !suggestionError && suggestion?.unsure && (
+                      <p className="text-xs text-amber-300">אין הצעה בטוחה לתשובה הזו — דורש תשומת לב מלאה.</p>
+                    )}
+                    {!suggestionLoading && !suggestionError && suggestion && !suggestion.unsure && suggestion.text && (
+                      <>
+                        <p className="text-sm text-stone-200 whitespace-pre-wrap mb-2">{suggestion.text}</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={sendSuggestionAsIs}
+                            disabled={sending}
+                            className="px-3 py-1.5 rounded-lg bg-lime-400 text-stone-950 font-bold text-xs disabled:opacity-40"
+                          >
+                            שלח
+                          </button>
+                          <button
+                            onClick={editSuggestion}
+                            className="px-3 py-1.5 rounded-lg bg-stone-800 border border-stone-600 text-xs font-bold"
+                          >
+                            ערוך
+                          </button>
+                          <button
+                            onClick={rejectSuggestion}
+                            className="px-3 py-1.5 rounded-lg bg-stone-800 border border-stone-600 text-xs text-stone-400"
+                          >
+                            דחה
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <div className="p-3">
+                  {sendError && <p className="text-red-400 text-xs mb-2">{sendError}</p>}
+                  <div className="flex gap-2">
+                    <input
+                      value={draft}
+                      onChange={e => setDraft(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !sending) send() }}
+                      placeholder="הקלד/י הודעה..."
+                      className="flex-1 px-3 py-2 rounded-lg bg-stone-900 border border-stone-700 text-sm"
+                    />
+                    <button
+                      onClick={send}
+                      disabled={sending || !draft.trim()}
+                      className="px-4 py-2 rounded-lg bg-lime-400 text-stone-950 font-bold text-sm disabled:opacity-40"
+                    >
+                      {sending ? 'שולח...' : 'שליחה'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
