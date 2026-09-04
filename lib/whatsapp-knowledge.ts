@@ -12,10 +12,16 @@
 // and edits before sending — nothing here is ever sent to a customer
 // unreviewed. Update this file directly when a schedule or policy changes;
 // there's no admin UI for it yet.
+//
+// Every section below that's a specific camp/workshop/class carries its own
+// "הרשמה: https://..." line — lib/gemini.ts's prompt requires any reply that
+// mentions that camp/workshop/class's details to close with that exact link,
+// so add one here (never invent one) whenever a new section is added.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const WHATSAPP_KNOWLEDGE_BASE = `
 # חוגי ילדים/נוער — לפי סניף
+הרשמה: https://www.tevabike.com/register
 - משגב: ראשון וחמישי 15:30–17:00 | ₪300/חודש (פעם בשבוע, בחירת יום א׳ או ה׳) או ₪550/חודש (פעמיים בשבוע)
 - ביריה: יום שני 15:45–17:15 | אותו תמחור כמו משגב (300/550)
 - פרוד-אמירים: יום רביעי 15:45–17:00 | מחיר קבוע ₪270/חודש (בלי בחירת מסלול)
@@ -23,6 +29,7 @@ export const WHATSAPP_KNOWLEDGE_BASE = `
 - מטה אשר: יום שלישי | מופעל חיצונית דרך המתנ״ס (matnasmatteasher.org.il) — המחיר עדיין לא סופי, ממתין לאישור בני. אל תמסור מחיר סופי למטה אשר.
 
 # חוגי מבוגרים — משגב בלבד
+הרשמה: https://www.tevabike.com/register
 ₪300/חודש. 5 אימונים לבחירה (לא חובה לבחור רק אחד):
 - יום א׳ טכני 6:30–8:00
 - יום ב׳ כושר ואושר 6:00–7:15
@@ -36,11 +43,12 @@ export const WHATSAPP_KNOWLEDGE_BASE = `
 אדמיניסטרציה: שיר קובי.
 
 # מחנה סוכות (27–30.9.2026)
+הרשמה: https://www.tevabike.com/camp-sukkot
 ₪2,450, כולל לינה + 3 ארוחות ביום + כניסה לבריכה (חד-פעמי). מינימום 10 רוכבים כדי שהמחנה יצא לפועל.
 קהל יעד: ילדים ונוער 11–18 בלבד.
 ביטול: 14+ יום מראש → החזר 50%. פחות מ-3 ימים מראש → אין החזר.
 
-# מדיניות חנות (tevabike.com/shop)
+# מדיניות חנות (https://www.tevabike.com/shop)
 אחריות על המוצרים ומשלוח — באחריות פאן רייד (הספק), לא טבע בייק.
 החלפות/החזרות — בתיאום מול המחסן: 0509446696.
 כל מה שקשור לחוגים (לא לחנות) מנותב לטל ברקן.

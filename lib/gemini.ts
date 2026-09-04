@@ -73,6 +73,14 @@ const UNSURE_FALLBACK: WhatsAppSuggestion = { text: '', unsure: true, category: 
  * is asked to reply with structured JSON so "I don't actually know this" is
  * a real, machine-checkable `unsure: true` rather than free text a
  * coordinator might miss and send as if it were solid.
+ *
+ * The link rule: any reply that mentions a specific camp/workshop/class's
+ * details must close with that exact page's link — never a bare textual
+ * description, never a guessed URL. The only links it's allowed to use are
+ * the ones already present in knowledgeBase/dynamicContext (each camp/
+ * workshop/class section there carries its own "הרשמה: https://..." line —
+ * see lib/whatsapp-knowledge.ts and lib/site-content.ts); if none fits, the
+ * iron rule above applies and this should come back unsure instead.
  */
 export async function suggestWhatsAppReply(
   history: WhatsAppHistoryMessage[],
@@ -89,6 +97,8 @@ export async function suggestWhatsAppReply(
 
 כלל ברזל: אסור להמציא עובדה, מחיר, תאריך או מדיניות שלא מופיעים במפורש במידע שלמטה. אם התשובה הבטוחה לא נמצאת שם — אל תנחש: סמן "unsure": true והחזר "reply" כמחרוזת ריקה.
 סמן "unsure": true גם כשמדובר בתשלום/החזר כספי, מצב רפואי/מגבלה גופנית, תלונה, או כל בקשה חריגה שלא מכוסה במפורש למטה — אלה תמיד עוברים לבן אדם, גם אם יש לך ניחוש סביר.
+
+כלל קישורים: כל תשובה שמזכירה פרטים על מחנה, סדנה או חוג ספציפי (שם, תאריכים, מחיר, זמינות וכו') חייבת להסתיים בקישור לעמוד ההרשמה/המידע של אותו מחנה/סדנה/חוג עצמו — לא רק בתיאור מילולי, ולא קישור לעמוד הבית או לעמוד כללי אחר. השתמש אך ורק בקישור שמופיע במפורש במידע שלמטה (למשל שורת "הרשמה: https://..." שמצורפת לכל מחנה/סדנה/חוג בבסיס הידע, או קישור שמופיע במידע העדכני מהאתר) — אם אין קישור מתאים במידע הנתון, אל תמציא כתובת בעצמך; במקרה כזה סמן "unsure": true במקום לנחש קישור.
 
 ${knowledgeBase}
 

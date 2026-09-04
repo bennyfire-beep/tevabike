@@ -17,6 +17,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SITE_ORIGIN = 'https://tevabike.com'
+// The canonical, user-facing form (matches every other customer-facing link
+// in this codebase, e.g. components/RiderForm.tsx) — this is what gets cited
+// in the prompt, so it has to be a real, clickable link, not the bare fetch
+// origin above.
+const PUBLIC_ORIGIN = 'https://www.tevabike.com'
 const FETCH_TIMEOUT_MS = 5000
 
 function stripHtml(html: string): string {
@@ -73,8 +78,8 @@ export async function fetchDynamicSiteContent(admin: SupabaseClient): Promise<st
   ])
 
   const parts: string[] = []
-  if (workshop) parts.push(`סדנת איר-באג (tevabike.com/workshop-airbag) — כרגע באתר:\n${workshop}`)
+  if (workshop) parts.push(`סדנת איר-באג (הרשמה: ${PUBLIC_ORIGIN}/workshop-airbag) — כרגע באתר:\n${workshop}`)
   if (trips) parts.push(`טיולים פתוחים כרגע:\n${trips}`)
-  if (shop) parts.push(`חנות (tevabike.com/shop) — כרגע באתר:\n${shop}`)
+  if (shop) parts.push(`חנות (${PUBLIC_ORIGIN}/shop) — כרגע באתר:\n${shop}`)
   return parts.join('\n\n')
 }
