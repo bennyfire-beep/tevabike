@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
   const { data: recent, error: msgErr } = await admin
     .from('whatsapp_messages')
-    .select('direction, body, msg_type, created_at')
+    .select('id, direction, body, msg_type, created_at')
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: false })
     .limit(HISTORY_LIMIT)
@@ -83,14 +83,44 @@ export async function POST(req: NextRequest) {
     console.error('[whatsapp/suggest] examples read failed:', examplesErr.message)
   }
 
+  let suggestion
   try {
     const dynamicContext = await fetchDynamicSiteContent(admin)
     const styleExamples = formatReplyExamples(examples ?? [])
-    const suggestion = await suggestWhatsAppReply(history, WHATSAPP_KNOWLEDGE_BASE, dynamicContext, styleExamples)
-    if (!suggestion) return NextResponse.json({ error: 'לא התקבלה הצעה מ-Gemini' }, { status: 502 })
-    return NextResponse.json({ suggestion })
+    suggestion = await suggestWhatsAppReply(history, WHATSAPP_KNOWLEDGE_BASE, dynamicContext, styleExamples)
   } catch (e) {
     console.error('[whatsapp/suggest] Gemini call failed:', (e as Error).message)
     return NextResponse.json({ error: 'הצעת התשובה נכשלה' }, { status: 502 })
   }
+
+  // recent[0] is the newest message (desc order) — if it's inbound, this
+  // suggestion is a draft reply to it; that's the id the coordinator's "שלח
+  // כמו שהיא"/"ערוך"/"דחה" outcome (app/api/whatsapp/send, .../suggestions/reject)
+  // eventually gets tagged against for stage-3 accuracy tracking.
+  const latest = recent[0]
+  const inboundMessageId = latest?.direction === 'inbound' ? latest.id : null
+
+  const { data: saved, error: insertErr } = await admin
+    .from('whatsapp_suggestions')
+    .insert({
+      conversation_id: conversationId,
+      inbound_message_id: inboundMessageId,
+      suggested_text: suggestion.text,
+      category: suggestion.category,
+      unsure: suggestion.unsure,
+    })
+    .select('id')
+    .single()
+  if (insertErr) {
+    // Logging the suggestion is for stage-3 accuracy tracking, not a
+    // requirement for handing the draft back — don't fail the request over it.
+    console.error('[whatsapp/suggest] suggestion log insert failed:', insertErr.message)
+  }
+
+  return NextResponse.json({
+    id: saved?.id ?? null,
+    text: suggestion.text,
+    unsure: suggestion.unsure,
+    category: suggestion.category,
+  })
 }
