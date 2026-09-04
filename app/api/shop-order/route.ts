@@ -12,6 +12,8 @@ const BENNY_CC = 'bennyfire@gmail.com'
 
 const ESTIMATED_DELIVERY = 'כ-7-10 ימי עסקים (יתכנו שינויים בשל עומסים שאינם תלויים בנו)'
 const RETURNS_PHONE = '0509446696'
+const SUPPORT_HOURS =
+  "מענה טלפוני להחלפות/החזרות ולבירורי משלוח: ימים א'–ה' 08:00–16:00. בימי שישי ושבת אין מענה."
 
 const VALID_SLUGS = ['spank-spoon-35', 'spank-spike-33-grip', 'spank-spoon-pedals']
 const VALID_FULFILLMENT = ['pickup', 'delivery']
@@ -26,7 +28,7 @@ const FREE_SHIPPING_THRESHOLD = 600
 
 const MAX_SHORT = 100
 const MAX_PHONE = 30
-const MAX_ADDRESS = 300
+const MAX_ADDRESS_PART = 150
 const MAX_ITEMS = 3
 
 function clean(v: unknown, max: number): string | null {
@@ -78,6 +80,7 @@ function orderHtml(orderId: string, p: {
       האחריות על המוצרים ועל המשלוח היא באחריות פאן רייד. החלפות והחזרות בתיאום מראש מול
       מחסני החברה — טלפון ${RETURNS_PHONE}.
     </p>
+    <p style="font-size:12px;color:#7E948A;margin-top:8px">${SUPPORT_HOURS}</p>
     <p style="font-size:12px;color:#7E948A;margin-top:20px">טבע בייק · tevabike.com</p>
   </div>`
 }
@@ -112,7 +115,10 @@ export async function POST(req: NextRequest) {
   const customer_name = clean(body.customer_name, MAX_SHORT)
   const customer_phone = clean(body.customer_phone, MAX_PHONE)
   const fulfillment = clean(body.fulfillment, 20) || 'pickup'
-  const delivery_address = clean(body.delivery_address, MAX_ADDRESS)
+  const delivery_city = clean(body.delivery_city, MAX_ADDRESS_PART)
+  const delivery_street = clean(body.delivery_street, MAX_ADDRESS_PART)
+  const delivery_address =
+    delivery_street && delivery_city ? `${delivery_street}, ${delivery_city}` : delivery_street || delivery_city
 
   if (!customer_name || !customer_phone) {
     return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
@@ -120,7 +126,7 @@ export async function POST(req: NextRequest) {
   if (!VALID_FULFILLMENT.includes(fulfillment)) {
     return NextResponse.json({ error: 'bad_fulfillment' }, { status: 400 })
   }
-  if (fulfillment === 'delivery' && !delivery_address) {
+  if (fulfillment === 'delivery' && (!delivery_city || !delivery_street)) {
     return NextResponse.json({ error: 'missing_address' }, { status: 400 })
   }
 

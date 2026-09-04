@@ -92,7 +92,9 @@ export default function ShopPage() {
     customer_name: "",
     customer_phone: "",
     fulfillment: "pickup" as "pickup" | "delivery",
-    delivery_address: "",
+    delivery_city: "",
+    delivery_street: "",
+    termsAccepted: false,
   });
 
   const selectedSlugs = PRODUCTS.filter((p) => selected[p.slug]).map((p) => p.slug);
@@ -128,8 +130,15 @@ export default function ShopPage() {
       alert("נא למלא שם וטלפון");
       return;
     }
-    if (form.fulfillment === "delivery" && !form.delivery_address.trim()) {
-      alert("נא למלא כתובת למשלוח");
+    if (
+      form.fulfillment === "delivery" &&
+      (!form.delivery_city.trim() || !form.delivery_street.trim())
+    ) {
+      alert("נא למלא עיר וכתובת למשלוח");
+      return;
+    }
+    if (!form.termsAccepted) {
+      alert("יש לאשר את תקנון האתר לפני מעבר לתשלום");
       return;
     }
     setStatus("sending");
@@ -146,7 +155,8 @@ export default function ShopPage() {
           customer_name: form.customer_name,
           customer_phone: form.customer_phone,
           fulfillment: form.fulfillment,
-          delivery_address: form.delivery_address,
+          delivery_city: form.delivery_city,
+          delivery_street: form.delivery_street,
           shipping_amount: shipping,
           total_amount: total,
         }),
@@ -298,6 +308,10 @@ export default function ShopPage() {
           <p>
             החלפות והחזרות בתיאום מראש מול מחסני החברה — לתיאום: 0509446696.
           </p>
+          <p>
+            מענה טלפוני להחלפות/החזרות ולבירורי משלוח: ימים א&apos;–ה&apos; 08:00–16:00. בימי שישי
+            ושבת אין מענה.
+          </p>
         </div>
       </section>
 
@@ -407,13 +421,22 @@ export default function ShopPage() {
                 </div>
 
                 {form.fulfillment === "delivery" && (
-                  <input
-                    className={input}
-                    style={inputStyle}
-                    placeholder="כתובת למשלוח *"
-                    value={form.delivery_address}
-                    onChange={(e) => set("delivery_address", e.target.value)}
-                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      className={input}
+                      style={inputStyle}
+                      placeholder="עיר *"
+                      value={form.delivery_city}
+                      onChange={(e) => set("delivery_city", e.target.value)}
+                    />
+                    <input
+                      className={input}
+                      style={inputStyle}
+                      placeholder="כתובת (רחוב ומספר) *"
+                      value={form.delivery_street}
+                      onChange={(e) => set("delivery_street", e.target.value)}
+                    />
+                  </div>
                 )}
 
                 <p className="text-xs leading-relaxed" style={{ color: "#7E948A" }}>
@@ -421,9 +444,31 @@ export default function ShopPage() {
                   מול מחסני החברה — 0509446696.
                 </p>
 
+                <label className="flex items-start gap-2 text-sm cursor-pointer" style={{ color: "#D8E2DC" }}>
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={form.termsAccepted}
+                    onChange={(e) => set("termsAccepted", e.target.checked)}
+                  />
+                  <span>
+                    קראתי ואני מאשר/ת את{" "}
+                    <a
+                      href="/shop/terms"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                      style={{ color: C.brand }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      תקנון האתר
+                    </a>
+                  </span>
+                </label>
+
                 <button
                   onClick={submit}
-                  disabled={status === "sending" || !payLink}
+                  disabled={status === "sending" || !payLink || !form.termsAccepted}
                   className="w-full rounded-xl py-3 font-black transition disabled:opacity-50 hover:opacity-90"
                   style={{ background: C.brand, color: "#fff" }}
                 >
