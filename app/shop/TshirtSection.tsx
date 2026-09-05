@@ -48,6 +48,11 @@ type Status = "idle" | "sending" | "done" | "error";
 export default function TshirtSection() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  // מתג נפרד מ-preorder_active של כל מוצר: זה כיבוי/הדלקה של כל המדור,
+  // לשימוש כשהעיצוב הסופי של החולצות עוד לא מוכן — הטאב נשאר גלוי, אבל
+  // מוצג הודעת "בקרוב" במקום המוצרים/העגלה. נשלט מפאנל הניהול.
+  const [shopActive, setShopActive] = useState(true);
+  const [comingSoonMessage, setComingSoonMessage] = useState("");
   const [sizeBySlug, setSizeBySlug] = useState<Record<string, string>>({});
   const [backNameBySlug, setBackNameBySlug] = useState<Record<string, string>>({});
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -58,17 +63,21 @@ export default function TshirtSection() {
 
   useEffect(() => {
     let cancelled = false;
-    supabase
-      .from("tshirt_products")
-      .select(
-        "slug, name, description, image_url, sizes, requires_back_name, preorder_price, regular_price, preorder_active, preorder_deadline_label"
-      )
-      .order("display_order", { ascending: true })
-      .then(({ data }) => {
-        if (cancelled) return;
-        setProducts((data ?? []) as Product[]);
-        setLoading(false);
-      });
+    Promise.all([
+      supabase
+        .from("tshirt_products")
+        .select(
+          "slug, name, description, image_url, sizes, requires_back_name, preorder_price, regular_price, preorder_active, preorder_deadline_label"
+        )
+        .order("display_order", { ascending: true }),
+      supabase.from("tshirt_shop_settings").select("is_active, coming_soon_message").eq("id", true).maybeSingle(),
+    ]).then(([productsRes, settingsRes]) => {
+      if (cancelled) return;
+      setProducts((productsRes.data ?? []) as Product[]);
+      setShopActive(settingsRes.data?.is_active ?? true);
+      setComingSoonMessage(settingsRes.data?.coming_soon_message ?? "");
+      setLoading(false);
+    });
     return () => {
       cancelled = true;
     };
@@ -162,6 +171,16 @@ export default function TshirtSection() {
     return (
       <div className="px-6 py-16 text-center" style={{ color: "#9FB3A8" }}>
         טוען...
+      </div>
+    );
+  }
+
+  if (!shopActive) {
+    return (
+      <div className="px-6 py-16 text-center max-w-md mx-auto">
+        <div className="text-4xl mb-3">👕</div>
+        <p className="text-lg font-bold mb-1">בקרוב</p>
+        <p style={{ color: "#9FB3A8" }}>{comingSoonMessage || "המדור עוד לא פעיל."}</p>
       </div>
     );
   }

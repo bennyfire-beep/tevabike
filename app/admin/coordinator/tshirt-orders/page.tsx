@@ -8,6 +8,11 @@ import { useState, useEffect, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 
+type ShopSettings = {
+  is_active: boolean
+  coming_soon_message: string
+}
+
 type ProductRow = {
   slug: string
   name: string
@@ -83,6 +88,68 @@ function groupOrders(rows: OrderRow[]): Group[] {
 const inputStyle: CSSProperties = {
   background: '#0d0f0e', border: '1px solid #252b27', borderRadius: 8, color: '#e8efe9',
   padding: '8px 10px', fontSize: 13, fontFamily: 'Heebo, Arial, sans-serif', width: '100%',
+}
+
+function ShopActiveBanner({ settings, onSaved }: { settings: ShopSettings; onSaved: (s: ShopSettings) => void }) {
+  const [draft, setDraft] = useState(settings)
+  const [saving, setSaving] = useState(false)
+  const dirty = JSON.stringify(draft) !== JSON.stringify(settings)
+
+  async function save() {
+    setSaving(true)
+    const { error } = await supabase
+      .from('tshirt_shop_settings')
+      .update({ is_active: draft.is_active, coming_soon_message: draft.coming_soon_message })
+      .eq('id', true)
+    setSaving(false)
+    if (error) { alert(error.message); return }
+    onSaved(draft)
+  }
+
+  return (
+    <div
+      style={{
+        background: draft.is_active ? '#12331f' : '#2a2410', border: `1px solid ${draft.is_active ? '#1f5233' : '#4a3f10'}`,
+        borderRadius: 12, padding: 14, marginBottom: 10,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <span style={{ fontWeight: 800, fontSize: 14, color: draft.is_active ? '#7ee787' : '#e8c547' }}>
+          {draft.is_active ? '🟢 מדור החולצות פעיל באתר' : '🟡 מדור החולצות במצב "בקרוב"'}
+        </span>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#e8efe9', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={draft.is_active}
+            onChange={(e) => setDraft((d) => ({ ...d, is_active: e.target.checked }))}
+          />
+          החנות פעילה (לקוחות יכולים להזמין)
+        </label>
+      </div>
+      {!draft.is_active && (
+        <div style={{ marginBottom: 10 }}>
+          <label style={{ fontSize: 11, color: '#7a8f7d' }}>הודעת &quot;בקרוב&quot; שתוצג במקום המוצרים</label>
+          <input
+            style={inputStyle}
+            value={draft.coming_soon_message}
+            onChange={(e) => setDraft((d) => ({ ...d, coming_soon_message: e.target.value }))}
+          />
+        </div>
+      )}
+      <button
+        onClick={save}
+        disabled={!dirty || saving}
+        style={{
+          width: '100%', background: dirty ? '#b5e853' : 'transparent', color: dirty ? '#0d0f0e' : '#7a8f7d',
+          border: `1px solid ${dirty ? '#b5e853' : '#252b27'}`, borderRadius: 8, padding: '8px 12px',
+          fontSize: 13, fontWeight: 700, fontFamily: 'Heebo, Arial, sans-serif', cursor: dirty ? 'pointer' : 'default',
+          opacity: saving ? 0.5 : 1,
+        }}
+      >
+        {saving ? 'שומר...' : dirty ? 'שמירת שינויים' : 'נשמר'}
+      </button>
+    </div>
+  )
 }
 
 function ProductSettingsCard({ product, onSaved }: { product: ProductRow; onSaved: (p: ProductRow) => void }) {
@@ -186,6 +253,7 @@ function ProductSettingsCard({ product, onSaved }: { product: ProductRow; onSave
 export default function TshirtOrdersPage() {
   const user = useCoordinator()
   const [products, setProducts] = useState<ProductRow[]>([])
+  const [shopSettings, setShopSettings] = useState<ShopSettings | null>(null)
   const [orders, setOrders] = useState<OrderRow[]>([])
   const [loading, setLoading] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -195,7 +263,7 @@ export default function TshirtOrdersPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [{ data: p }, { data: o }] = await Promise.all([
+    const [{ data: p }, { data: o }, { data: s }] = await Promise.all([
       supabase
         .from('tshirt_products')
         .select('slug, name, preorder_price, regular_price, preorder_active, preorder_arbox_link, regular_arbox_link, preorder_deadline_label')
@@ -204,9 +272,11 @@ export default function TshirtOrdersPage() {
         .from('tshirt_orders')
         .select('id, created_at, order_group, product_name, size, back_name, quantity, unit_price, is_preorder, line_total, customer_name, customer_phone, customer_email, payment_status')
         .order('created_at', { ascending: false }),
+      supabase.from('tshirt_shop_settings').select('is_active, coming_soon_message').eq('id', true).maybeSingle(),
     ])
     setProducts((p ?? []) as ProductRow[])
     setOrders((o ?? []) as OrderRow[])
+    setShopSettings((s as ShopSettings | null) ?? { is_active: false, coming_soon_message: '' })
     setLoading(false)
   }, [])
 
@@ -247,6 +317,10 @@ export default function TshirtOrdersPage() {
 
   return (
     <div style={{ padding: '16px 12px', maxWidth: 700, margin: '0 auto' }}>
+      {shopSettings && (
+        <ShopActiveBanner settings={shopSettings} onSaved={setShopSettings} />
+      )}
+
       <div style={{ marginBottom: 14 }}>
         <button
           onClick={() => setSettingsOpen((s) => !s)}
