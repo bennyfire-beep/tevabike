@@ -38,17 +38,18 @@ function clean(v: unknown, max: number): string | null {
   return s.length ? s : null
 }
 
-async function sendEmail(to: string, cc: string | undefined, subject: string, html: string) {
+async function sendEmail(to: string, cc: string | undefined, subject: string, html: string): Promise<boolean> {
   const key = process.env.RESEND_API_KEY
-  if (!key) return
+  if (!key) return false
   try {
-    await fetch('https://api.resend.com/emails', {
+    const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from: FROM, to, cc, reply_to: REPLY_TO, subject, html }),
     })
+    return res.ok
   } catch {
-    // fire-and-forget
+    return false
   }
 }
 
@@ -164,7 +165,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'insert_failed' }, { status: 500 })
   }
 
-  await sendEmail(
+  const emailSent = await sendEmail(
     SUPPLIER_EMAIL,
     BENNY_CC,
     `הזמנה חדשה מטבע בייק — ${items.map((i) => i.product_name).join(' + ')}`,
@@ -173,6 +174,12 @@ export async function POST(req: NextRequest) {
       subtotal, shipping, total,
     })
   )
+
+  // נכתב רק אם המייל לפאן רייד באמת יצא — מוצג ב-/admin/coordinator/shop-orders.
+  if (emailSent) {
+    const ids = data.map((row) => row.id)
+    await supabase.from('shop_orders').update({ supplier_notified: true }).in('id', ids)
+  }
 
   return NextResponse.json({ ok: true, id: data[0].id, total })
 }
