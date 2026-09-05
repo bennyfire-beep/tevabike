@@ -62,28 +62,29 @@ export async function describeInboundMedia(
 כלל ברזל: אסור לזהות, לנחש, או לציין שם של אף אדם שמופיע בתמונה — גם אם אתה "חושב" שאתה מזהה מיהו. תיאור אדם מותר רק באופן כללי (למשל "רוכב אופניים", "ילד/ה", "קבוצת אנשים"), לעולם לא בניחוש זהות.`
     : `תמלל לעברית את מה שנאמר בהודעה הקולית הזו. אם השמע לא ברור או לא מובן, כתוב זאת במפורש במקום לנחש מה נאמר.`
 
+  // Groq first, same reasoning and same trivial-to-reverse order as
+  // suggestWhatsAppReply: Gemini's free tier is exhausted for the day well
+  // before real traffic shows up, so trying it first just adds latency to
+  // every image/voice note for a call that's going to fail anyway.
   try {
-    let contents
-    if (data.length > INLINE_LIMIT) {
-      const blob = new Blob([new Uint8Array(data)], { type: mimeType })
-      const f = await waitActive(await ai.files.upload({ file: blob, config: { mimeType } }))
-      contents = createUserContent([createPartFromUri(f.uri!, f.mimeType!), prompt])
-    } else {
-      contents = createUserContent([{ inlineData: { mimeType, data: data.toString('base64') } }, prompt])
-    }
-    const res = await ai.models.generateContent({ model: GEMINI_MODEL, contents })
-    return (res.text ?? '').trim()
+    return kind === 'image'
+      ? await callGroqVision(prompt, data.toString('base64'), mimeType)
+      : await transcribeGroqAudio(data, mimeType)
   } catch (e) {
-    // Same quota reality as suggestWhatsAppReply: Gemini's free tier can run
-    // out mid-afternoon, and a media message going unread is worse than
-    // trying a second provider. Groq's vision/Whisper models cover this.
-    console.error(`[gemini] describeInboundMedia (${kind}): Gemini failed, trying Groq fallback:`, (e as Error).message)
+    console.error(`[gemini] describeInboundMedia (${kind}): Groq call failed, trying Gemini fallback:`, (e as Error).message)
     try {
-      return kind === 'image'
-        ? await callGroqVision(prompt, data.toString('base64'), mimeType)
-        : await transcribeGroqAudio(data, mimeType)
+      let contents
+      if (data.length > INLINE_LIMIT) {
+        const blob = new Blob([new Uint8Array(data)], { type: mimeType })
+        const f = await waitActive(await ai.files.upload({ file: blob, config: { mimeType } }))
+        contents = createUserContent([createPartFromUri(f.uri!, f.mimeType!), prompt])
+      } else {
+        contents = createUserContent([{ inlineData: { mimeType, data: data.toString('base64') } }, prompt])
+      }
+      const res = await ai.models.generateContent({ model: GEMINI_MODEL, contents })
+      return (res.text ?? '').trim()
     } catch (e2) {
-      console.error(`[gemini] describeInboundMedia (${kind}): Groq fallback also failed:`, (e2 as Error).message)
+      console.error(`[gemini] describeInboundMedia (${kind}): Gemini fallback also failed:`, (e2 as Error).message)
       return ''
     }
   }
@@ -160,26 +161,30 @@ ${transcript}
 
 category משקף את נושא השאלה האחרונה של הלקוח: price=מחיר, dates=תאריכים, availability=האם יש מקום פנוי, hours=שעות פעילות, registration_link=קישור להרשמה, other=כל דבר אחר.`
 
+  // Groq is tried FIRST, Gemini second — the reverse of this pipeline's
+  // original order. Confirmed live: gemini-3-flash-preview's free tier is
+  // capped at 20 requests/day and stays exhausted for the rest of any day
+  // real traffic shows up, so every single message was paying the latency of
+  // a guaranteed-to-fail Gemini call before ever reaching Groq — measured
+  // contributing to an actual 30s webhook timeout. Groq has already been
+  // answering 100% of real traffic today regardless of which one goes first;
+  // this just stops paying for the doomed attempt. Trivially reversible
+  // (swap the two blocks back) once Gemini has a paid tier or its quota is
+  // reliably available again.
   let raw = ''
   try {
-    const res = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-      config: { responseMimeType: 'application/json' },
-    })
-    raw = res.text ?? ''
+    raw = await callGroq(prompt)
   } catch (e) {
-    // Gemini's free tier is capped low enough that a handful of people
-    // testing the bot in one afternoon can exhaust it (confirmed live) — a
-    // customer-facing reply going silent over a quota error is worse than
-    // trying a second, differently-quota'd provider with the exact same
-    // prompt. Groq is a no-op (still returns '' below) until GROQ_API_KEY is
-    // set — this is additive, not a replacement for Gemini.
-    console.error('[gemini] suggestWhatsAppReply: Gemini call failed, trying Groq fallback:', (e as Error).message)
+    console.error('[gemini] suggestWhatsAppReply: Groq call failed, trying Gemini fallback:', (e as Error).message)
     try {
-      raw = await callGroq(prompt)
+      const res = await ai.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: prompt,
+        config: { responseMimeType: 'application/json' },
+      })
+      raw = res.text ?? ''
     } catch (e2) {
-      console.error('[gemini] suggestWhatsAppReply: Groq fallback also failed:', (e2 as Error).message)
+      console.error('[gemini] suggestWhatsAppReply: Gemini fallback also failed:', (e2 as Error).message)
     }
   }
   return parseSuggestion(raw)
