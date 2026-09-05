@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { suggestWhatsAppReply, type WhatsAppSuggestionCategory } from '@/lib/gemini'
+import { suggestWhatsAppReply } from '@/lib/gemini'
 import { WHATSAPP_KNOWLEDGE_BASE } from '@/lib/whatsapp-knowledge'
 import { fetchDynamicSiteContent } from '@/lib/site-content'
 import { formatReplyExamples } from '@/lib/whatsapp-reply-examples'
@@ -9,17 +9,18 @@ import { isReplyWindowOpen } from '@/lib/whatsapp'
 // Stage 4: auto-send, called from the webhook right after a new inbound text
 // message is saved — the fully-automatic sibling of the coordinator's "הצע
 // תשובה" button (app/api/whatsapp/suggest). Same Gemini call, same knowledge
-// sources, but no human clicks anything for the categories below.
+// sources, but no human clicks anything when Gemini is confident.
 //
-// The gate is deliberately narrow: only plain facts Gemini is already
-// forbidden from guessing at (see the iron rule in suggestWhatsAppReply) go
-// out untouched. Payment/refunds, health/medical, complaints, 'other', and
-// every `unsure: true` — always wait for a coordinator, exactly as before
-// this existed. Widening this list is a product decision, not a bug fix.
-const AUTO_SEND_CATEGORIES: WhatsAppSuggestionCategory[] = [
-  'price', 'dates', 'availability', 'hours', 'registration_link',
-]
-
+// The gate is just `unsure: false` — no category whitelist on top of it.
+// That's not weaker than the original 5-category whitelist: the iron rule in
+// suggestWhatsAppReply already forces unsure=true, unconditionally, for
+// payment/refunds, health/medical, complaints, and anything not explicitly
+// covered by the knowledge base — regardless of what category Gemini tags it
+// with. A category gate on top of that only ever blocked *harmless* general
+// questions ("היי", "ספר לי על חוג") that Gemini was perfectly confident
+// about — which is exactly what real first-contact messages look like — so
+// it was dropped; `category` is still logged on every suggestion for
+// reporting, just no longer part of the send decision.
 const BOT_SIGNATURE = 'טבע בייק'
 const BOT_SENT_BY = 'בוט (אוטומטי)'
 
@@ -83,10 +84,7 @@ export async function maybeAutoReply(
       .single()
     if (insertErr) console.error('[whatsapp-autoreply] suggestion log insert failed:', insertErr.message)
 
-    const safeToAutoSend =
-      !suggestion.unsure &&
-      !!suggestion.text &&
-      AUTO_SEND_CATEGORIES.includes(suggestion.category as WhatsAppSuggestionCategory)
+    const safeToAutoSend = !suggestion.unsure && !!suggestion.text
     if (!safeToAutoSend) return
 
     const result = await sendWhatsAppText(admin, {
