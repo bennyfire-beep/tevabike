@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { whatsappServiceClient, requireCoordinator, canAccessConversation } from '@/lib/whatsapp-server'
-import { WHATSAPP_GRAPH_VERSION, WINDOW_CLOSED_MESSAGE, isReplyWindowOpen } from '@/lib/whatsapp'
+import { WINDOW_CLOSED_MESSAGE, isReplyWindowOpen } from '@/lib/whatsapp'
+import { sendWhatsAppText } from '@/lib/whatsapp-send'
 
 // POST /api/whatsapp/send — a coordinator's reply, sent through the Meta Cloud
 // API and logged the same way an inbound message would be. Templates and
@@ -75,63 +76,28 @@ export async function POST(req: NextRequest) {
   // to when more than one person answers the same inbox.
   const signedText = `${text}\n\n— ${caller.name}`
 
-  // ── 2. Send via the Graph API ──
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID
-  const token = process.env.WHATSAPP_TOKEN
-  if (!phoneNumberId || !token) {
-    console.error('[whatsapp/send] missing WHATSAPP_PHONE_NUMBER_ID or WHATSAPP_TOKEN')
-    return NextResponse.json({ error: 'השרת לא מוגדר נכון (חסרים פרטי WhatsApp API)' }, { status: 500 })
+  // ── 2. Send via the Graph API, log it, bump the conversation ──
+  // (shared with the automatic bot reply — lib/whatsapp-autoreply.ts — so both
+  // paths behave identically here)
+  const result = await sendWhatsAppText(admin, {
+    conversationId: conversation.id,
+    waId: conversation.wa_id,
+    text: signedText,
+    sentBy: caller.name,
+  })
+  if (!result.ok) {
+    console.error('[whatsapp/send] send failed:', result.error)
+    return NextResponse.json({ error: `שליחת ההודעה נכשלה: ${result.error}` }, { status: 502 })
   }
 
-  let waMessageId: string | null = null
-  try {
-    const res = await fetch(`https://graph.facebook.com/${WHATSAPP_GRAPH_VERSION}/${phoneNumberId}/messages`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to: conversation.wa_id,
-        text: { body: signedText },
-      }),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      const detail = data?.error?.message || res.statusText
-      console.error('[whatsapp/send] Graph API rejected the message:', detail)
-      return NextResponse.json({ error: `שליחת ההודעה נכשלה: ${detail}` }, { status: 502 })
-    }
-    waMessageId = data?.messages?.[0]?.id ?? null
-  } catch (e) {
-    console.error('[whatsapp/send] Graph API request failed:', (e as Error).message)
-    return NextResponse.json({ error: 'שליחת ההודעה נכשלה — בעיית תקשורת' }, { status: 502 })
-  }
-
-  // ── 3. Log the outbound message and bump the conversation ──
   const now = new Date().toISOString()
-  const { data: saved, error: insertErr } = await admin
+  const { data: saved } = await admin
     .from('whatsapp_messages')
-    .insert({
-      conversation_id: conversation.id,
-      wa_message_id: waMessageId,
-      direction: 'outbound',
-      msg_type: 'text',
-      body: signedText,
-      status: 'sent',
-      sent_by: caller.name,
-      created_at: now,
-    })
     .select('id, wa_message_id, direction, msg_type, body, status, error_detail, sent_by, created_at')
-    .single()
+    .eq('id', result.messageId ?? '')
+    .maybeSingle()
 
-  if (insertErr) console.error('[whatsapp/send] message insert failed:', insertErr.message)
-
-  const { error: updateErr } = await admin
-    .from('whatsapp_conversations')
-    .update({ last_message_at: now })
-    .eq('id', conversation.id)
-  if (updateErr) console.error('[whatsapp/send] conversation update failed:', updateErr.message)
-
-  // ── 4. Tag the suggestion this came from, if any (stage-3 accuracy tracking) ──
+  // ── 3. Tag the suggestion this came from, if any (stage-3 accuracy tracking) ──
   const suggestionId = (body.suggestion_id ?? '').trim()
   if (suggestionId && UUID.test(suggestionId) && body.suggestion_outcome) {
     const { error: decideErr } = await admin
@@ -139,7 +105,7 @@ export async function POST(req: NextRequest) {
       .update({
         outcome: body.suggestion_outcome,
         final_text: text,
-        outbound_message_id: saved?.id ?? null,
+        outbound_message_id: result.messageId,
         decided_by: caller.name,
         decided_at: now,
       })

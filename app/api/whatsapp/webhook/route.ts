@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { whatsappServiceClient } from '@/lib/whatsapp-server'
 import { bodyLabel, isMsgStatus } from '@/lib/whatsapp'
 import { notifyInbound } from '@/lib/whatsapp-notify'
+import { maybeAutoReply } from '@/lib/whatsapp-autoreply'
 
 // Meta WhatsApp Cloud API webhook — one URL, two jobs:
 //   GET  — the handshake Meta does once, when the webhook is configured.
@@ -13,6 +14,12 @@ import { notifyInbound } from '@/lib/whatsapp-notify'
 // So every branch below is wrapped so a bad payload logs instead of throwing.
 
 export const dynamic = 'force-dynamic'
+// The stage-4 auto-reply path (lib/whatsapp-autoreply.ts) now runs inline
+// here — same Gemini + dynamic-site-content pipeline as /api/whatsapp/suggest,
+// which already needed 30s (see its own maxDuration) — so this needs the same
+// headroom, or a slow Gemini/site-fetch call gets killed mid-request on
+// Vercel's default function timeout before it can send or log anything.
+export const maxDuration = 30
 
 // Not a secret worth rotating carefully — Meta sends it back verbatim on the
 // GET handshake, it never touches a message. process.env wins when set; this
@@ -131,10 +138,11 @@ async function handleInboundMessage(
     .select('id')
   if (error) console.error('[whatsapp/webhook] message insert failed:', error.message)
 
-  // Push + personal-number alert. Only for a message we actually just inserted
-  // (ignoreDuplicates leaves `inserted` empty on a Meta retry) — best-effort
-  // and fully awaited: an un-awaited send on Vercel can get killed the moment
-  // this function's response goes out, same lesson as the /shop supplier email.
+  // Push + personal-number alert, then stage-4 auto-reply. Only for a message
+  // we actually just inserted (ignoreDuplicates leaves `inserted` empty on a
+  // Meta retry) — best-effort and fully awaited: an un-awaited send on Vercel
+  // can get killed the moment this function's response goes out, same lesson
+  // as the /shop supplier email.
   if (!error && inserted && inserted.length > 0) {
     await notifyInbound(admin, {
       conversationId: conversation.id,
@@ -143,6 +151,17 @@ async function handleInboundMessage(
       senderPhone: waId,
       preview: body,
     })
+
+    // Auto-reply only ever drafts off actual typed text — never guess a
+    // response to an image/sticker/location/etc., that stays a human's call.
+    if (msgType === 'text' && text.trim()) {
+      await maybeAutoReply(admin, {
+        conversationId: conversation.id,
+        waId,
+        inboundMessageId: inserted[0].id,
+        lastInboundAt: when,
+      })
+    }
   }
 }
 

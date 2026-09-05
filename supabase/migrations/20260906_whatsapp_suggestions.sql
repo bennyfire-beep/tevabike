@@ -27,7 +27,9 @@ create table if not exists whatsapp_suggestions (
   suggested_text       text not null default '',   -- '' when unsure
   category             text,                       -- price / dates / availability / hours / registration_link / other
   unsure               boolean not null default false,
-  outcome              text check (outcome in ('sent_as_is', 'edited', 'rejected')),
+  -- 'auto_sent' = stage 4: sent straight to the customer with no coordinator
+  -- involved at all (see lib/whatsapp-autoreply.ts) — decided_by is 'bot' for these.
+  outcome              text check (outcome in ('sent_as_is', 'edited', 'rejected', 'auto_sent')),
   final_text           text,                       -- what was actually sent, for the 'edited' case
   outbound_message_id  uuid references whatsapp_messages(id) on delete set null,
   decided_by           text,
