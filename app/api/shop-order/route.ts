@@ -1,19 +1,17 @@
-// app/api/shop-order/route.ts — קליטת הזמנה מדף /shop + מייל לספק (גרסה 3 — בחירה מרובה + CC לבני)
+// app/api/shop-order/route.ts — קליטת הזמנה מדף /shop (גרסה 4 — לא שולח
+// לפאן רייד אוטומטית!)
+//
+// חשוב: אין webhook מארבוקס שמאשר תשלום, אז בעבר המייל לספק יצא כאן מיד
+// עם שליחת הטופס — לפני שידוע בכלל אם הלקוח באמת שילם. כל הזמנת בדיקה
+// גרמה למייל אמיתי אצל פאן רייד. עכשיו הראוט הזה רק שומר את ההזמנה ושולח
+// התראה פנימית לבני (לא לספק) שיש הזמנה חדשה לבדוק בארבוקס. השליחה בפועל
+// לפאן רייד קורית ידנית מ-/admin/coordinator/shop-orders (route.ts תחת
+// notify-supplier/) אחרי שבני מוודא שהתשלום אכן עבר.
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { BENNY_EMAIL, orderHtml, sendEmail } from '@/lib/shop-order-email'
 
 export const dynamic = 'force-dynamic'
-
-const FROM = 'טבע בייק <info@mail.tevabike.com>'
-const REPLY_TO = 'bennyfire@gmail.com'
-
-const SUPPLIER_EMAIL = 'orderfunride@gmail.com'
-const BENNY_CC = 'bennyfire@gmail.com'
-
-const ESTIMATED_DELIVERY = 'כ-7-10 ימי עסקים (יתכנו שינויים בשל עומסים שאינם תלויים בנו)'
-const RETURNS_PHONE = '0509446696'
-const SUPPORT_HOURS =
-  "מענה טלפוני להחלפות/החזרות ולבירורי משלוח: ימים א'–ה' 08:00–16:00. בימי שישי ושבת אין מענה."
 
 const VALID_SLUGS = ['spank-spoon-35', 'spank-spike-33-grip', 'spank-spoon-pedals']
 // אין יותר איסוף עצמי — כל הזמנה יוצאת במשלוח.
@@ -69,54 +67,7 @@ async function upsertCommunityContact(
   }
 }
 
-async function sendEmail(to: string, cc: string | undefined, subject: string, html: string): Promise<boolean> {
-  const key = process.env.RESEND_API_KEY
-  if (!key) return false
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM, to, cc, reply_to: REPLY_TO, subject, html }),
-    })
-    return res.ok
-  } catch {
-    return false
-  }
-}
-
 type Item = { product_slug: string; product_name: string; variant: string }
-
-function orderHtml(orderId: string, p: {
-  items: Item[]; customer_name: string; customer_phone: string;
-  fulfillment: string; delivery_address: string | null;
-  subtotal: number; shipping: number; total: number;
-}) {
-  const fulfillmentLabel = p.fulfillment === 'delivery' ? 'משלוח ללקוח' : 'איסוף מטבע בייק'
-  const itemsHtml = p.items
-    .map(
-      (it) =>
-        `<p style="margin:0 0 6px"><b style="color:#D4288A">${it.product_name}</b> — ${it.variant}</p>`
-    )
-    .join('')
-  return `
-  <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;background:#0C1814;color:#F5F2EE;padding:32px 24px;border-radius:16px;max-width:520px;margin:0 auto">
-    <h1 style="color:#D4288A;font-size:22px;margin:0 0 4px">הזמנה חדשה מטבע בייק</h1>
-    <p style="color:#7E948A;font-size:13px;margin:0 0 20px">מס' הזמנה: ${orderId.slice(0, 8)}</p>
-    <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px">
-      ${itemsHtml}
-      <p style="margin:12px 0 8px"><b style="color:#D4288A">לקוח:</b> ${p.customer_name} · ${p.customer_phone}</p>
-      <p style="margin:0 0 8px"><b style="color:#D4288A">אופן קבלה:</b> ${fulfillmentLabel}${p.delivery_address ? ' — ' + p.delivery_address : ''}</p>
-      <p style="margin:0 0 8px"><b style="color:#D4288A">סה"כ לגבייה:</b> ${p.subtotal} ₪ + משלוח ${p.shipping === 0 ? 'חינם' : p.shipping + ' ₪'} = <b>${p.total} ₪</b></p>
-      <p style="margin:0"><b style="color:#D4288A">זמן אספקה משוער:</b> ${ESTIMATED_DELIVERY}</p>
-    </div>
-    <p style="font-size:12px;color:#9FB3A8;margin-top:16px;line-height:1.6">
-      האחריות על המוצרים ועל המשלוח היא באחריות פאן רייד. החלפות והחזרות בתיאום מראש מול
-      מחסני החברה — טלפון ${RETURNS_PHONE}.
-    </p>
-    <p style="font-size:12px;color:#7E948A;margin-top:8px">${SUPPORT_HOURS}</p>
-    <p style="font-size:12px;color:#7E948A;margin-top:20px">טבע בייק · tevabike.com</p>
-  </div>`
-}
 
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>
@@ -205,21 +156,19 @@ export async function POST(req: NextRequest) {
     await upsertCommunityContact(supabase, { full_name: customer_name, email: customer_email, phone: customer_phone })
   }
 
-  const emailSent = await sendEmail(
-    SUPPLIER_EMAIL,
-    BENNY_CC,
-    `הזמנה חדשה מטבע בייק — ${items.map((i) => i.product_name).join(' + ')}`,
+  // התראה פנימית בלבד — לבני, לא לפאן רייד. השליחה לספק קורית ידנית
+  // מ-/admin/coordinator/shop-orders אחרי אימות תשלום בארבוקס (ראו
+  // notify-supplier/route.ts). supplier_notified נשאר false עד אז.
+  await sendEmail(
+    BENNY_EMAIL,
+    undefined,
+    `הזמנה חדשה ממתינה לאישור תשלום — ${items.map((i) => i.product_name).join(' + ')}`,
     orderHtml(data[0].id, {
       items, customer_name, customer_phone, fulfillment, delivery_address,
       subtotal, shipping, total,
+      internalNote: '⚠️ טרם נשלח לפאן רייד — יש לוודא שהתשלום עבר בארבוקס, ואז לשלוח ידנית ממסך "הזמנות חנות".',
     })
   )
-
-  // נכתב רק אם המייל לפאן רייד באמת יצא — מוצג ב-/admin/coordinator/shop-orders.
-  if (emailSent) {
-    const ids = data.map((row) => row.id)
-    await supabase.from('shop_orders').update({ supplier_notified: true }).in('id', ids)
-  }
 
   return NextResponse.json({ ok: true, id: data[0].id, total })
 }

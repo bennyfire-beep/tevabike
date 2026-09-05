@@ -27,6 +27,7 @@ type OrderRow = {
 
 type Group = {
   key: string
+  order_group: string | null
   created_at: string
   customer_name: string
   customer_phone: string
@@ -52,6 +53,7 @@ function groupOrders(rows: OrderRow[]): Group[] {
     } else {
       map.set(key, {
         key,
+        order_group: r.order_group,
         created_at: r.created_at,
         customer_name: r.customer_name,
         customer_phone: r.customer_phone,
@@ -98,6 +100,28 @@ export default function ShopOrdersPage() {
     const { error } = await supabase.from('shop_orders').update({ payment_status }).in('id', ids)
     if (error) { alert(error.message); setBusyKey(null); return }
     setOrders(prev => prev.map(r => (ids.includes(r.id) ? { ...r, payment_status } : r)))
+    setBusyKey(null)
+  }
+
+  async function notifySupplier(group: Group) {
+    if (!group.order_group) { alert('חסר מזהה הזמנה'); return }
+    if (!confirm(`לשלוח את ההזמנה של ${group.customer_name} לפאן רייד? ודא/י קודם שהתשלום עבר בארבוקס.`)) return
+    setBusyKey(group.key)
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token ?? ''
+    try {
+      const res = await fetch('/api/shop-order/notify-supplier', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ order_group: group.order_group }),
+      })
+      const d = await res.json()
+      if (!res.ok) { alert(d.error || 'שליחה נכשלה'); setBusyKey(null); return }
+      const ids = group.rows.map(r => r.id)
+      setOrders(prev => prev.map(r => (ids.includes(r.id) ? { ...r, supplier_notified: true } : r)))
+    } catch {
+      alert('שליחה נכשלה — בדוק חיבור')
+    }
     setBusyKey(null)
   }
 
@@ -198,7 +222,7 @@ export default function ShopOrdersPage() {
                         borderRadius: 10, padding: '2px 8px', fontSize: 10, fontWeight: 700,
                       }}
                     >
-                      {g.supplier_notified ? '✓ נשלח לפאן רייד' : '✗ מייל לא נשלח'}
+                      {g.supplier_notified ? '✓ נשלח לפאן רייד' : 'טרם נשלח לפאן רייד'}
                     </span>
                     <span
                       style={{
@@ -236,6 +260,21 @@ export default function ShopOrdersPage() {
                       <span style={{ color: '#7a8f7d', fontWeight: 700 }}>סה״כ: </span>
                       {g.total_amount ?? '?'} ₪ (כולל משלוח {g.shipping_amount} ₪)
                     </div>
+
+                    {!g.supplier_notified && (
+                      <button
+                        onClick={() => notifySupplier(g)}
+                        disabled={busyKey === g.key}
+                        style={{
+                          width: '100%', background: '#1a2637', border: '1px solid #2a4a6b', borderRadius: 8,
+                          color: '#81d4fa', padding: '10px 12px', fontSize: 13, marginBottom: 8,
+                          fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, cursor: 'pointer',
+                          opacity: busyKey === g.key ? 0.5 : 1,
+                        }}
+                      >
+                        {busyKey === g.key ? '...' : '📧 שלח לפאן רייד (אחרי אימות תשלום בארבוקס)'}
+                      </button>
+                    )}
 
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <button
