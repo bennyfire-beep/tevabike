@@ -30,12 +30,43 @@ const FREE_SHIPPING_THRESHOLD = 600
 const MAX_SHORT = 100
 const MAX_PHONE = 30
 const MAX_ADDRESS_PART = 150
+const MAX_EMAIL = 200
 const MAX_ITEMS = 3
 
 function clean(v: unknown, max: number): string | null {
   if (typeof v !== 'string') return null
   const s = v.trim().slice(0, max)
   return s.length ? s : null
+}
+
+// מוסיף/מעדכן ליד ב-community_contacts (מאגר המידע השיווקי, מסונכרן ל-Resend
+// ע"י תהליך חיצוני שלא חלק מהריפו — ראה resend_contact_id) כשלקוח מסמן
+// שהוא רוצה לקבל מבצעים במייל. best-effort בלבד — לעולם לא נכשיל את
+// ההזמנה בגללו, ולא דורסים unsubscribed/interests קיימים.
+async function upsertCommunityContact(
+  supabase: ReturnType<typeof createClient>,
+  p: { full_name: string; email: string; phone: string }
+) {
+  try {
+    const { data: existing } = await supabase
+      .from('community_contacts')
+      .select('id, interests')
+      .eq('email', p.email)
+      .maybeSingle()
+    if (existing) {
+      const interests = Array.from(new Set([...(((existing as any).interests as string[]) || []), 'חנות']))
+      await supabase
+        .from('community_contacts')
+        .update({ full_name: p.full_name, phone: p.phone, interests })
+        .eq('id', (existing as any).id)
+    } else {
+      await supabase
+        .from('community_contacts')
+        .insert({ full_name: p.full_name, email: p.email, phone: p.phone, source: 'shop', interests: ['חנות'] })
+    }
+  } catch (err) {
+    console.error('community_contacts upsert failed:', err)
+  }
 }
 
 async function sendEmail(to: string, cc: string | undefined, subject: string, html: string): Promise<boolean> {
@@ -116,6 +147,8 @@ export async function POST(req: NextRequest) {
 
   const customer_name = clean(body.customer_name, MAX_SHORT)
   const customer_phone = clean(body.customer_phone, MAX_PHONE)
+  const customer_email = clean(body.customer_email, MAX_EMAIL)
+  const marketing_optin = body.marketing_optin === true
   const fulfillment = clean(body.fulfillment, 20) || 'delivery'
   const delivery_city = clean(body.delivery_city, MAX_ADDRESS_PART)
   const delivery_street = clean(body.delivery_street, MAX_ADDRESS_PART)
@@ -130,6 +163,9 @@ export async function POST(req: NextRequest) {
   }
   if (!delivery_city || !delivery_street) {
     return NextResponse.json({ error: 'missing_address' }, { status: 400 })
+  }
+  if (marketing_optin && !customer_email) {
+    return NextResponse.json({ error: 'missing_email' }, { status: 400 })
   }
 
   const subtotal = items.reduce((sum, it) => sum + (PRODUCT_PRICES[it.product_slug] || 0), 0)
@@ -163,6 +199,10 @@ export async function POST(req: NextRequest) {
   if (error || !data || data.length === 0) {
     console.error('shop-order insert failed:', error?.message)
     return NextResponse.json({ error: 'insert_failed' }, { status: 500 })
+  }
+
+  if (marketing_optin && customer_email) {
+    await upsertCommunityContact(supabase, { full_name: customer_name, email: customer_email, phone: customer_phone })
   }
 
   const emailSent = await sendEmail(

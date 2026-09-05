@@ -121,6 +121,8 @@ export default function ShopPage() {
   const [form, setForm] = useState({
     customer_name: "",
     customer_phone: "",
+    customer_email: "",
+    marketing_optin: false,
     delivery_city: "",
     delivery_street: "",
     termsAccepted: false,
@@ -160,6 +162,10 @@ export default function ShopPage() {
       alert("נא למלא עיר וכתובת למשלוח");
       return;
     }
+    if (form.marketing_optin && !form.customer_email.trim()) {
+      alert("נא להזין אימייל כדי לקבל מבצעים והמלצות");
+      return;
+    }
     if (!form.termsAccepted) {
       alert("יש לאשר את תקנון האתר לפני מעבר לתשלום");
       return;
@@ -177,6 +183,8 @@ export default function ShopPage() {
           })),
           customer_name: form.customer_name,
           customer_phone: form.customer_phone,
+          customer_email: form.customer_email,
+          marketing_optin: form.marketing_optin,
           fulfillment: "delivery",
           delivery_city: form.delivery_city,
           delivery_street: form.delivery_street,
@@ -439,6 +447,23 @@ export default function ShopPage() {
                   value={form.customer_phone}
                   onChange={(e) => set("customer_phone", e.target.value)}
                 />
+                <input
+                  className={input}
+                  style={inputStyle}
+                  placeholder={form.marketing_optin ? "אימייל *" : "אימייל (לא חובה)"}
+                  type="email"
+                  value={form.customer_email}
+                  onChange={(e) => set("customer_email", e.target.value)}
+                />
+                <label className="flex items-start gap-2 text-sm cursor-pointer" style={{ color: "#D8E2DC" }}>
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={form.marketing_optin}
+                    onChange={(e) => set("marketing_optin", e.target.checked)}
+                  />
+                  <span>אשמח לקבל מבצעים והמלצות של טבע בייק במייל</span>
+                </label>
 
                 <div className="grid grid-cols-2 gap-3">
                   <input
