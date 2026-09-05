@@ -3,7 +3,7 @@
 // tool) so every image, video, or PDF that comes into the app is read through the
 // same Gemini API call — never a different OCR/vision service.
 import { GoogleGenAI, createUserContent, createPartFromUri, type File as GeminiFile } from "@google/genai";
-import { callGroq } from "@/lib/groq";
+import { callGroq, callGroqVision, transcribeGroqAudio } from "@/lib/groq";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
@@ -37,6 +37,56 @@ export async function analyzeFileWithGemini(file: File, prompt: string): Promise
   }
   const res = await ai.models.generateContent({ model: GEMINI_MODEL, contents });
   return res.text ?? "";
+}
+
+/**
+ * Turns an inbound WhatsApp image or voice note into Hebrew text, so the
+ * auto-reply pipeline has something to react to instead of a "[תמונה]"/
+ * "[הקלטה]" placeholder.
+ *
+ * Safety: the image prompt explicitly forbids identifying or guessing any
+ * person's identity. This is not a restriction we're choosing to relax later
+ * for anyone (including staff) — general-purpose vision models are already
+ * trained not to do facial recognition of private individuals, and there is
+ * no reliable way to have Gemini recognize one specific named person without
+ * a reference photo to compare against; that would be a separate, far more
+ * sensitive face-matching feature, not a prompt tweak.
+ */
+export async function describeInboundMedia(
+  data: Buffer,
+  mimeType: string,
+  kind: 'image' | 'audio',
+): Promise<string> {
+  const prompt = kind === 'image'
+    ? `תאר בעברית, בקצרה (1-3 משפטים), מה רואים בתמונה הזו — חפצים, פעילות, מקום, טקסט גלוי אם יש (כמו שלט, הודעת שגיאה, צילום מסך).
+כלל ברזל: אסור לזהות, לנחש, או לציין שם של אף אדם שמופיע בתמונה — גם אם אתה "חושב" שאתה מזהה מיהו. תיאור אדם מותר רק באופן כללי (למשל "רוכב אופניים", "ילד/ה", "קבוצת אנשים"), לעולם לא בניחוש זהות.`
+    : `תמלל לעברית את מה שנאמר בהודעה הקולית הזו. אם השמע לא ברור או לא מובן, כתוב זאת במפורש במקום לנחש מה נאמר.`
+
+  try {
+    let contents
+    if (data.length > INLINE_LIMIT) {
+      const blob = new Blob([new Uint8Array(data)], { type: mimeType })
+      const f = await waitActive(await ai.files.upload({ file: blob, config: { mimeType } }))
+      contents = createUserContent([createPartFromUri(f.uri!, f.mimeType!), prompt])
+    } else {
+      contents = createUserContent([{ inlineData: { mimeType, data: data.toString('base64') } }, prompt])
+    }
+    const res = await ai.models.generateContent({ model: GEMINI_MODEL, contents })
+    return (res.text ?? '').trim()
+  } catch (e) {
+    // Same quota reality as suggestWhatsAppReply: Gemini's free tier can run
+    // out mid-afternoon, and a media message going unread is worse than
+    // trying a second provider. Groq's vision/Whisper models cover this.
+    console.error(`[gemini] describeInboundMedia (${kind}): Gemini failed, trying Groq fallback:`, (e as Error).message)
+    try {
+      return kind === 'image'
+        ? await callGroqVision(prompt, data.toString('base64'), mimeType)
+        : await transcribeGroqAudio(data, mimeType)
+    } catch (e2) {
+      console.error(`[gemini] describeInboundMedia (${kind}): Groq fallback also failed:`, (e2 as Error).message)
+      return ''
+    }
+  }
 }
 
 export type WhatsAppHistoryMessage = { direction: 'inbound' | 'outbound'; body: string }

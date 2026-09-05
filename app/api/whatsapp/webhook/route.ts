@@ -4,6 +4,8 @@ import { whatsappServiceClient } from '@/lib/whatsapp-server'
 import { bodyLabel, isMsgStatus } from '@/lib/whatsapp'
 import { notifyInbound } from '@/lib/whatsapp-notify'
 import { maybeAutoReply } from '@/lib/whatsapp-autoreply'
+import { fetchWhatsAppMedia } from '@/lib/whatsapp-media'
+import { describeInboundMedia } from '@/lib/gemini'
 
 // Meta WhatsApp Cloud API webhook — one URL, two jobs:
 //   GET  — the handshake Meta does once, when the webhook is configured.
@@ -46,6 +48,8 @@ type WaTextMessage = {
   timestamp: string
   type: string
   text?: { body?: string }
+  image?: { id: string; mime_type?: string }
+  audio?: { id: string; mime_type?: string }
 }
 type WaStatus = {
   id: string
@@ -119,8 +123,34 @@ async function handleInboundMessage(
   if (!conversation) return
 
   const msgType = message.type || 'unsupported'
-  const text = msgType === 'text' ? (message.text?.body ?? '') : ''
-  const body = bodyLabel(msgType, text)
+  let text = msgType === 'text' ? (message.text?.body ?? '') : ''
+  let mediaPrefix = ''
+
+  // Image/voice notes get read through Gemini so the rest of the pipeline has
+  // real text to react to, instead of a placeholder. Best-effort: any failure
+  // here (download or analysis) just falls back to the old placeholder body —
+  // never blocks the message from being saved.
+  if (msgType === 'image' && message.image?.id) {
+    mediaPrefix = '📷 '
+    try {
+      const media = await fetchWhatsAppMedia(message.image.id)
+      text = await describeInboundMedia(media.data, media.mimeType, 'image')
+    } catch (e) {
+      console.error('[whatsapp/webhook] image analysis failed:', (e as Error).message)
+      text = ''
+    }
+  } else if (msgType === 'audio' && message.audio?.id) {
+    mediaPrefix = '🎤 '
+    try {
+      const media = await fetchWhatsAppMedia(message.audio.id)
+      text = await describeInboundMedia(media.data, media.mimeType, 'audio')
+    } catch (e) {
+      console.error('[whatsapp/webhook] audio analysis failed:', (e as Error).message)
+      text = ''
+    }
+  }
+
+  const body = text.trim() ? `${mediaPrefix}${text.trim()}` : bodyLabel(msgType, text)
 
   const { error, data: inserted } = await admin
     .from('whatsapp_messages')
@@ -152,9 +182,10 @@ async function handleInboundMessage(
       preview: body,
     })
 
-    // Auto-reply only ever drafts off actual typed text — never guess a
-    // response to an image/sticker/location/etc., that stays a human's call.
-    if (msgType === 'text' && text.trim()) {
+    // Auto-reply drafts off actual text — typed, or read out of an image/voice
+    // note above. Anything else we can't turn into text (sticker/location/
+    // unsupported, or a media analysis that failed) stays a human's call.
+    if ((msgType === 'text' || msgType === 'image' || msgType === 'audio') && text.trim()) {
       await maybeAutoReply(admin, {
         conversationId: conversation.id,
         waId,
