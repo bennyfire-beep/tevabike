@@ -57,8 +57,15 @@ const PRODUCTS: Product[] = [
     price: 139,
     marketPrice: 149,
     variantLabel: "צבע",
-    variants: ["שחור", "קרם"],
+    variants: ["כחול", "סגול", "שחור", "קרם"],
     image: "/SPIKE33MAIN123.webp",
+    variantImages: {
+      "כחול": "/spike33-blue.jpg.webp",
+      "סגול": "/spike33-purple.jpg.webp",
+      "קרם": "/spike33-cream.jpg.webp",
+      // "שחור" נופל חזרה ל-image הכללי למעלה — אין תמונה נפרדת.
+    },
+    // TODO: מק"ט לכל צבע — עדיין חסר, תוסיף כשבני ישלח.
   },
   {
     slug: "spank-spoon-pedals",
@@ -68,8 +75,18 @@ const PRODUCTS: Product[] = [
     price: 449,
     marketPrice: 495,
     variantLabel: "צבע",
-    variants: ["שחור", "בורדו", "כחול", "ירוק ליים", "סגול", "כתום", "זהב", "לבן"],
+    variants: ["אדום", "ירוק ליים"],
     image: "/spank%20pedal.webp",
+    variantImages: {
+      "אדום": "/spoon-pedals-red.jpg.webp",
+      "ירוק ליים": "/spoon-pedals-lime.jpg.webp",
+    },
+    // מק"ט של מידת 100 מ"מ (יש גם 110 מ"מ עם מק"ט אחר — לא נתמך כרגע,
+    // אין בחירת מידה באתר, רק צבע).
+    variantSkus: {
+      "אדום": "2007",
+      "ירוק ליים": "2009",
+    },
   },
 ];
 
