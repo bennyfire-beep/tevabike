@@ -24,8 +24,14 @@ import { isReplyWindowOpen } from '@/lib/whatsapp'
 const BOT_SIGNATURE = 'טבע בייק'
 const BOT_SENT_BY = 'בוט (אוטומטי)'
 
-const HISTORY_LIMIT = 15
-const EXAMPLES_LIMIT = 15
+// Trimmed from 15/15: measured live at ~4,000-4,500 tokens per call at that
+// size, enough to blow through Groq's free-tier 8,000 TPM (tokens/minute)
+// cap after just two calls in the same minute — confirmed live, a burst of
+// suggestion requests across a few conversations started failing with a
+// Groq 429 on top of Gemini's already-exhausted one. Fewer messages/examples
+// costs little quality for a short WhatsApp exchange and buys real headroom.
+const HISTORY_LIMIT = 8
+const EXAMPLES_LIMIT = 8
 
 /**
  * Best-effort end to end: every failure here is caught and logged, never
@@ -37,7 +43,9 @@ export async function maybeAutoReply(
   args: { conversationId: string; waId: string; inboundMessageId: string; lastInboundAt: string },
 ): Promise<void> {
   try {
-    if (!process.env.GEMINI_API_KEY) return
+    // Either provider configured is enough — suggestWhatsAppReply tries Groq
+    // first and Gemini second, so this must not gate on Gemini alone.
+    if (!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY) return
     if (!isReplyWindowOpen(args.lastInboundAt)) return
 
     const { data: recent, error: msgErr } = await admin

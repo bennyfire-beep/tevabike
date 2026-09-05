@@ -14,8 +14,10 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 30
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const HISTORY_LIMIT = 15
-const EXAMPLES_LIMIT = 15
+// Kept in sync with lib/whatsapp-autoreply.ts — see its comment: trimmed from
+// 15/15 after a measured Groq 429 (TPM limit) from a burst of full-size calls.
+const HISTORY_LIMIT = 8
+const EXAMPLES_LIMIT = 8
 
 export async function POST(req: NextRequest) {
   const admin = whatsappServiceClient()
@@ -25,8 +27,10 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response
   const { caller } = auth
 
-  if (!process.env.GEMINI_API_KEY) {
-    return NextResponse.json({ error: 'הצעת תשובה לא מוגדרת בשרת (חסר GEMINI_API_KEY)' }, { status: 500 })
+  // suggestWhatsAppReply tries Groq first, Gemini second — either being
+  // configured is enough, this must not gate on Gemini alone.
+  if (!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY) {
+    return NextResponse.json({ error: 'הצעת תשובה לא מוגדרת בשרת (חסרים GEMINI_API_KEY/GROQ_API_KEY)' }, { status: 500 })
   }
 
   let body: { conversation_id?: string }
