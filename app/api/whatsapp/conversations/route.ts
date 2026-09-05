@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await admin
     .from('whatsapp_conversations')
-    .select('id, wa_id, display_name, last_message_at, last_inbound_at, unread_count, assigned_to, assigned_at')
+    .select('id, wa_id, display_name, last_message_at, last_inbound_at, unread_count, assigned_to, assigned_at, tags')
     .order('last_message_at', { ascending: false, nullsFirst: false })
 
   if (error) {

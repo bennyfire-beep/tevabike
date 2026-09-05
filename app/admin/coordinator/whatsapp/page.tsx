@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAdminAuth } from '@/lib/use-admin-auth'
 import { supabase } from '@/lib/supabase'
 import { isReplyWindowOpen, WINDOW_CLOSED_MESSAGE, bodyLabel } from '@/lib/whatsapp'
+import { QUICK_REPLIES, QUICK_REPLY_KEYS, type QuickReplyKey } from '@/lib/whatsapp-quick-replies'
 
 type Conversation = {
   id: string
@@ -16,6 +17,7 @@ type Conversation = {
   last_message_preview?: string
   assigned_to: string | null
   assigned_at: string | null
+  tags: string[]
 }
 
 type Message = {
@@ -50,6 +52,12 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 const POLL_MS = 10_000
 type FilterMode = 'all' | 'mine' | 'unassigned'
+
+// Suggested one-click tags — free-form underneath (see /api/whatsapp/tags),
+// this is just what shows up before the coordinator has typed anything of
+// her own. Analogous to the family/staff/customer labels on the reference
+// CRM, adapted to TevaBike's own contacts.
+const PRESET_TAGS = ['לקוח', 'מתעניין', 'צוות', 'ספק', 'VIP', 'תלונה']
 
 /** 972584708084 → 058-470-8084 — the local format used everywhere else on the site. */
 function formatPhone(waId: string): string {
@@ -105,6 +113,15 @@ export default function WhatsAppPage() {
   const [convError, setConvError] = useState('')
   const [search, setSearch] = useState('')
   const [filterMode, setFilterMode] = useState<FilterMode>('all')
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
+
+  const [tagInput, setTagInput] = useState('')
+  const [tagEditorOpen, setTagEditorOpen] = useState(false)
+  const [tagSaving, setTagSaving] = useState(false)
+  const [tagError, setTagError] = useState('')
+
+  const [quickReplyKey, setQuickReplyKey] = useState<QuickReplyKey | null>(null)
+  const [quickReplyError, setQuickReplyError] = useState('')
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -191,6 +208,10 @@ export default function WhatsAppPage() {
     setSuggestionMsgId(null)
     setPendingSuggestion(null)
     suggestionFetchedForRef.current = null
+    setTagEditorOpen(false)
+    setTagInput('')
+    setTagError('')
+    setQuickReplyError('')
     fetchMessages(id).finally(() => setMsgLoading(false))
   }
 
@@ -349,6 +370,63 @@ export default function WhatsAppPage() {
     }
   }
 
+  async function updateTags(nextTags: string[]) {
+    if (!selected) return
+    setTagSaving(true)
+    setTagError('')
+    const before = conversations
+    setConversations(prev => prev.map(c => (c.id === selected.id ? { ...c, tags: nextTags } : c)))
+    try {
+      const res = await fetch('/api/whatsapp/tags', {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({ conversation_id: selected.id, tags: nextTags }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) { setConversations(before); setTagError(d.error ?? 'עדכון התגיות נכשל'); return }
+    } catch (e) {
+      setConversations(before)
+      setTagError('עדכון התגיות נכשל: ' + (e as Error).message)
+    } finally {
+      setTagSaving(false)
+    }
+  }
+
+  function addTag(tag: string) {
+    const t = tag.trim()
+    if (!selected || !t || selected.tags.includes(t)) { setTagInput(''); return }
+    setTagInput('')
+    void updateTags([...selected.tags, t])
+  }
+
+  function removeTag(tag: string) {
+    if (!selected) return
+    void updateTags(selected.tags.filter(t => t !== tag))
+  }
+
+  /** One of the quick-reply buttons (lib/whatsapp-quick-replies.ts) — drafts an answer for a common category on demand, same review-before-send flow as the auto-fetched suggestion above. */
+  async function runQuickReply(key: QuickReplyKey) {
+    if (!selected || quickReplyKey) return
+    setQuickReplyKey(key)
+    setQuickReplyError('')
+    try {
+      const res = await fetch('/api/whatsapp/quick-reply', {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({ conversation_id: selected.id, key }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) { setQuickReplyError(d.error ?? 'הכנת התשובה נכשלה'); return }
+      if (d.unsure || !d.text) { setQuickReplyError('אין הצעה בטוחה לתשובה הזו — דורש תשומת לב מלאה.'); return }
+      setDraft(d.text)
+      setPendingSuggestion(d.id ? { id: d.id, outcome: 'edited' } : null)
+    } catch (e) {
+      setQuickReplyError('הכנת התשובה נכשלה: ' + (e as Error).message)
+    } finally {
+      setQuickReplyKey(null)
+    }
+  }
+
   async function sendText(text: string, suggestionMeta?: { id: string; outcome: 'sent_as_is' | 'edited' }) {
     const trimmed = text.trim()
     if (!trimmed || !selected) return
@@ -422,17 +500,23 @@ export default function WhatsAppPage() {
         (c.display_name ?? '').toLowerCase().includes(q) || c.wa_id.includes(q) || formatPhone(c.wa_id).includes(q)
       )
     : conversations
-  const filtered = bySearch.filter(c => {
+  const byAssignment = bySearch.filter(c => {
     if (filterMode === 'mine') return (c.assigned_to ?? '').toLowerCase() === myEmail
     if (filterMode === 'unassigned') return !c.assigned_to
     return true
   })
+  const filtered = tagFilter ? byAssignment.filter(c => c.tags.includes(tagFilter)) : byAssignment
 
   const FILTER_TABS: { key: FilterMode; label: string }[] = [
     { key: 'all', label: 'הכל' },
     { key: 'mine', label: 'שלי' },
     { key: 'unassigned', label: 'לא משויך' },
   ]
+
+  // Every tag currently in use, across all conversations (not just the
+  // filtered list) — so the chip row doesn't shrink to nothing once you've
+  // already picked a tag. Sorted for a stable order between polls.
+  const allTags = Array.from(new Set(conversations.flatMap(c => c.tags))).sort((a, b) => a.localeCompare(b, 'he'))
 
   // The two-column box below is pegged to a hard height (viewport minus the
   // coordinator header — a single row since the nav scrolls horizontally
@@ -467,6 +551,30 @@ export default function WhatsAppPage() {
               </button>
             ))}
           </div>
+
+          {allTags.length > 0 && (
+            <div className="flex gap-1.5 flex-wrap">
+              <button
+                onClick={() => setTagFilter(null)}
+                className={`px-2.5 py-1 rounded-full text-xs font-bold transition ${
+                  tagFilter === null ? 'bg-sky-400 text-stone-950' : 'bg-stone-900 text-stone-400 border border-stone-700'
+                }`}
+              >
+                כל התגיות
+              </button>
+              {allTags.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setTagFilter(prev => (prev === tag ? null : tag))}
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold transition ${
+                    tagFilter === tag ? 'bg-sky-400 text-stone-950' : 'bg-stone-900 text-stone-400 border border-stone-700'
+                  }`}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
 
           {notifStatus !== 'unsupported' && (
             <div className="pt-1">
@@ -518,6 +626,15 @@ export default function WhatsAppPage() {
                   <div className="text-xs text-stone-400 truncate">
                     {c.last_message_preview ? truncate(c.last_message_preview, 40) : formatPhone(c.wa_id)}
                   </div>
+                  {c.tags.length > 0 && (
+                    <div className="flex gap-1 flex-wrap mt-1">
+                      {c.tags.map(tag => (
+                        <span key={tag} className="px-1.5 py-0.5 rounded bg-sky-400/15 text-sky-300 text-[10px] font-bold">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 {c.unread_count > 0 && (
                   <span className="shrink-0 bg-[#ec4899] text-white rounded-full min-w-[18px] h-[18px] px-1.5 text-[11px] font-extrabold flex items-center justify-center">
@@ -582,6 +699,49 @@ export default function WhatsAppPage() {
               </div>
             </div>
             {assignError && <p className="shrink-0 px-4 pt-2 text-red-400 text-xs bg-stone-950">{assignError}</p>}
+
+            {/* תגיות שיחה */}
+            <div className="shrink-0 px-4 py-2 border-b border-stone-800 bg-stone-950 flex items-center gap-1.5 flex-wrap">
+              {selected.tags.map(tag => (
+                <span key={tag} className="flex items-center gap-1 px-2 py-1 rounded-full bg-sky-400/15 text-sky-300 text-xs font-bold">
+                  {tag}
+                  <button onClick={() => removeTag(tag)} disabled={tagSaving} className="text-sky-300/70 hover:text-sky-100 leading-none">✕</button>
+                </span>
+              ))}
+              {!tagEditorOpen ? (
+                <button
+                  onClick={() => setTagEditorOpen(true)}
+                  className="px-2 py-1 rounded-full border border-dashed border-stone-600 text-stone-400 text-xs font-bold hover:text-stone-200"
+                >
+                  + תגית
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <input
+                    autoFocus
+                    value={tagInput}
+                    onChange={e => setTagInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') addTag(tagInput)
+                      if (e.key === 'Escape') { setTagEditorOpen(false); setTagInput('') }
+                    }}
+                    placeholder="שם תגית..."
+                    className="px-2 py-1 rounded-lg bg-stone-900 border border-stone-700 text-xs w-28"
+                  />
+                  {PRESET_TAGS.filter(t => !selected.tags.includes(t)).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => addTag(t)}
+                      className="px-2 py-1 rounded-full bg-stone-800 border border-stone-600 text-stone-300 text-xs"
+                    >
+                      {t}
+                    </button>
+                  ))}
+                  <button onClick={() => { setTagEditorOpen(false); setTagInput('') }} className="text-stone-500 text-xs px-1">✓ סיום</button>
+                </div>
+              )}
+              {tagError && <span className="text-red-400 text-xs">{tagError}</span>}
+            </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2">
               {msgLoading && <p className="text-stone-400 text-sm">טוען הודעות...</p>}
@@ -671,6 +831,21 @@ export default function WhatsAppPage() {
                     )}
                   </div>
                 )}
+
+                <div className="px-3 pt-3 flex gap-1.5 flex-wrap">
+                  {QUICK_REPLY_KEYS.map(key => (
+                    <button
+                      key={key}
+                      onClick={() => runQuickReply(key)}
+                      disabled={!!quickReplyKey}
+                      title="הכן טיוטת תשובה לקטגוריה הזו — עדיין תצטרך/י לבדוק ולשלוח"
+                      className="px-2.5 py-1.5 rounded-lg bg-stone-800 border border-stone-600 text-xs font-bold text-stone-300 disabled:opacity-40 hover:border-stone-500"
+                    >
+                      {quickReplyKey === key ? '...חושב' : QUICK_REPLIES[key].label}
+                    </button>
+                  ))}
+                </div>
+                {quickReplyError && <p className="px-3 pt-1 text-amber-300 text-xs">{quickReplyError}</p>}
 
                 <div className="p-3">
                   {sendError && <p className="text-red-400 text-xs mb-2">{sendError}</p>}
