@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import TshirtSection from "./TshirtSection";
 
 const C = {
   brand: "#D4288A",
@@ -113,6 +114,7 @@ const FREE_SHIPPING_THRESHOLD = 600;
 type Status = "idle" | "sending" | "done" | "error";
 
 export default function ShopPage() {
+  const [tab, setTab] = useState<"accessories" | "tshirts">("accessories");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [variantBySlug, setVariantBySlug] = useState<Record<string, string>>({});
   const [panelOpen, setPanelOpen] = useState(false);
@@ -235,7 +237,35 @@ export default function ShopPage() {
         </div>
       </section>
 
-      <section className="px-6 pb-8">
+      <div className="px-6 pb-2">
+        <div className="max-w-4xl mx-auto flex gap-2 justify-center">
+          {(
+            [
+              ["accessories", "אביזרים"],
+              ["tshirts", "חולצות"],
+            ] as [typeof tab, string][]
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => setTab(value)}
+              className="rounded-xl px-6 py-2.5 font-black text-sm transition"
+              style={
+                tab === value
+                  ? { background: C.brand, color: "#fff" }
+                  : { background: C.green, color: "#9FB3A8", border: `1px solid ${C.greenMid}` }
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === "tshirts" && <TshirtSection />}
+
+      {tab === "accessories" && (
+      <>
+      <section className="px-6 pt-6 pb-8">
         <div className="max-w-4xl mx-auto grid sm:grid-cols-3 gap-5">
           {PRODUCTS.map((p) => {
             const isChecked = !!selected[p.slug];
@@ -527,6 +557,8 @@ export default function ShopPage() {
             )}
           </div>
         </div>
+      )}
+      </>
       )}
     </main>
   );
