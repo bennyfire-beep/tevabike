@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
   const customer_name = clean(body.customer_name, MAX_SHORT)
   const customer_phone = clean(body.customer_phone, MAX_PHONE)
   const customer_email = clean(body.customer_email, MAX_EMAIL)
-  if (!customer_name || !customer_phone) {
+  if (!customer_name || !customer_phone || !customer_email) {
     return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
   }
 

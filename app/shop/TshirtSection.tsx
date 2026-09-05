@@ -135,6 +135,10 @@ export default function TshirtSection() {
       alert("נא למלא שם וטלפון");
       return;
     }
+    if (!form.customer_email.trim()) {
+      alert("נא למלא אימייל לקבלת אישור ההזמנה");
+      return;
+    }
     setStatus("sending");
     try {
       const res = await fetch("/api/tshirt-order", {
@@ -418,8 +422,9 @@ export default function TshirtSection() {
                 <input
                   className={input}
                   style={inputStyle}
-                  placeholder="אימייל (לא חובה — לקבלת אישור הזמנה)"
+                  placeholder="אימייל * — לקבלת אישור הזמנה"
                   type="email"
+                  required
                   value={form.customer_email}
                   onChange={(e) => set("customer_email", e.target.value)}
                 />
