@@ -588,7 +588,7 @@ export default function Home() {
               <h4 style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 18px', letterSpacing: '0.05em' }}>צור קשר</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <a
-                  href="https://wa.me/972525708084?text=%D7%94%D7%99%D7%99%2C%20%D7%90%D7%A0%D7%99%20%D7%9E%D7%A2%D7%95%D7%A0%D7%99%D7%99%D7%9F%2F%D7%AA%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A2%20%D7%A4%D7%A8%D7%98%D7%99%D7%9D%20%D7%A2%D7%9C%20%D7%94%D7%97%D7%95%D7%92%D7%99%D7%9D"
+                  href="https://wa.me/972584708084?text=%D7%94%D7%99%D7%99%2C%20%D7%90%D7%A0%D7%99%20%D7%9E%D7%A2%D7%95%D7%A0%D7%99%D7%99%D7%9F%2F%D7%AA%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A2%20%D7%A4%D7%A8%D7%98%D7%99%D7%9D%20%D7%A2%D7%9C%20%D7%94%D7%97%D7%95%D7%92%D7%99%D7%9D"
                   style={{ color: 'rgba(255,255,255,0.42)', fontSize: 14, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, transition: 'color .2s' }}
                   onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#25D366'}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.42)'}
@@ -633,7 +633,7 @@ export default function Home() {
 
       {/* ════════════════════════════ WHATSAPP BUTTON ════════════════════════════ */}
       <a
-       href="https://wa.me/972525708084?text=%D7%94%D7%99%D7%99%2C%20%D7%9E%D7%A2%D7%95%D7%A0%D7%99%D7%99%D7%9F%20%D7%91%D7%A4%D7%A8%D7%98%D7%99%D7%9D"
+       href="https://wa.me/972584708084?text=%D7%94%D7%99%D7%99%2C%20%D7%9E%D7%A2%D7%95%D7%A0%D7%99%D7%99%D7%9F%20%D7%91%D7%A4%D7%A8%D7%98%D7%99%D7%9D"
         target="_blank"
         rel="noopener noreferrer"
         title="שלחו לנו הודעה בווצאפ"
