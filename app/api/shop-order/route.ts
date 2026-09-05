@@ -16,7 +16,8 @@ const SUPPORT_HOURS =
   "מענה טלפוני להחלפות/החזרות ולבירורי משלוח: ימים א'–ה' 08:00–16:00. בימי שישי ושבת אין מענה."
 
 const VALID_SLUGS = ['spank-spoon-35', 'spank-spike-33-grip', 'spank-spoon-pedals']
-const VALID_FULFILLMENT = ['pickup', 'delivery']
+// אין יותר איסוף עצמי — כל הזמנה יוצאת במשלוח.
+const VALID_FULFILLMENT = ['delivery']
 
 const PRODUCT_PRICES: Record<string, number> = {
   'spank-spoon-35': 399,
@@ -114,7 +115,7 @@ export async function POST(req: NextRequest) {
 
   const customer_name = clean(body.customer_name, MAX_SHORT)
   const customer_phone = clean(body.customer_phone, MAX_PHONE)
-  const fulfillment = clean(body.fulfillment, 20) || 'pickup'
+  const fulfillment = clean(body.fulfillment, 20) || 'delivery'
   const delivery_city = clean(body.delivery_city, MAX_ADDRESS_PART)
   const delivery_street = clean(body.delivery_street, MAX_ADDRESS_PART)
   const delivery_address =
@@ -126,12 +127,12 @@ export async function POST(req: NextRequest) {
   if (!VALID_FULFILLMENT.includes(fulfillment)) {
     return NextResponse.json({ error: 'bad_fulfillment' }, { status: 400 })
   }
-  if (fulfillment === 'delivery' && (!delivery_city || !delivery_street)) {
+  if (!delivery_city || !delivery_street) {
     return NextResponse.json({ error: 'missing_address' }, { status: 400 })
   }
 
   const subtotal = items.reduce((sum, it) => sum + (PRODUCT_PRICES[it.product_slug] || 0), 0)
-  const shipping = fulfillment === 'delivery' && subtotal < FREE_SHIPPING_THRESHOLD ? SHIPPING_COST : 0
+  const shipping = subtotal < FREE_SHIPPING_THRESHOLD ? SHIPPING_COST : 0
   const total = subtotal + shipping
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL

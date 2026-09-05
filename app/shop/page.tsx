@@ -117,10 +117,10 @@ export default function ShopPage() {
   const [variantBySlug, setVariantBySlug] = useState<Record<string, string>>({});
   const [panelOpen, setPanelOpen] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
+  // אין יותר איסוף עצמי — כל הזמנה יוצאת במשלוח.
   const [form, setForm] = useState({
     customer_name: "",
     customer_phone: "",
-    fulfillment: "pickup" as "pickup" | "delivery",
     delivery_city: "",
     delivery_street: "",
     termsAccepted: false,
@@ -129,10 +129,7 @@ export default function ShopPage() {
   const selectedSlugs = PRODUCTS.filter((p) => selected[p.slug]).map((p) => p.slug);
   const selectedProducts = PRODUCTS.filter((p) => selected[p.slug]);
   const subtotal = selectedProducts.reduce((sum, p) => sum + p.price, 0);
-  const shipping =
-    form.fulfillment === "delivery" && subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD
-      ? SHIPPING_COST
-      : 0;
+  const shipping = subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD ? SHIPPING_COST : 0;
   const total = subtotal + shipping;
   const key = comboKey(selectedSlugs);
   const payLink = ARBOX_LINKS[key];
@@ -159,10 +156,7 @@ export default function ShopPage() {
       alert("נא למלא שם וטלפון");
       return;
     }
-    if (
-      form.fulfillment === "delivery" &&
-      (!form.delivery_city.trim() || !form.delivery_street.trim())
-    ) {
+    if (!form.delivery_city.trim() || !form.delivery_street.trim()) {
       alert("נא למלא עיר וכתובת למשלוח");
       return;
     }
@@ -183,7 +177,7 @@ export default function ShopPage() {
           })),
           customer_name: form.customer_name,
           customer_phone: form.customer_phone,
-          fulfillment: form.fulfillment,
+          fulfillment: "delivery",
           delivery_city: form.delivery_city,
           delivery_street: form.delivery_street,
           shipping_amount: shipping,
@@ -213,6 +207,12 @@ export default function ShopPage() {
           style={{ background: `radial-gradient(ellipse at top, ${C.brand}26, transparent 60%)` }}
         />
         <div className="relative max-w-2xl mx-auto space-y-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="טבע בייק"
+            style={{ height: 48, margin: "0 auto", display: "block" }}
+          />
           <p className="font-bold tracking-widest text-sm" style={{ color: C.brand }}>
             טבע בייק · חנות
           </p>
@@ -328,8 +328,7 @@ export default function ShopPage() {
               <br />
               <span className="text-sm" style={{ color: "#9FB3A8" }}>
                 {subtotal} ₪
-                {form.fulfillment === "delivery" &&
-                  (shipping === 0 ? " · משלוח חינם" : ` · משלוח ${shipping} ₪`)}
+                {shipping === 0 ? " · משלוח חינם" : ` · משלוח ${shipping} ₪`}
               </span>
             </p>
             <button
@@ -401,12 +400,10 @@ export default function ShopPage() {
                       <span>{p.price} ₪</span>
                     </div>
                   ))}
-                  {form.fulfillment === "delivery" && (
-                    <div className="flex justify-between" style={{ color: "#D8E2DC" }}>
-                      <span>משלוח</span>
-                      <span>{shipping === 0 ? "חינם" : `${shipping} ₪`}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between" style={{ color: "#D8E2DC" }}>
+                    <span>משלוח</span>
+                    <span>{shipping === 0 ? "חינם" : `${shipping} ₪`}</span>
+                  </div>
                   <div
                     className="flex justify-between font-bold pt-1 mt-1"
                     style={{ borderTop: `1px solid ${C.greenMid}`, color: C.offWhite }}
@@ -414,7 +411,7 @@ export default function ShopPage() {
                     <span>סה״כ</span>
                     <span>{total} ₪</span>
                   </div>
-                  {form.fulfillment === "delivery" && shipping > 0 && (
+                  {shipping > 0 && (
                     <p className="text-xs pt-1" style={{ color: "#7E948A" }}>
                       משלוח חינם בהזמנה מעל {FREE_SHIPPING_THRESHOLD} ₪
                     </p>
@@ -438,50 +435,21 @@ export default function ShopPage() {
                 />
 
                 <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => set("fulfillment", "pickup")}
-                    className="rounded-lg p-3 text-sm border transition"
-                    style={
-                      form.fulfillment === "pickup"
-                        ? { background: C.brand, borderColor: C.brand, color: "#fff", fontWeight: 700 }
-                        : { background: C.dark, borderColor: C.greenMid, color: "#D8E2DC" }
-                    }
-                  >
-                    איסוף עצמי
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => set("fulfillment", "delivery")}
-                    className="rounded-lg p-3 text-sm border transition"
-                    style={
-                      form.fulfillment === "delivery"
-                        ? { background: C.brand, borderColor: C.brand, color: "#fff", fontWeight: 700 }
-                        : { background: C.dark, borderColor: C.greenMid, color: "#D8E2DC" }
-                    }
-                  >
-                    משלוח
-                  </button>
+                  <input
+                    className={input}
+                    style={inputStyle}
+                    placeholder="עיר *"
+                    value={form.delivery_city}
+                    onChange={(e) => set("delivery_city", e.target.value)}
+                  />
+                  <input
+                    className={input}
+                    style={inputStyle}
+                    placeholder="כתובת (רחוב ומספר) *"
+                    value={form.delivery_street}
+                    onChange={(e) => set("delivery_street", e.target.value)}
+                  />
                 </div>
-
-                {form.fulfillment === "delivery" && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      className={input}
-                      style={inputStyle}
-                      placeholder="עיר *"
-                      value={form.delivery_city}
-                      onChange={(e) => set("delivery_city", e.target.value)}
-                    />
-                    <input
-                      className={input}
-                      style={inputStyle}
-                      placeholder="כתובת (רחוב ומספר) *"
-                      value={form.delivery_street}
-                      onChange={(e) => set("delivery_street", e.target.value)}
-                    />
-                  </div>
-                )}
 
                 <p className="text-xs leading-relaxed" style={{ color: "#7E948A" }}>
                   לחיצה על "מעבר לתשלום" תעביר אותך לעמוד תשלום מאובטח. החלפות והחזרות בתיאום מראש
