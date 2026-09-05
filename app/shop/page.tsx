@@ -46,7 +46,7 @@ const PRODUCTS: Product[] = [
     },
     variantSkus: {
       "40mm": "2115",
-      // TODO: מק"ט 60mm — עדיין חסר, תוסיף כשבני ישלח.
+      "60mm": "2116",
     },
   },
   {
