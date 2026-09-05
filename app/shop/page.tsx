@@ -355,6 +355,12 @@ export default function ShopPage() {
             מענה טלפוני להחלפות/החזרות ולבירורי משלוח: ימים א&apos;–ה&apos; 08:00–16:00. בימי שישי
             ושבת אין מענה.
           </p>
+          <p>
+            רוצים לבטל הזמנה?{" "}
+            <a href="/shop/cancel" className="underline font-bold" style={{ color: C.brand }}>
+              מילוי טופס ביטול
+            </a>
+          </p>
         </div>
       </section>
 
