@@ -22,6 +22,10 @@ type Product = {
   variantLabel: string;
   variants: string[];
   image: string;
+  // אופציונלי: תמונה ומק"ט ספציפיים לכל וריאנט (למשל רייז כידון). כשלא מוגדר
+  // — נופלים חזרה לתמונת ה-image הכללית ולא מציגים מק"ט.
+  variantImages?: Record<string, string>;
+  variantSkus?: Record<string, string>;
 };
 
 // סדר הקבוע הזה משמש גם לבניית מפתח הצירוף (COMBO) — אל תשנה סדר בלי לעדכן ARBOX_LINKS.
@@ -34,8 +38,16 @@ const PRODUCTS: Product[] = [
     price: 399,
     marketPrice: 450,
     variantLabel: "רייז",
-    variants: ["25mm", "40mm", "60mm"],
+    variants: ["40mm", "60mm"],
     image: "/spoon35m.webp",
+    variantImages: {
+      "40mm": "/spoon35-40mm.jpg.webp",
+      "60mm": "/spoon35-60mm.jpg.webp",
+    },
+    variantSkus: {
+      "40mm": "2115",
+      // TODO: מק"ט 60mm — עדיין חסר, תוסיף כשבני ישלח.
+    },
   },
   {
     slug: "spank-spike-33-grip",
@@ -202,6 +214,9 @@ export default function ShopPage() {
         <div className="max-w-4xl mx-auto grid sm:grid-cols-3 gap-5">
           {PRODUCTS.map((p) => {
             const isChecked = !!selected[p.slug];
+            const currentVariant = variantBySlug[p.slug] || p.variants[0];
+            const currentImage = p.variantImages?.[currentVariant] || p.image;
+            const currentSku = p.variantSkus?.[currentVariant];
             return (
               <div
                 key={p.slug}
@@ -229,7 +244,7 @@ export default function ShopPage() {
                   style={{ width: "100%", aspectRatio: "1 / 1", background: C.dark }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.image} alt={p.name} className="w-full h-full object-contain" />
+                  <img src={currentImage} alt={`${p.name} ${p.variantImages ? currentVariant : ""}`.trim()} className="w-full h-full object-contain" />
                 </div>
                 <p className="text-xs font-bold tracking-widest mb-1" style={{ color: C.brand }}>
                   {p.brand}
@@ -238,12 +253,18 @@ export default function ShopPage() {
                 <p className="text-xs mb-4 leading-relaxed flex-1" style={{ color: "#9FB3A8" }}>
                   {p.spec}
                 </p>
-                <div className="mb-4">
+                <div className="mb-1">
                   <span className="text-2xl font-black">{p.price} ₪</span>
                   <span className="text-xs mr-2 line-through" style={{ color: "#7E948A" }}>
                     {p.marketPrice} ₪
                   </span>
                 </div>
+                {currentSku && (
+                  <p className="text-xs mb-3" style={{ color: "#7E948A" }}>
+                    מק&quot;ט: {currentSku}
+                  </p>
+                )}
+                {!currentSku && <div className="mb-3" />}
 
                 {isChecked && (
                   <div className="mt-auto">
