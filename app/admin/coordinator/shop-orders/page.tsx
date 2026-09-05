@@ -2,6 +2,8 @@
 // shop-orders/page.tsx — ניהול הזמנות מ-/shop: מה נכנס, ולסמן שהספק (פאן
 // רייד) אישר את ההזמנה בפועל. הזמנה אחת יכולה להכיל כמה שורות (order_group
 // משותף — מוצר לכל שורה), כי /shop/page.tsx שולח אותן ביחד ב-insert אחד.
+// גרסה 2 — רשימה מתקפלת (accordion): שורה אחת מכווצת לכל הזמנה, נפתחת
+// למגע. עוצב לנייד קודם — זה המסך שהרכז והבעלים באמת עובדים איתו מהטלפון.
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
@@ -72,6 +74,7 @@ export default function ShopOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed'>('all')
   const [busyKey, setBusyKey] = useState<string | null>(null)
+  const [openKey, setOpenKey] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -98,6 +101,17 @@ export default function ShopOrdersPage() {
     setBusyKey(null)
   }
 
+  async function deleteGroup(group: Group) {
+    if (!confirm(`למחוק לצמיתות את ההזמנה של ${group.customer_name}? אי אפשר לשחזר.`)) return
+    setBusyKey(group.key)
+    const ids = group.rows.map(r => r.id)
+    const { error } = await supabase.from('shop_orders').delete().in('id', ids)
+    if (error) { alert(error.message); setBusyKey(null); return }
+    setOrders(prev => prev.filter(r => !ids.includes(r.id)))
+    setBusyKey(null)
+    setOpenKey(null)
+  }
+
   if (!user) return null
 
   const groups = groupOrders(orders).filter(g => {
@@ -108,12 +122,12 @@ export default function ShopOrdersPage() {
   const pendingCount = groupOrders(orders).filter(g => g.payment_status !== 'confirmed').length
 
   return (
-    <div style={{ padding: 24, maxWidth: 950, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+    <div style={{ padding: '16px 12px', maxWidth: 700, margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div>
-          <h2 style={{ margin: '0 0 3px', fontSize: 20, fontWeight: 800 }}>הזמנות חנות</h2>
-          <p style={{ color: '#7a8f7d', fontSize: 13, margin: 0 }}>
-            {loading ? 'טוען...' : `${groups.length} הזמנות`} · {pendingCount} ממתינות לאישור פאן רייד
+          <h2 style={{ margin: '0 0 2px', fontSize: 18, fontWeight: 800 }}>הזמנות חנות</h2>
+          <p style={{ color: '#7a8f7d', fontSize: 12, margin: 0 }}>
+            {loading ? 'טוען...' : `${groups.length} הזמנות`} · {pendingCount} ממתינות
           </p>
         </div>
         <div style={{ marginRight: 'auto', display: 'flex', gap: 6 }}>
@@ -130,7 +144,7 @@ export default function ShopOrdersPage() {
               style={{
                 background: filter === value ? '#b5e853' : 'transparent',
                 color: filter === value ? '#0d0f0e' : '#7a8f7d',
-                border: '1px solid #252b27', borderRadius: 8, padding: '6px 12px',
+                border: '1px solid #252b27', borderRadius: 8, padding: '7px 12px',
                 fontSize: 12, fontWeight: 700, fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer',
               }}
             >
@@ -143,80 +157,118 @@ export default function ShopOrdersPage() {
       {loading ? (
         <div style={{ padding: 40, textAlign: 'center', color: '#7a8f7d' }}>טוען...</div>
       ) : groups.length === 0 ? (
-        <div style={{ padding: 48, textAlign: 'center', color: '#7a8f7d', background: '#141716', border: '1px solid #252b27', borderRadius: 12 }}>
-          <div style={{ fontSize: 34, marginBottom: 10 }}>🛒</div>
+        <div style={{ padding: 40, textAlign: 'center', color: '#7a8f7d', background: '#141716', border: '1px solid #252b27', borderRadius: 12 }}>
+          <div style={{ fontSize: 30, marginBottom: 8 }}>🛒</div>
           אין הזמנות להצגה.
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {groups.map(g => (
-            <div
-              key={g.key}
-              style={{
-                background: '#141716', border: '1px solid #252b27', borderRadius: 12, padding: 16,
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ color: '#7a8f7d', fontSize: 11 }}>{fmtDateTime(g.created_at)}</span>
-                  <span
-                    style={{
-                      background: g.supplier_notified ? '#12331f' : '#3a1a1a',
-                      color: g.supplier_notified ? '#7ee787' : '#ff8f6b',
-                      borderRadius: 10, padding: '2px 9px', fontSize: 11, fontWeight: 600,
-                    }}
-                  >
-                    {g.supplier_notified ? '✓ מייל נשלח לפאן רייד' : '✗ מייל לא נשלח'}
-                  </span>
-                  <span
-                    style={{
-                      background: g.payment_status === 'confirmed' ? '#12331f' : '#2a2410',
-                      color: g.payment_status === 'confirmed' ? '#7ee787' : '#e8c547',
-                      borderRadius: 10, padding: '2px 9px', fontSize: 11, fontWeight: 600,
-                    }}
-                  >
-                    {g.payment_status === 'confirmed' ? 'בוצעה' : 'ממתינה'}
-                  </span>
-                </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {groups.map(g => {
+            const isOpen = openKey === g.key
+            const summary = g.rows.length === 1
+              ? g.rows[0].product_name
+              : `${g.rows[0].product_name} +${g.rows.length - 1}`
+            return (
+              <div
+                key={g.key}
+                style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, overflow: 'hidden' }}
+              >
+                {/* שורה מכווצת — כל השטח לחיץ, עיצוב אצבע-ראשונה */}
                 <button
-                  onClick={() => setConfirmed(g, g.payment_status !== 'confirmed')}
-                  disabled={busyKey === g.key}
+                  onClick={() => setOpenKey(isOpen ? null : g.key)}
                   style={{
-                    background: 'transparent', border: '1px solid #252b27', borderRadius: 8,
-                    color: g.payment_status === 'confirmed' ? '#ff8f6b' : '#b5e853', padding: '5px 12px', fontSize: 12,
-                    fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, cursor: 'pointer',
-                    opacity: busyKey === g.key ? 0.5 : 1, flexShrink: 0,
+                    width: '100%', textAlign: 'right', background: 'transparent', border: 'none',
+                    padding: '12px 14px', cursor: 'pointer', fontFamily: 'Heebo, Arial, sans-serif',
+                    display: 'flex', flexDirection: 'column', gap: 4,
                   }}
                 >
-                  {busyKey === g.key ? '...' : g.payment_status === 'confirmed' ? 'החזר לממתינה' : 'סמן כבוצעה'}
-                </button>
-              </div>
-
-              <div style={{ fontSize: 13, marginBottom: 8 }}>
-                <span style={{ color: '#7a8f7d', fontWeight: 700 }}>לקוח: </span>
-                {g.customer_name} · {g.customer_phone}
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
-                {g.rows.map(r => (
-                  <div key={r.id} style={{ fontSize: 13 }}>
-                    <span style={{ color: '#b5e853', fontWeight: 700 }}>{r.product_name}</span>
-                    {r.color ? ` — ${r.color}` : ''}
-                    {r.quantity > 1 ? ` × ${r.quantity}` : ''}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: '#e8efe9', fontSize: 14, fontWeight: 700 }}>{g.customer_name}</span>
+                    <span style={{ color: '#e8efe9', fontSize: 14, fontWeight: 800 }}>{g.total_amount ?? '?'} ₪</span>
                   </div>
-                ))}
-              </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                    <span style={{ color: '#7a8f7d', fontSize: 12 }}>{summary} · {fmtDateTime(g.created_at)}</span>
+                    <span style={{ color: '#7a8f7d', fontSize: 14 }}>{isOpen ? '▲' : '▼'}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <span
+                      style={{
+                        background: g.supplier_notified ? '#12331f' : '#3a1a1a',
+                        color: g.supplier_notified ? '#7ee787' : '#ff8f6b',
+                        borderRadius: 10, padding: '2px 8px', fontSize: 10, fontWeight: 700,
+                      }}
+                    >
+                      {g.supplier_notified ? '✓ נשלח לפאן רייד' : '✗ מייל לא נשלח'}
+                    </span>
+                    <span
+                      style={{
+                        background: g.payment_status === 'confirmed' ? '#12331f' : '#2a2410',
+                        color: g.payment_status === 'confirmed' ? '#7ee787' : '#e8c547',
+                        borderRadius: 10, padding: '2px 8px', fontSize: 10, fontWeight: 700,
+                      }}
+                    >
+                      {g.payment_status === 'confirmed' ? 'בוצעה' : 'ממתינה'}
+                    </span>
+                  </div>
+                </button>
 
-              <div style={{ fontSize: 13, color: '#c9d4cb' }}>
-                <span style={{ color: '#7a8f7d', fontWeight: 700 }}>משלוח: </span>
-                {g.delivery_address || '—'}
+                {/* פרטים מלאים + פעולות — נפתח למגע בלבד */}
+                {isOpen && (
+                  <div style={{ padding: '4px 14px 14px', borderTop: '1px solid #252b27' }}>
+                    <div style={{ fontSize: 13, margin: '10px 0 8px' }}>
+                      <span style={{ color: '#7a8f7d', fontWeight: 700 }}>טלפון: </span>
+                      {g.customer_phone}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
+                      {g.rows.map(r => (
+                        <div key={r.id} style={{ fontSize: 13 }}>
+                          <span style={{ color: '#b5e853', fontWeight: 700 }}>{r.product_name}</span>
+                          {r.color ? ` — ${r.color}` : ''}
+                          {r.quantity > 1 ? ` × ${r.quantity}` : ''}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 13, color: '#c9d4cb', marginBottom: 4 }}>
+                      <span style={{ color: '#7a8f7d', fontWeight: 700 }}>משלוח: </span>
+                      {g.delivery_address || '—'}
+                    </div>
+                    <div style={{ fontSize: 13, color: '#c9d4cb', marginBottom: 12 }}>
+                      <span style={{ color: '#7a8f7d', fontWeight: 700 }}>סה״כ: </span>
+                      {g.total_amount ?? '?'} ₪ (כולל משלוח {g.shipping_amount} ₪)
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => setConfirmed(g, g.payment_status !== 'confirmed')}
+                        disabled={busyKey === g.key}
+                        style={{
+                          flex: '1 1 auto', background: g.payment_status === 'confirmed' ? 'transparent' : '#b5e853',
+                          border: `1px solid ${g.payment_status === 'confirmed' ? '#252b27' : '#b5e853'}`, borderRadius: 8,
+                          color: g.payment_status === 'confirmed' ? '#ff8f6b' : '#0d0f0e',
+                          padding: '10px 12px', fontSize: 13, fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700,
+                          cursor: 'pointer', opacity: busyKey === g.key ? 0.5 : 1,
+                        }}
+                      >
+                        {busyKey === g.key ? '...' : g.payment_status === 'confirmed' ? 'החזר לממתינה' : 'סמן כבוצעה'}
+                      </button>
+                      <button
+                        onClick={() => deleteGroup(g)}
+                        disabled={busyKey === g.key}
+                        style={{
+                          background: 'transparent', border: '1px solid #3a1a1a', borderRadius: 8,
+                          color: '#ff8f6b', padding: '10px 12px', fontSize: 13,
+                          fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, cursor: 'pointer',
+                          opacity: busyKey === g.key ? 0.5 : 1,
+                        }}
+                      >
+                        מחיקה
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div style={{ fontSize: 13, color: '#c9d4cb' }}>
-                <span style={{ color: '#7a8f7d', fontWeight: 700 }}>סה״כ: </span>
-                {g.total_amount ?? '?'} ₪ (כולל משלוח {g.shipping_amount} ₪)
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
