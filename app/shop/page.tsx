@@ -217,6 +217,7 @@ export default function ShopPage() {
             const currentVariant = variantBySlug[p.slug] || p.variants[0];
             const currentImage = p.variantImages?.[currentVariant] || p.image;
             const currentSku = p.variantSkus?.[currentVariant];
+            const discountPct = Math.round(((p.marketPrice - p.price) / p.marketPrice) * 100);
             return (
               <div
                 key={p.slug}
@@ -259,6 +260,11 @@ export default function ShopPage() {
                     {p.marketPrice} ₪
                   </span>
                 </div>
+                {discountPct > 0 && (
+                  <p className="text-xs font-bold mb-1" style={{ color: C.brand }}>
+                    {discountPct}% הנחה למזמינים באתר
+                  </p>
+                )}
                 {currentSku && (
                   <p className="text-xs mb-3" style={{ color: "#7E948A" }}>
                     מק&quot;ט: {currentSku}
