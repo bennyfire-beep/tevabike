@@ -3,6 +3,7 @@
 // tool) so every image, video, or PDF that comes into the app is read through the
 // same Gemini API call — never a different OCR/vision service.
 import { GoogleGenAI, createUserContent, createPartFromUri, type File as GeminiFile } from "@google/genai";
+import { callGroq } from "@/lib/groq";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
@@ -105,12 +106,29 @@ ${transcript}
 
 category משקף את נושא השאלה האחרונה של הלקוח: price=מחיר, dates=תאריכים, availability=האם יש מקום פנוי, hours=שעות פעילות, registration_link=קישור להרשמה, other=כל דבר אחר.`
 
-  const res = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: prompt,
-    config: { responseMimeType: 'application/json' },
-  })
-  return parseSuggestion(res.text ?? '')
+  let raw = ''
+  try {
+    const res = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+      config: { responseMimeType: 'application/json' },
+    })
+    raw = res.text ?? ''
+  } catch (e) {
+    // Gemini's free tier is capped low enough that a handful of people
+    // testing the bot in one afternoon can exhaust it (confirmed live) — a
+    // customer-facing reply going silent over a quota error is worse than
+    // trying a second, differently-quota'd provider with the exact same
+    // prompt. Groq is a no-op (still returns '' below) until GROQ_API_KEY is
+    // set — this is additive, not a replacement for Gemini.
+    console.error('[gemini] suggestWhatsAppReply: Gemini call failed, trying Groq fallback:', (e as Error).message)
+    try {
+      raw = await callGroq(prompt)
+    } catch (e2) {
+      console.error('[gemini] suggestWhatsAppReply: Groq fallback also failed:', (e2 as Error).message)
+    }
+  }
+  return parseSuggestion(raw)
 }
 
 function parseSuggestion(raw: string): WhatsAppSuggestion {
