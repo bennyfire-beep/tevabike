@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 const PINK      = '#D4288A'
@@ -27,9 +27,6 @@ const MISGAV_TRACKS = [
   { title: 'פעם בשבוע',    price: 300, desc: 'הילד בוחר יום קבוע — ראשון או חמישי', best: false },
   { title: 'פעמיים בשבוע', price: 550, desc: 'ראשון וגם חמישי — אימון כפול בשבוע',  best: true  },
 ]
-
-// Promo deadline shown in the banner and on the registration page.
-const PROMO_TEXT = 'מבצע מיוחד לנרשמים עד 1.9!'
 
 const ADULTS_CLASSES = [
   { level: 'טכני מבוגרים', day: "יום א'", icon: '🏔️', desc: 'שיפור טכניקת רכיבה בשטח' },
@@ -118,66 +115,9 @@ function FormSelect({ label, value, onChange, options }: {
 
 export default function Home() {
   const [tab, setTab]           = useState<'kids' | 'adults'>('kids')
-  const [scrolled, setScrolled] = useState(false)
-
-  useEffect(() => {
-    const h = () => setScrolled(window.scrollY > 60)
-    window.addEventListener('scroll', h, { passive: true })
-    return () => window.removeEventListener('scroll', h)
-  }, [])
-
-
 
   return (
     <main style={{ fontFamily: 'inherit', background: '#fff', color: DARK, overflowX: 'hidden' }}>
-
-      {/* ════════════════════════════ NAVBAR ════════════════════════════ */}
-      <nav style={{
-        position: 'fixed', inset: '0 0 auto 0', zIndex: 100,
-        background: scrolled ? 'rgba(12,24,20,0.97)' : 'rgba(12,24,20,0.72)',
-        backdropFilter: 'blur(18px)',
-        WebkitBackdropFilter: 'blur(18px)',
-        borderBottom: `1px solid rgba(212,40,138,${scrolled ? '.3' : '.12'})`,
-        transition: 'background .35s, border-color .35s',
-      }}>
-        <div style={{ maxWidth: 1160, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 66 }}>
-          {/* Logo (right in RTL) */}
-          <a href="/">
-            <img src="/logo.png" alt="Tev Bike" style={{ height: 42, borderRadius: 6, display: 'block' }} />
-          </a>
-
-          {/* Nav links (left in RTL) */}
-          <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
-            <a href="#classes" className="nav-link">חוגים</a>
-            <a href="/camp-sukkot" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מחנה סוכות</a>
-            <a href="/workshop-airbag" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>סדנת איר באג</a>
-            <a href="#why" className="nav-link">למה אנחנו</a>
-            <a href="/shop" className="nav-link">חנות</a>
-            <a href="/register" className="btn-primary" style={{ padding: '8px 22px', fontSize: 14, borderRadius: 8 }}>
-              הרשמה
-            </a>
-          </div>
-        </div>
-      </nav>
-
-      {/* ═══════════════════════ PROMO BANNER ═══════════════════════ */}
-      {/* Sits directly under the fixed nav so it is the first thing read. */}
-      <a
-        href="/register"
-        style={{
-          display: 'block', textDecoration: 'none',
-          background: `linear-gradient(90deg, ${PINK}, #F0569F, ${PINK})`,
-          color: '#fff', textAlign: 'center',
-          padding: '11px 20px', fontWeight: 900,
-          fontSize: 'clamp(.9rem, 2.4vw, 1.05rem)',
-          letterSpacing: '-0.01em',
-          position: 'relative', zIndex: 40,
-          boxShadow: '0 2px 14px rgba(212,40,138,0.35)',
-        }}
-      >
-        🎉 {PROMO_TEXT}
-        <span style={{ fontWeight: 600, opacity: 0.9, marginRight: 8 }}>הרשמה ←</span>
-      </a>
 
       {/* ════════════════════════════ HERO ════════════════════════════ */}
       <section style={{ position: 'relative', height: '100vh', minHeight: 580, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
@@ -444,10 +384,6 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-
-              <p style={{ textAlign: 'center', color: PINK, fontSize: 14, fontWeight: 800, margin: '22px 0 0' }}>
-                🎉 {PROMO_TEXT}
-              </p>
             </div>
           )}
         </div>
