@@ -541,6 +541,17 @@ export default function Home() {
                   <span style={{ width: 30, height: 30, borderRadius: 8, background: `${PINK}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>✉️</span>
                   info@tevbike.com
                 </a>
+                <a
+                  href="https://waze.com/ul/hsvc4fmkzh"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'rgba(255,255,255,0.42)', fontSize: 14, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, transition: 'color .2s' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#33ccff'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.42)'}
+                >
+                  <span style={{ width: 30, height: 30, borderRadius: 8, background: '#33ccff22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>📍</span>
+                  הגעה (Waze)
+                </a>
               </div>
             </div>
           </div>
