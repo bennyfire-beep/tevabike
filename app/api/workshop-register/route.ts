@@ -3,12 +3,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 
-// Public workshop registration intake.
-// Inserts with the SERVICE ROLE (anon never touches the table), then fires a
-// confirmation email to the registrant with the schedule + Arbox payment link,
-// and an internal alert to Benny. Emails are fire-and-forget — they never
-// block or fail the registration itself.
-
 export const dynamic = 'force-dynamic'
 
 const PAYMENT_LINK = 'https://arbox.link/IdCW6--f'
@@ -22,9 +16,9 @@ const MAX_EMAIL = 150
 const MAX_NOTES = 1000
 const MAX_UTM = 120
 
-const VALID_DATES = ['2026-09-04', '2026-09-11']
+const VALID_DATES = ['2026-09-25', '2026-09-11']
 const DATE_LABEL: Record<string, string> = {
-  '2026-09-04': 'יום שישי, 4 בספטמבר 2026',
+  '2026-09-25': 'יום שישי, 25 בספטמבר 2026 (רגע לפני החג)',
   '2026-09-11': 'יום שישי, 11 בספטמבר 2026 (ערב ראש השנה)',
 }
 const DISCOUNT_BRANDS = ['whistle', 'ktm', 'bh']
@@ -35,7 +29,22 @@ function clean(v: unknown, max: number): string | null {
   return s.length ? s : null
 }
 
-function confirmationHtml(name: string, dateLabel: string, discount: boolean) {
+function confirmationHtml(name: string, dateLabel: string, discount: boolean, workshopDate: string) {
+  const isSep25 = workshopDate === '2026-09-25'
+  const endTime = isSep25 ? '11:00' : '12:00'
+  const scheduleRows = isSep25
+    ? [
+        ['8:00', 'קפה אצל טימו והתכנסות'],
+        ['8:30', 'חימום על כרית האוויר הקטנה'],
+        ['9:00', 'קפיצות על כרית האוויר הגדולה'],
+        ['11:00', 'סיום — מתארגנים לקראת החג'],
+      ]
+    : [
+        ['8:00', 'קפה קטן'],
+        ['8:30', 'תדריך ותחילת תרגול'],
+        ['10:00', "הפסקת רענון (15 דק')"],
+        ['12:00', 'סיום וסיכום'],
+      ]
   return `
   <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;background:#0C1814;color:#F5F2EE;padding:32px 24px;border-radius:16px;max-width:560px;margin:0 auto">
     <h1 style="color:#D4288A;font-size:26px;margin:0 0 8px">תודה על הרישום, ${name}! 🚵</h1>
@@ -45,17 +54,19 @@ function confirmationHtml(name: string, dateLabel: string, discount: boolean) {
     </p>
 
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px;margin:20px 0">
-      <p style="margin:0 0 6px"><b style="color:#D4288A">📅 מתי:</b> ${dateLabel} · 8:00–12:00</p>
+      <p style="margin:0 0 6px"><b style="color:#D4288A">📅 מתי:</b> ${dateLabel} · 8:00–${endTime}</p>
       <p style="margin:0 0 6px"><b style="color:#D4288A">📍 איפה:</b> פארק אוסטרליה, משגב (חפשו "פארק אוסטרליה" בוויז)</p>
       <p style="margin:0"><b style="color:#D4288A">🚲 להביא:</b> אופניים תקינים, קסדת פול פייס ומיגון</p>
     </div>
 
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px;margin:20px 0">
       <p style="margin:0 0 8px;font-weight:bold;color:#F5F2EE">הלו"ז שלנו:</p>
-      <p style="margin:0 0 4px;color:#D8E2DC"><b style="color:#D4288A">8:00</b> — קפה קטן</p>
-      <p style="margin:0 0 4px;color:#D8E2DC"><b style="color:#D4288A">8:30</b> — תדריך ותחילת תרגול</p>
-      <p style="margin:0 0 4px;color:#D8E2DC"><b style="color:#D4288A">10:00</b> — הפסקת רענון (15 דק')</p>
-      <p style="margin:0;color:#D8E2DC"><b style="color:#D4288A">12:00</b> — סיום וסיכום</p>
+      ${scheduleRows
+        .map(
+          ([time, label]) =>
+            `<p style="margin:0 0 4px;color:#D8E2DC"><b style="color:#D4288A">${time}</b> — ${label}</p>`
+        )
+        .join('\n      ')}
     </div>
 
     ${discount ? `<p style="color:#D4288A;font-weight:bold">🎁 מגיעה לך 10% הנחה כרוכב Whistle / KTM / BH — תינתן בסדנה.</p>` : ''}
@@ -152,13 +163,10 @@ export async function POST(req: NextRequest) {
   const dateLabel = DATE_LABEL[workshop_date] ?? workshop_date
   const discount = !!bike_brand && DISCOUNT_BRANDS.includes(bike_brand)
 
-  // Confirmation to registrant + internal alert to Benny.
-  // Must be awaited: on Vercel the function freezes right after the response
-  // is returned, so un-awaited sends silently die.
   await sendEmail(
     email,
     'הרישום לסדנת האיר באג התקבל! 🚵 טבע בייק',
-    confirmationHtml(full_name, dateLabel, discount)
+    confirmationHtml(full_name, dateLabel, discount, workshop_date)
   )
   await sendEmail(
     ADMIN_EMAIL,
