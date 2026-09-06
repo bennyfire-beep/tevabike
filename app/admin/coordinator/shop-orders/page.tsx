@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
+import { ESTIMATED_DELIVERY } from '@/lib/shop-order-email'
 
 type OrderRow = {
   id: string
@@ -23,6 +24,9 @@ type OrderRow = {
   shipping_amount: number
   total_amount: number | null
   order_group: string | null
+  supplier_status: string | null
+  final_price: number | null
+  customer_updated_at: string | null
 }
 
 type Group = {
@@ -37,7 +41,42 @@ type Group = {
   total_amount: number | null
   supplier_notified: boolean
   payment_status: string
+  supplier_status: string | null
+  final_price: number | null
+  customer_updated_at: string | null
   rows: OrderRow[]
+}
+
+// עדכון סטטוס מול פאן רייד הוא ידני — התשובות שלהם מגיעות לתיבה האישית
+// של בני (reply-to על מייל ההזמנה), אין קריאה/פענוח אוטומטי של המייל.
+const SUPPLIER_STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: 'ordered', label: 'הוזמן מהספק' },
+  { value: 'shipped', label: 'נשלח ללקוח' },
+  { value: 'delayed', label: 'עיכוב' },
+  { value: 'cancelled', label: 'בוטל' },
+]
+
+function waPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  return `972${digits.replace(/^0/, '')}`
+}
+
+function customerMessage(g: Group): string {
+  const firstName = g.customer_name.split(' ')[0]
+  const items = g.rows.map(r => r.product_name + (r.color ? ` (${r.color})` : '')).join(' + ')
+  const statusLine =
+    g.supplier_status === 'shipped'
+      ? `ההזמנה שלך (${items}) יצאה לדרך! צפי אספקה: ${ESTIMATED_DELIVERY}.`
+      : g.supplier_status === 'delayed'
+        ? `יש עיכוב קל בהזמנה שלך (${items}), ניצור קשר בהקדם עם פרטים מדויקים.`
+        : g.supplier_status === 'cancelled'
+          ? `לצערנו ההזמנה שלך (${items}) בוטלה מול הספק. ניצור איתך קשר לגבי החזר או חלופה.`
+          : `ההזמנה שלך (${items}) התקבלה ואושרה מול הספק, ונמצאת בטיפול.`
+  const priceLine =
+    g.final_price != null && g.final_price !== g.total_amount
+      ? `\n\nלתשומת ליבך: המחיר הסופי עודכן ל-${g.final_price} ₪.`
+      : ''
+  return `היי ${firstName}, ${statusLine}${priceLine}\n\nתודה,\nבני - טבע בייק`
 }
 
 const fmtDateTime = (iso: string) =>
@@ -63,6 +102,9 @@ function groupOrders(rows: OrderRow[]): Group[] {
         total_amount: r.total_amount,
         supplier_notified: r.supplier_notified,
         payment_status: r.payment_status,
+        supplier_status: r.supplier_status,
+        final_price: r.final_price,
+        customer_updated_at: r.customer_updated_at,
         rows: [r],
       })
     }
@@ -82,7 +124,7 @@ export default function ShopOrdersPage() {
     setLoading(true)
     const { data } = await supabase
       .from('shop_orders')
-      .select('id, created_at, product_name, color, quantity, customer_name, customer_phone, fulfillment, delivery_address, payment_status, supplier_notified, shipping_amount, total_amount, order_group')
+      .select('id, created_at, product_name, color, quantity, customer_name, customer_phone, fulfillment, delivery_address, payment_status, supplier_notified, shipping_amount, total_amount, order_group, supplier_status, final_price, customer_updated_at')
       .order('created_at', { ascending: false })
     setOrders((data ?? []) as OrderRow[])
     setLoading(false)
@@ -123,6 +165,37 @@ export default function ShopOrdersPage() {
       alert('שליחה נכשלה — בדוק חיבור')
     }
     setBusyKey(null)
+  }
+
+  async function setSupplierStatus(group: Group, supplier_status: string) {
+    setBusyKey(group.key)
+    const ids = group.rows.map(r => r.id)
+    const { error } = await supabase.from('shop_orders').update({ supplier_status }).in('id', ids)
+    if (error) { alert(error.message); setBusyKey(null); return }
+    setOrders(prev => prev.map(r => (ids.includes(r.id) ? { ...r, supplier_status } : r)))
+    setBusyKey(null)
+  }
+
+  async function saveFinalPrice(group: Group, value: string) {
+    const trimmed = value.trim()
+    const final_price = trimmed === '' ? null : Number(trimmed)
+    if (trimmed !== '' && (Number.isNaN(final_price) || final_price === null)) return
+    if ((group.final_price ?? null) === final_price) return
+    const ids = group.rows.map(r => r.id)
+    const { error } = await supabase.from('shop_orders').update({ final_price }).in('id', ids)
+    if (error) { alert(error.message); return }
+    setOrders(prev => prev.map(r => (ids.includes(r.id) ? { ...r, final_price } : r)))
+  }
+
+  // פותח וואטסאפ עם הודעה מוכנה ללקוח — בני קורא ולוחץ שלח בעצמו (לא
+  // נשלח לבד מהמערכת). מסמן customer_updated_at רק למעקב, לא כאישור מסירה.
+  async function sendCustomerUpdate(group: Group) {
+    const text = encodeURIComponent(customerMessage(group))
+    window.open(`https://wa.me/${waPhone(group.customer_phone)}?text=${text}`, '_blank')
+    const ids = group.rows.map(r => r.id)
+    const customer_updated_at = new Date().toISOString()
+    const { error } = await supabase.from('shop_orders').update({ customer_updated_at }).in('id', ids)
+    if (!error) setOrders(prev => prev.map(r => (ids.includes(r.id) ? { ...r, customer_updated_at } : r)))
   }
 
   async function deleteGroup(group: Group) {
@@ -274,6 +347,64 @@ export default function ShopOrdersPage() {
                       >
                         {busyKey === g.key ? '...' : '📧 שלח לפאן רייד (אחרי אימות תשלום בארבוקס)'}
                       </button>
+                    )}
+
+                    {g.supplier_notified && (
+                      <div style={{ marginBottom: 12, paddingTop: 4, borderTop: '1px dashed #252b27' }}>
+                        <div style={{ fontSize: 12, color: '#7a8f7d', fontWeight: 700, margin: '10px 0 6px' }}>
+                          סטטוס מול פאן רייד (תשובתם מגיעה למייל של בני — לעדכן ידנית)
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                          {SUPPLIER_STATUS_OPTIONS.map(opt => (
+                            <button
+                              key={opt.value}
+                              onClick={() => setSupplierStatus(g, opt.value)}
+                              disabled={busyKey === g.key}
+                              style={{
+                                background: g.supplier_status === opt.value ? '#b5e853' : 'transparent',
+                                color: g.supplier_status === opt.value ? '#0d0f0e' : '#7a8f7d',
+                                border: '1px solid #252b27', borderRadius: 8, padding: '6px 10px',
+                                fontSize: 12, fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700,
+                                cursor: 'pointer', opacity: busyKey === g.key ? 0.5 : 1,
+                              }}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                        <label style={{ display: 'block', fontSize: 12, color: '#7a8f7d', marginBottom: 4 }}>
+                          מחיר סופי מהספק (אם שונה מ-{g.total_amount ?? '?'} ₪)
+                        </label>
+                        <input
+                          type="number"
+                          defaultValue={g.final_price ?? ''}
+                          onBlur={e => saveFinalPrice(g, e.target.value)}
+                          placeholder={`${g.total_amount ?? ''}`}
+                          style={{
+                            width: '100%', boxSizing: 'border-box', background: '#0d0f0e', border: '1px solid #252b27',
+                            borderRadius: 8, color: '#e8efe9', fontFamily: 'Heebo, Arial, sans-serif', fontSize: 13,
+                            padding: '8px 10px', outline: 'none', marginBottom: 10,
+                          }}
+                        />
+                        <button
+                          onClick={() => sendCustomerUpdate(g)}
+                          disabled={!g.supplier_status}
+                          title={!g.supplier_status ? 'קודם תסמן סטטוס למעלה' : ''}
+                          style={{
+                            width: '100%', background: '#12331f', border: '1px solid #1f5c34', borderRadius: 8,
+                            color: '#7ee787', padding: '10px 12px', fontSize: 13,
+                            fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, cursor: 'pointer',
+                            opacity: g.supplier_status ? 1 : 0.4,
+                          }}
+                        >
+                          📱 הכן הודעת עדכון ללקוח בוואטסאפ
+                        </button>
+                        {g.customer_updated_at && (
+                          <div style={{ fontSize: 11, color: '#7a8f7d', marginTop: 4 }}>
+                            נשלחה הודעה ב-{fmtDateTime(g.customer_updated_at)}
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/staff-birthdays",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/shop-supplier-followup",
+      "schedule": "0 6 * * 0"
     }
   ]
 }
