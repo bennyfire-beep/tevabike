@@ -7,6 +7,11 @@ export const REPLY_TO = 'bennyfire@gmail.com'
 
 export const SUPPLIER_EMAIL = 'orderfunride@gmail.com'
 export const BENNY_EMAIL = 'bennyfire@gmail.com'
+// כתובת ייעודית על דומיין הקליטה (mail.tevabike.com ב-Resend, receiving
+// מופעל) — רק מייל ההזמנה לפאן רייד (notify-supplier) משתמש בה כ-reply-to,
+// כדי שהתשובה שלהם תיקלט אוטומטית ב-app/api/webhooks/resend-inbound ותפוענח.
+// בני עדיין מקבל כל תשובה בעצמו — הראוט הזה מעביר לו העתק + מה שזוהה.
+export const SUPPLIER_REPLY_TO = 'updates@mail.tevabike.com'
 
 export const ESTIMATED_DELIVERY = 'כ-7-10 ימי עסקים (יתכנו שינויים בשל עומסים שאינם תלויים בנו)'
 export const RETURNS_PHONE = '0509446696'
@@ -15,14 +20,20 @@ export const SUPPORT_HOURS =
 
 export type Item = { product_slug: string; product_name: string; variant: string }
 
-export async function sendEmail(to: string, cc: string | undefined, subject: string, html: string): Promise<boolean> {
+export async function sendEmail(
+  to: string,
+  cc: string | undefined,
+  subject: string,
+  html: string,
+  replyTo: string = REPLY_TO
+): Promise<boolean> {
   const key = process.env.RESEND_API_KEY
   if (!key) return false
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM, to, cc, reply_to: REPLY_TO, subject, html }),
+      body: JSON.stringify({ from: FROM, to, cc, reply_to: replyTo, subject, html }),
     })
     return res.ok
   } catch {

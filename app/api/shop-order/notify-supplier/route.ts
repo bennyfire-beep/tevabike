@@ -3,7 +3,7 @@
 // בעצמו שהתשלום עבר בארבוקס (אין webhook שמאשר את זה אוטומטית).
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { BENNY_EMAIL, SUPPLIER_EMAIL, orderHtml, sendEmail } from '@/lib/shop-order-email'
+import { BENNY_EMAIL, SUPPLIER_EMAIL, SUPPLIER_REPLY_TO, orderHtml, sendEmail } from '@/lib/shop-order-email'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,7 +66,11 @@ export async function POST(req: NextRequest) {
       subtotal: total - shipping,
       shipping,
       total,
-    })
+    }),
+    // reply-to ייעודי (לא בני) — כדי שהתשובה של פאן רייד תיקלט אוטומטית
+    // דרך app/api/webhooks/resend-inbound ותפוענח. בני עדיין מקבל כל
+    // תשובה בפועל, כי הראוט הזה מעביר לו אותה בעצמו.
+    SUPPLIER_REPLY_TO
   )
 
   if (!sent) {
