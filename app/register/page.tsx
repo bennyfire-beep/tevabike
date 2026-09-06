@@ -19,11 +19,16 @@ const BRANCHES = [
   { value: 'אחר', label: 'אחר', day: '' },
 ]
 
-// חוג בית-ספרי חד-מסלולי — יום, מחיר ומדריך קבועים, אין בחירת מסלול/יום.
-const GILON_BRANCH = 'צורית-גילון'
-const GILON_PRICE = 270
-const GILON_DAY_INDEX = '2' // שלישי (0=ראשון..6=שבת), תואם ל-groups.days_of_week/DAY_LABEL בשרת
-const GILON_INSTRUCTOR = 'ארז דגן'
+// חוגים חד-מסלוליים — יום, שעה, מחיר (ומדריך אם רלוונטי) קבועים לכל
+// הסניף, בלי בחירת מסלול/יום. dayIndex תואם ל-groups.days_of_week/DAY_LABEL
+// בשרת (0=ראשון..6=שבת).
+const FIXED_BRANCHES: Record<
+  string,
+  { dayIndex: string; dayLabel: string; time: string; price: number; instructor?: string }
+> = {
+  'צורית-גילון': { dayIndex: '2', dayLabel: 'שלישי', time: '14:45–15:45', price: 270, instructor: 'ארז דגן' },
+  'פרוד-אמירים': { dayIndex: '3', dayLabel: 'רביעי', time: '15:45–17:00', price: 270 },
+}
 
 // מבוגרים — כרגע פעיל רק משגב (ביריה, מטה אשר ופרוד-אמירים הן חוגי ילדים/נוער
 // בלבד ולא רלוונטיות למבוגרים). לוח הזמנים המלא מוצג בנפרד, ב-MISGAV_ADULT_SESSIONS.
@@ -47,27 +52,32 @@ const MISGAV_ADULT_SESSIONS = [
 
 // Summer 2026 tracks. Friday (יומועדון) is cancelled, so the only remaining
 // membership_plan value is 'center' — the track is what varies now.
+// title/price are the same everywhere; only the days differ by branch (see
+// BRANCH_ONCE_WEEKLY_DAYS / BRANCH_TWICE_WEEKLY_LABEL below), so desc is
+// filled in dynamically per branch when rendering.
 const TRACKS = [
-  {
-    value: 'once_weekly',
-    title: 'פעם בשבוע',
-    price: 300,
-    desc: 'אימון קבוע אחד בשבוע — בוחרים ראשון או חמישי',
-  },
-  {
-    value: 'twice_weekly',
-    title: 'פעמיים בשבוע',
-    price: 550,
-    desc: 'ראשון וגם חמישי — אימון כפול בשבוע',
-    best: true,
-  },
+  { value: 'once_weekly', title: 'פעם בשבוע', price: 300 },
+  { value: 'twice_weekly', title: 'פעמיים בשבוע', price: 550, best: true },
 ]
 
-// 0 = Sunday .. 6 = Saturday, matching groups.days_of_week in Supabase.
-const TRACK_DAYS = [
-  { value: '0', label: "יום ראשון" },
-  { value: '4', label: "יום חמישי" },
+// אילו ימים ניתן לבחור במסלול "פעם בשבוע", לפי סניף. סניף שלא מופיע כאן
+// מקבל את ברירת המחדל של משגב (ראשון/חמישי). ביריה מוגבלת ליום קבוע אחד —
+// אין בחירה, הוא נקבע אוטומטית. 0 = ראשון .. 6 = שבת, תואם ל-
+// groups.days_of_week ב-Supabase.
+const DEFAULT_ONCE_WEEKLY_DAYS = [
+  { value: '0', label: 'יום ראשון' },
+  { value: '4', label: 'יום חמישי' },
 ]
+const BRANCH_ONCE_WEEKLY_DAYS: Record<string, { value: string; label: string }[]> = {
+  'ביריה': [{ value: '1', label: 'יום שני' }],
+}
+
+// התיאור של מסלול "פעמיים בשבוע", לפי סניף — אותו הגיון: ברירת המחדל היא
+// הימים של משגב.
+const DEFAULT_TWICE_WEEKLY_LABEL = 'ראשון וגם חמישי'
+const BRANCH_TWICE_WEEKLY_LABEL: Record<string, string> = {
+  'ביריה': 'שני וגם רביעי',
+}
 
 export default function RegisterPage() {
   const [type, setType] = useState<'' | 'kids' | 'adults'>('')
@@ -119,7 +129,9 @@ export default function RegisterPage() {
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
   const isKids = type === 'kids'
   const isMatteAsher = form.branch === 'מטה אשר'
-  const isGilon = form.branch === GILON_BRANCH
+  const fixedBranch = isKids ? FIXED_BRANCHES[form.branch] : undefined
+  const onceWeeklyDays = BRANCH_ONCE_WEEKLY_DAYS[form.branch] ?? DEFAULT_ONCE_WEEKLY_DAYS
+  const twiceWeeklyLabel = BRANCH_TWICE_WEEKLY_LABEL[form.branch] ?? DEFAULT_TWICE_WEEKLY_LABEL
   const promo = promoActive()
 
   async function submit() {
@@ -136,12 +148,12 @@ export default function RegisterPage() {
       )
       return
     }
-    if (isKids && !isGilon && !form.track) {
+    if (isKids && !fixedBranch && !form.track) {
       setError('בחרו מסלול הרשמה')
       return
     }
-    if (isKids && !isGilon && form.track === 'once_weekly' && !form.chosen_day) {
-      setError('בחרו יום קבוע — ראשון או חמישי')
+    if (isKids && !fixedBranch && form.track === 'once_weekly' && !form.chosen_day) {
+      setError('בחרו יום קבוע')
       return
     }
     if (!isKids && form.branch === 'משגב' && !form.chosen_day) {
@@ -170,7 +182,7 @@ export default function RegisterPage() {
           // A twice-weekly student attends both days, so no single chosen day.
           chosen_day: form.track === 'twice_weekly' ? null : form.chosen_day || null,
           class_type: misgavSession ? misgavSession.type : form.class_type,
-          amount_monthly: isGilon ? GILON_PRICE : (TRACKS.find((t) => t.value === form.track)?.price ?? null),
+          amount_monthly: fixedBranch ? fixedBranch.price : (TRACKS.find((t) => t.value === form.track)?.price ?? null),
           registration_type: type,
           promo_code: promo ? 'BOOST5' : null,
           whatsapp_optin: whatsappOptin,
@@ -270,16 +282,30 @@ export default function RegisterPage() {
                         set('branch', b.value)
                         // המסלול הישן שייך רק ל"משגב" אצל מבוגרים — סניף אחר מבטל אותו.
                         if (!isKids && b.value !== 'משגב') set('chosen_day', '')
-                        // צורית-גילון: מסלול, יום ומדריך קבועים — אין בחירה, נקבע אוטומטית.
-                        if (isKids && b.value === GILON_BRANCH) {
+                        if (!isKids) return
+
+                        const nextFixed = FIXED_BRANCHES[b.value]
+                        if (nextFixed) {
+                          // חוג חד-מסלולי (גילון/פרוד-אמירים): מסלול, יום ומדריך
+                          // קבועים — אין בחירה, נקבע אוטומטית.
                           set('track', 'once_weekly')
-                          set('chosen_day', GILON_DAY_INDEX)
-                          set('class_type', GILON_INSTRUCTOR)
-                        } else if (isKids && form.branch === GILON_BRANCH) {
-                          // יציאה מגילון חזרה לסניף אחר — מנקים כדי לא לגרור ערכים לא רלוונטיים.
+                          set('chosen_day', nextFixed.dayIndex)
+                          set('class_type', nextFixed.instructor ?? '')
+                          return
+                        }
+                        if (FIXED_BRANCHES[form.branch]) {
+                          // יציאה מסניף חד-מסלולי חזרה לסניף עם בחירת מסלול —
+                          // מנקים כדי לא לגרור ערכים לא רלוונטיים.
                           set('track', '')
                           set('chosen_day', '')
                           set('class_type', '')
+                          return
+                        }
+                        // מעבר בין סניפים עם ימים שונים (למשל משגב וביריה) — היום
+                        // שנבחר בסניף הקודם עלול לא להיות רלוונטי לסניף החדש.
+                        if (form.track === 'once_weekly') {
+                          const days = BRANCH_ONCE_WEEKLY_DAYS[b.value] ?? DEFAULT_ONCE_WEEKLY_DAYS
+                          set('chosen_day', days.length === 1 ? days[0].value : '')
                         }
                       }}
                       className={`py-3 px-2 rounded-lg border text-sm transition ${
@@ -345,30 +371,32 @@ export default function RegisterPage() {
               </a>
             ) : (
               <>
-                {isKids && isGilon && (
+                {isKids && fixedBranch && (
                   <Section title="פרטי החוג">
                     <div className="rounded-lg border border-stone-700 bg-stone-950 p-4 space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span className="text-stone-400">יום ושעה</span>
-                        <span className="font-semibold">שלישי, 14:45–15:45</span>
+                        <span className="font-semibold">{fixedBranch.dayLabel}, {fixedBranch.time}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-stone-400">מדריך</span>
-                        <span className="font-semibold">{GILON_INSTRUCTOR}</span>
-                      </div>
+                      {fixedBranch.instructor && (
+                        <div className="flex justify-between">
+                          <span className="text-stone-400">מדריך</span>
+                          <span className="font-semibold">{fixedBranch.instructor}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between">
                         <span className="text-stone-400">מסלול</span>
                         <span className="font-semibold">פעם בשבוע</span>
                       </div>
                       <div className="flex justify-between border-t border-stone-800 pt-2">
                         <span className="text-stone-400">מחיר</span>
-                        <span className="font-bold text-lime-400">₪{GILON_PRICE} לחודש</span>
+                        <span className="font-bold text-lime-400">₪{fixedBranch.price} לחודש</span>
                       </div>
                     </div>
                   </Section>
                 )}
 
-                {isKids && !isGilon && (
+                {isKids && !fixedBranch && (
                   <Section title="מסלול הרשמה">
                     <div className="space-y-2">
                       {TRACKS.map((p) => {
@@ -379,7 +407,14 @@ export default function RegisterPage() {
                             type="button"
                             onClick={() => {
                               set('track', p.value)
-                              if (p.value === 'twice_weekly') set('chosen_day', '')
+                              if (p.value === 'twice_weekly') {
+                                // תלמיד פעמיים בשבוע מגיע בשני הימים, אין יום קבוע יחיד.
+                                set('chosen_day', '')
+                              } else {
+                                // פעם בשבוע: אם לסניף יש רק אפשרות יום אחת (כמו
+                                // ביריה), קובעים אותה אוטומטית ולא מציגים בחירה.
+                                set('chosen_day', onceWeeklyDays.length === 1 ? onceWeeklyDays[0].value : '')
+                              }
                             }}
                             className={`w-full text-right p-4 rounded-lg border transition ${
                               selected
@@ -397,7 +432,13 @@ export default function RegisterPage() {
                                     </span>
                                   )}
                                 </div>
-                                <div className={`text-xs mt-1 ${selected ? 'text-stone-700' : 'text-stone-400'}`}>{p.desc}</div>
+                                <div className={`text-xs mt-1 ${selected ? 'text-stone-700' : 'text-stone-400'}`}>
+                                  {p.value === 'twice_weekly'
+                                    ? `${twiceWeeklyLabel} — אימון כפול בשבוע`
+                                    : onceWeeklyDays.length === 1
+                                    ? `אימון קבוע אחד בשבוע — ${onceWeeklyDays[0].label}`
+                                    : 'אימון קבוע אחד בשבוע — בוחרים יום קבוע אחד'}
+                                </div>
                               </div>
                               <div className="text-left whitespace-nowrap">
                                 <div className="font-bold text-lg">₪{p.price}</div>
@@ -409,12 +450,14 @@ export default function RegisterPage() {
                       })}
                     </div>
 
-                    {/* Once-weekly students commit to one fixed day. */}
-                    {form.track === 'once_weekly' && (
+                    {/* Once-weekly students commit to one fixed day — only shown
+                        when the branch actually offers more than one choice
+                        (e.g. Birya has just one day, set automatically above). */}
+                    {form.track === 'once_weekly' && onceWeeklyDays.length > 1 && (
                       <div className="pt-1">
                         <div className="text-xs text-stone-400 mb-2">איזה יום? *</div>
                         <div className="grid grid-cols-2 gap-2">
-                          {TRACK_DAYS.map((d) => {
+                          {onceWeeklyDays.map((d) => {
                             const selected = form.chosen_day === d.value
                             return (
                               <button
@@ -436,15 +479,16 @@ export default function RegisterPage() {
                     )}
 
                     <p className="text-xs text-stone-500 leading-relaxed">
-                      החוגים במשגב מתקיימים בימים ראשון וחמישי, 15:30–17:00.
-                      במסלול פעם בשבוע בוחרים יום קבוע אחד ונשארים איתו לאורך השנה.
+                      {onceWeeklyDays.length === 1
+                        ? `בסניף ${form.branch} האימון הקבוע במסלול פעם בשבוע הוא ביום ${onceWeeklyDays[0].label.replace(/^יום /, '')}. במסלול פעמיים בשבוע: ${twiceWeeklyLabel}.`
+                        : 'החוגים במשגב מתקיימים בימים ראשון וחמישי, 15:30–17:00. במסלול פעם בשבוע בוחרים יום קבוע אחד ונשארים איתו לאורך השנה.'}
                     </p>
                   </Section>
                 )}
 
                 {/* אצל מבוגר שנרשם למשגב, סוג האימון כבר נקבע מהבחירה למעלה —
                     שדה "ניסיון קודם" חופשי היה רק מבלבל לצד זה. */}
-                {!(!isKids && form.branch === 'משגב') && !isGilon && (
+                {!(!isKids && form.branch === 'משגב') && !fixedBranch && (
                   <Section title="ניסיון">
                     <Field
                       label="ניסיון קודם ברכיבה"
