@@ -115,7 +115,7 @@ function ShopActiveBanner({ settings, onSaved }: { settings: ShopSettings; onSav
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontWeight: 800, fontSize: 14, color: draft.is_active ? '#7ee787' : '#e8c547' }}>
-          {draft.is_active ? '🟢 מדור החולצות פעיל באתר' : '🟡 מדור החולצות במצב "בקרוב"'}
+          {draft.is_active ? '🟢 מדור הביגוד פעיל באתר' : '🟡 מדור הביגוד במצב "בקרוב"'}
         </span>
         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#e8efe9', cursor: 'pointer' }}>
           <input
@@ -348,7 +348,7 @@ export default function TshirtOrdersPage() {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div>
-          <h2 style={{ margin: '0 0 2px', fontSize: 18, fontWeight: 800 }}>הזמנות חולצות</h2>
+          <h2 style={{ margin: '0 0 2px', fontSize: 18, fontWeight: 800 }}>הזמנות ביגוד</h2>
           <p style={{ color: '#7a8f7d', fontSize: 12, margin: 0 }}>
             {loading ? 'טוען...' : `${groups.length} הזמנות`} · {pendingCount} ממתינות
           </p>
