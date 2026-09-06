@@ -130,7 +130,7 @@ export default function MorzineYouthPage() {
         <section style={{
           position: 'relative', width: '100vw',
           marginLeft: 'calc(50% - 50vw)', marginRight: 'calc(50% - 50vw)',
-          height: '56vh', minHeight: 320, maxHeight: 520,
+          aspectRatio: '16 / 9', maxHeight: 520,
           overflow: 'hidden', marginBottom: 26,
         }}>
           <video
