@@ -23,7 +23,7 @@ type Product = {
   slug: string;
   name: string;
   description: string | null;
-  image_url: string | null;
+  image_urls: string[];
   sizes: string[];
   requires_back_name: boolean;
   preorder_price: number;
@@ -54,6 +54,8 @@ export default function TshirtSection() {
   const [shopActive, setShopActive] = useState(true);
   const [comingSoonMessage, setComingSoonMessage] = useState("");
   const [sizeBySlug, setSizeBySlug] = useState<Record<string, string>>({});
+  // אינדקס התמונה המוצגת כרגע בגלריה של כל מוצר (חזית/גב/צד וכו').
+  const [imageIndexBySlug, setImageIndexBySlug] = useState<Record<string, number>>({});
   const [backNameBySlug, setBackNameBySlug] = useState<Record<string, string>>({});
   const [cart, setCart] = useState<CartLine[]>([]);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -67,7 +69,7 @@ export default function TshirtSection() {
       supabase
         .from("tshirt_products")
         .select(
-          "slug, name, description, image_url, sizes, requires_back_name, preorder_price, regular_price, preorder_active, preorder_deadline_label"
+          "slug, name, description, image_urls, sizes, requires_back_name, preorder_price, regular_price, preorder_active, preorder_deadline_label"
         )
         .order("display_order", { ascending: true }),
       supabase.from("tshirt_shop_settings").select("is_active, coming_soon_message").eq("id", true).maybeSingle(),
@@ -205,6 +207,16 @@ export default function TshirtSection() {
             const activePrice = p.preorder_active ? p.preorder_price : p.regular_price;
             const showStrike = p.preorder_active && p.preorder_price !== p.regular_price;
             const size = sizeBySlug[p.slug] || p.sizes[0];
+            const images = p.image_urls || [];
+            const imageIndex = images.length ? (imageIndexBySlug[p.slug] ?? 0) % images.length : 0;
+            const currentImage = images[imageIndex];
+            function showImage(delta: number) {
+              setImageIndexBySlug((s) => {
+                const cur = s[p.slug] ?? 0;
+                const next = (cur + delta + images.length) % images.length;
+                return { ...s, [p.slug]: next };
+              });
+            }
             return (
               <div
                 key={p.slug}
@@ -212,14 +224,52 @@ export default function TshirtSection() {
                 style={{ background: C.green, borderColor: C.greenMid }}
               >
                 <div
-                  className="mb-4 mx-auto rounded-xl overflow-hidden flex items-center justify-center"
+                  className="mb-4 mx-auto rounded-xl overflow-hidden flex items-center justify-center relative"
                   style={{ width: "100%", aspectRatio: "1 / 1", background: C.dark }}
                 >
-                  {p.image_url ? (
+                  {currentImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.image_url} alt={p.name} className="w-full h-full object-contain" />
+                    <img src={currentImage} alt={p.name} className="w-full h-full object-contain" />
                   ) : (
                     <span style={{ color: "#7E948A", fontSize: 13 }}>תמונה בקרוב</span>
+                  )}
+                  {images.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => showImage(-1)}
+                        aria-label="התמונה הקודמת"
+                        className="absolute top-1/2 -translate-y-1/2 rounded-full w-7 h-7 flex items-center justify-center"
+                        style={{ right: 6, background: "rgba(0,0,0,0.5)", color: "#fff" }}
+                      >
+                        ›
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => showImage(1)}
+                        aria-label="התמונה הבאה"
+                        className="absolute top-1/2 -translate-y-1/2 rounded-full w-7 h-7 flex items-center justify-center"
+                        style={{ left: 6, background: "rgba(0,0,0,0.5)", color: "#fff" }}
+                      >
+                        ‹
+                      </button>
+                      <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
+                        {images.map((_, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            aria-label={`תמונה ${i + 1}`}
+                            onClick={() => setImageIndexBySlug((s) => ({ ...s, [p.slug]: i }))}
+                            className="rounded-full"
+                            style={{
+                              width: 6,
+                              height: 6,
+                              background: i === imageIndex ? C.brand : "rgba(255,255,255,0.4)",
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
                 <h3 className="text-lg font-black mb-1">{p.name}</h3>
