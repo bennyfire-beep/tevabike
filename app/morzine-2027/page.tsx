@@ -126,14 +126,26 @@ export default function MorzineYouthPage() {
           (התקציר מנוסח בלשון זכר מטעמי נוחות בלבד, אך פונה לכל המינים באופן שווה)
         </p>
 
-        <video
-          src="/morzine-youth-video.mp4"
-          autoPlay
-          muted
-          loop
-          playsInline
-          style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 14, marginBottom: 26 }}
-        />
+        {/* וידאו — הצגה כמו בדף הבית: הירו מלא-רוחב עם שכבת גרדיאנט */}
+        <section style={{
+          position: 'relative', width: '100vw',
+          marginLeft: 'calc(50% - 50vw)', marginRight: 'calc(50% - 50vw)',
+          height: '56vh', minHeight: 320, maxHeight: 520,
+          overflow: 'hidden', marginBottom: 26,
+        }}>
+          <video
+            src="/morzine-youth-video.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(160deg, rgba(12,24,20,0.55) 0%, rgba(12,24,20,0.15) 50%, rgba(12,24,20,0.6) 100%)',
+          }} />
+        </section>
 
         {/* פרטי החופשה */}
         <h2 style={h2}>📅 פרטי החופשה</h2>
