@@ -11,6 +11,7 @@ import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
 import { clearAdminSession } from '@/lib/auth-actions'
 import { today as localToday, monthLabel as fmtMonth } from '@/lib/month'
 import { rowForRole } from '@/lib/roles'
+import { saveAttendance } from '@/lib/attendance'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Instructor screen — for a SIGNED-IN instructor.
@@ -532,6 +533,24 @@ export default function InstructorPage() {
   const [showCoPicker, setShowCoPicker] = useState(false)
   const [coSaving, setCoSaving]         = useState(false)
 
+  // ── Self-report a special/one-off activity ("עבדתי היום בסדנת ערב") ───────
+  // Same shape as the coordinator's own "★ פעילות מיוחדת" form
+  // (app/admin/coordinator/attendance/page.tsx), but the instructor never
+  // picks who taught it — it's always credited to them, plus an optional
+  // colleague. No pay field here: what the activity actually pays is filled
+  // in later by a salary admin, on the coordinator screen only.
+  const [showSpecial, setShowSpecial]     = useState(false)
+  const [spName, setSpName]               = useState('')
+  const [spHours, setSpHours]             = useState('2')
+  const [spDate, setSpDate]               = useState(today)
+  const [spCoIds, setSpCoIds]             = useState<string[]>([])
+  const [spParticipants, setSpParts]      = useState<Rider[]>([])
+  const [spSearchQ, setSpSearchQ]         = useState('')
+  const [spSearchRes, setSpSearchRes]     = useState<Rider[]>([])
+  const [spSearching, setSpSearching]     = useState(false)
+  const [spCreating, setSpCreating]       = useState(false)
+  const [spError, setSpError]             = useState('')
+
   // ── Today's travel report — per_km instructors only ───────────────────────
   const [travel,        setTravel]        = useState<TravelStatus | null>(null)
   const [travelOrigin,  setTravelOrigin]  = useState('')
@@ -813,6 +832,71 @@ export default function InstructorPage() {
     setCoSaving(false)
   }
 
+  // ── Self-report a special activity ────────────────────────────────────────
+  async function spSearchRiders(q: string) {
+    setSpSearchQ(q)
+    if (q.trim().length < 2) { setSpSearchRes([]); return }
+    setSpSearching(true)
+    const { data } = await supabase
+      .from('riders')
+      .select('id, full_name, phone, payment_status')
+      .ilike('full_name', `%${q.trim()}%`)
+      .order('full_name')
+      .limit(15)
+    const existing = new Set(spParticipants.map(r => r.id))
+    setSpSearchRes(((data ?? []) as Rider[]).filter(r => !existing.has(r.id)))
+    setSpSearching(false)
+  }
+
+  function toggleSpCo(id: string) {
+    setSpCoIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
+  }
+
+  // Direct client writes, same as the coordinator's own "★ פעילות מיוחדת" form
+  // — class_sessions_write / attendance_write already permit the instructor
+  // role. Deliberately no pay here: instructor_pay is salary-admin only and
+  // filled in later on the coordinator attendance screen.
+  async function createSpecialActivity() {
+    if (!account || spCreating) return
+    if (!spName.trim() || spParticipants.length === 0) {
+      setSpError('צריך שם פעילות ולפחות משתתף אחד')
+      return
+    }
+    setSpCreating(true)
+    setSpError('')
+    const hours = parseFloat(spHours) || 0
+    const ids = [...new Set([account.id, ...spCoIds])]
+    const { data, error } = await supabase
+      .from('class_sessions')
+      .insert({
+        type: 'special',
+        activity_name: spName.trim(),
+        class_name: spName.trim(),
+        branch: account.branch ?? null,
+        session_date: spDate,
+        duration: hours,
+        instructor_id: account.id,
+        instructor_ids: ids,
+        status: 'open',
+      })
+      .select('id, class_name, branch, session_date, instructor_id, group_id, start_time, duration, type, instructor_ids')
+      .single()
+    if (error || !data) {
+      setSpError('יצירת הפעילות נכשלה: ' + (error?.message ?? ''))
+      setSpCreating(false)
+      return
+    }
+    const s = data as unknown as Session
+    const res = await saveAttendance(s, spParticipants.map(r => ({ id: r.id, full_name: r.full_name })), {})
+    if (res.error) setSpError(res.error)
+    setDaySessions(p => [...p, s])
+    setShowSpecial(false)
+    setSpName(''); setSpHours('2'); setSpDate(today); setSpCoIds([]); setSpParts([])
+    setSpSearchQ(''); setSpSearchRes([])
+    setSpCreating(false)
+    openSession(s)
+  }
+
   // Picking a group rather than a scheduled session: the server finds today's
   // register for that group or opens one. It never reassigns an existing
   // session's instructor, so covering a lesson can't move anyone's pay.
@@ -1053,6 +1137,130 @@ export default function InstructorPage() {
 
         {tab === 'sessions' && (
           <>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: showSpecial ? 14 : 20 }}>
+              <button
+                onClick={() => setShowSpecial(p => !p)}
+                aria-pressed={showSpecial}
+                style={{ minHeight: 44, background: showSpecial ? C.surface2 : `${C.pink}22`, border: `1px solid ${C.pink}55`, color: C.pinkSoft, borderRadius: 20, padding: '9px 18px', fontFamily: FONT, fontWeight: 800, fontSize: 14, cursor: 'pointer' }}
+              >
+                {showSpecial ? '✕ ביטול' : '★ דיווח פעילות מיוחדת'}
+              </button>
+            </div>
+
+            {showSpecial && (
+              <section aria-label="דיווח פעילות מיוחדת" style={{ background: C.surface, border: `1px solid ${C.pink}44`, borderRadius: 18, padding: 18, marginBottom: 24 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 900, margin: '0 0 4px', color: C.pinkSoft }}>★ פעילות מיוחדת חדשה</h2>
+                <p style={{ margin: '0 0 16px', fontSize: 13, color: C.muted }}>
+                  מחנה, סדנה או אירוע חד-פעמי — לדיווח על מה שעבדת עליו. הסכום לתשלום נקבע אחר כך על ידי ההנהלה.
+                </p>
+
+                <label htmlFor="sp-name" style={{ display: 'block', fontSize: 13, color: C.muted, marginBottom: 6 }}>שם הפעילות *</label>
+                <input
+                  id="sp-name"
+                  value={spName}
+                  onChange={e => setSpName(e.target.value)}
+                  placeholder="לדוגמה: סדנת ערב"
+                  style={{ width: '100%', boxSizing: 'border-box', minHeight: 52, background: C.surface2, border: `1px solid ${C.border}`, color: C.text, borderRadius: 12, padding: '0 14px', fontFamily: FONT, fontSize: 16, marginBottom: 14 }}
+                />
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                  <div>
+                    <label htmlFor="sp-hours" style={{ display: 'block', fontSize: 13, color: C.muted, marginBottom: 6 }}>משך (שעות) *</label>
+                    <input
+                      id="sp-hours" type="number" step="0.5" min="0.5" value={spHours}
+                      onChange={e => setSpHours(e.target.value)}
+                      style={{ width: '100%', boxSizing: 'border-box', minHeight: 52, background: C.surface2, border: `1px solid ${C.border}`, color: C.text, borderRadius: 12, padding: '0 14px', fontFamily: FONT, fontSize: 16 }}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="sp-date" style={{ display: 'block', fontSize: 13, color: C.muted, marginBottom: 6 }}>תאריך *</label>
+                    <input
+                      id="sp-date" type="date" value={spDate} max={today}
+                      onChange={e => setSpDate(e.target.value)}
+                      style={{ width: '100%', boxSizing: 'border-box', minHeight: 52, background: C.surface2, border: `1px solid ${C.border}`, color: C.text, borderRadius: 12, padding: '0 14px', fontFamily: FONT, fontSize: 16 }}
+                    />
+                  </div>
+                </div>
+
+                {activeInstructors.filter(i => i.id !== account.id).length > 0 && (
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ display: 'block', fontSize: 13, color: C.muted, marginBottom: 6 }}>מדריך/ה נוסף/ת שעבד/ה איתך (אופציונלי)</label>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {activeInstructors.filter(i => i.id !== account.id).map(i => {
+                        const on = spCoIds.includes(i.id)
+                        return (
+                          <button
+                            key={i.id}
+                            onClick={() => toggleSpCo(i.id)}
+                            aria-pressed={on}
+                            style={{ minHeight: 40, padding: '8px 14px', borderRadius: 20, cursor: 'pointer', fontFamily: FONT, fontWeight: 700, fontSize: 13, border: `1px solid ${on ? C.pink : C.border}`, background: on ? C.pink : 'transparent', color: on ? '#0d0b10' : C.muted }}
+                          >
+                            {on ? '✓ ' : ''}{i.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <label htmlFor="sp-search" style={{ display: 'block', fontSize: 13, color: C.muted, marginBottom: 6 }}>
+                  משתתפים * ({spParticipants.length})
+                </label>
+                {spParticipants.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                    {spParticipants.map(r => (
+                      <span key={r.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 16, padding: '5px 6px 5px 12px', fontSize: 13, color: C.text }}>
+                        {r.full_name}
+                        <button
+                          onClick={() => setSpParts(p => p.filter(x => x.id !== r.id))}
+                          aria-label={`הסר את ${r.full_name}`}
+                          style={{ width: 22, height: 22, borderRadius: '50%', border: 'none', background: C.border, color: C.pinkSoft, cursor: 'pointer', fontSize: 13, lineHeight: 1 }}
+                        >✕</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <input
+                  id="sp-search" value={spSearchQ} onChange={e => spSearchRiders(e.target.value)}
+                  placeholder="חיפוש רוכב להוספה..."
+                  style={{ width: '100%', boxSizing: 'border-box', minHeight: 52, background: C.surface2, border: `1px solid ${C.border}`, color: C.text, borderRadius: 12, padding: '0 14px', fontFamily: FONT, fontSize: 16 }}
+                />
+                {spSearching && <div style={{ color: C.muted, fontSize: 13, marginTop: 6 }}>מחפש...</div>}
+                {spSearchRes.map(r => (
+                  <div
+                    key={r.id}
+                    onClick={() => { setSpParts(p => [...p, r]); setSpSearchQ(''); setSpSearchRes([]) }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, cursor: 'pointer', background: C.surface2, marginTop: 6 }}
+                  >
+                    <span style={{ fontWeight: 800, fontSize: 14 }}>{r.full_name}</span>
+                    {r.phone && <span style={{ color: C.muted, fontSize: 13 }}>📞 {r.phone}</span>}
+                    <span style={{ marginInlineStart: 'auto', color: C.pinkSoft, fontSize: 20, fontWeight: 800, lineHeight: 1 }}>＋</span>
+                  </div>
+                ))}
+                {!spSearching && spSearchQ.trim().length >= 2 && spSearchRes.length === 0 && (
+                  <div style={{ color: C.muted, fontSize: 13, marginTop: 6 }}>לא נמצאו רוכבים תואמים (ייתכן שכבר ברשימה)</div>
+                )}
+
+                {spError && (
+                  <p role="alert" style={{ color: C.absent, fontSize: 14, margin: '14px 0 0' }}>{spError}</p>
+                )}
+
+                <button
+                  onClick={createSpecialActivity}
+                  disabled={spCreating || !spName.trim() || spParticipants.length === 0}
+                  style={{
+                    width: '100%', marginTop: 16, minHeight: 56, borderRadius: 16, border: 'none',
+                    fontFamily: FONT, fontWeight: 900, fontSize: 17,
+                    cursor: (spCreating || !spName.trim() || spParticipants.length === 0) ? 'default' : 'pointer',
+                    background: (spCreating || !spName.trim() || spParticipants.length === 0) ? C.surface2 : `linear-gradient(90deg, ${C.purple}, ${C.pink})`,
+                    color: (spCreating || !spName.trim() || spParticipants.length === 0) ? C.muted : '#fff',
+                  }}
+                >
+                  {spCreating ? 'יוצר...' : '★ צור פעילות'}
+                </button>
+              </section>
+            )}
+
             {travel?.is_per_km && (
               <section
                 aria-label="דיווח נסיעות היום"
