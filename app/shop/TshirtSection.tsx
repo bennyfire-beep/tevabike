@@ -194,7 +194,7 @@ export default function TshirtSection() {
   if (products.length === 0) {
     return (
       <div className="px-6 py-16 text-center" style={{ color: "#9FB3A8" }}>
-        מדור החולצות עדיין לא זמין.
+        מדור הביגוד עדיין לא זמין.
       </div>
     );
   }
@@ -395,7 +395,7 @@ export default function TshirtSection() {
                   ))}
                 </div>
                 <p className="text-xs" style={{ color: "#7E948A" }}>
-                  איסוף עצמי מהמועדון — נעדכן אותך כשהחולצות יגיעו.
+                  איסוף עצמי מהמועדון — נעדכן אותך כשהפריטים יגיעו.
                 </p>
               </div>
             ) : (
@@ -480,7 +480,7 @@ export default function TshirtSection() {
                 />
 
                 <p className="text-xs leading-relaxed" style={{ color: "#7E948A" }}>
-                  איסוף עצמי בלבד ממועדון טבע בייק — ניצור איתך קשר לתיאום כשהחולצות יגיעו. לאחר השליחה תופנה
+                  איסוף עצמי בלבד ממועדון טבע בייק — ניצור איתך קשר לתיאום כשהפריטים יגיעו. לאחר השליחה תופנה
                   לתשלום.
                 </p>
 

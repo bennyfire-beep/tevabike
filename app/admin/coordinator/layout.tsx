@@ -45,7 +45,7 @@ const NAV: NavGroup[] = [
   { title: 'חנות', items: [
     { href: '/admin/coordinator/shop-orders', label: 'הזמנות חנות', icon: '🛒' },
     { href: '/admin/coordinator/shop-cancellations', label: 'בקשות ביטול', icon: '↩️' },
-    { href: '/admin/coordinator/tshirt-orders', label: 'הזמנות חולצות', icon: '👕' },
+    { href: '/admin/coordinator/tshirt-orders', label: 'הזמנות ביגוד', icon: '👕' },
   ]},
   { title: 'צוות וניהול', items: [
     { href: '/admin/coordinator/staff', label: 'צוות', icon: '🧑‍🤝‍🧑' },

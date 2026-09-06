@@ -242,7 +242,7 @@ export default function ShopPage() {
           {(
             [
               ["accessories", "אביזרים"],
-              ["tshirts", "חולצות"],
+              ["tshirts", "ביגוד"],
             ] as [typeof tab, string][]
           ).map(([value, label]) => (
             <button
