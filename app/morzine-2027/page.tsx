@@ -126,12 +126,12 @@ export default function MorzineYouthPage() {
           (התקציר מנוסח בלשון זכר מטעמי נוחות בלבד, אך פונה לכל המינים באופן שווה)
         </p>
 
-        {/* וידאו — הסרטון צולם לאורך, לכן מסגרת אנכית ממורכזת (כמו רילס/סטורי) עם אותה שכבת גרדיאנט כמו בדף הבית */}
+        {/* וידאו — הצגה כמו בדף הבית: הירו מלא-רוחב עם שכבת גרדיאנט */}
         <section style={{
-          position: 'relative', width: '100%', maxWidth: 420,
-          margin: '0 auto 26px',
-          aspectRatio: '9 / 16', maxHeight: 640,
-          overflow: 'hidden', borderRadius: 14,
+          position: 'relative', width: '100vw',
+          marginLeft: 'calc(50% - 50vw)', marginRight: 'calc(50% - 50vw)',
+          height: '56vh', minHeight: 320, maxHeight: 520,
+          overflow: 'hidden', marginBottom: 26,
         }}>
           <video
             src="/morzine-youth-video.mp4"
@@ -143,7 +143,7 @@ export default function MorzineYouthPage() {
           />
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'linear-gradient(160deg, rgba(12,24,20,0.4) 0%, rgba(12,24,20,0.05) 50%, rgba(12,24,20,0.5) 100%)',
+            background: 'linear-gradient(160deg, rgba(12,24,20,0.55) 0%, rgba(12,24,20,0.15) 50%, rgba(12,24,20,0.6) 100%)',
           }} />
         </section>
 
