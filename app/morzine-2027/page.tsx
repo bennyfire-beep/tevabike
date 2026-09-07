@@ -105,6 +105,23 @@ export default function MorzineYouthPage() {
 
   return (
     <div dir="rtl" style={{ background: BG, minHeight: '100vh', color: TEXT, fontFamily: 'Heebo, Arial, sans-serif' }}>
+
+      {/* ═══ הירו — סרטון פתיחה, אותו סגנון כמו בדף הבית ═══ */}
+      <section style={{ position: 'relative', height: '100vh', minHeight: 580, overflow: 'hidden' }}>
+        <video
+          src="/morzine-youth-video.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(160deg, rgba(12,24,20,0.55) 0%, rgba(12,24,20,0.15) 50%, rgba(12,24,20,0.6) 100%)',
+        }} />
+      </section>
+
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 20px 140px' }}>
 
         {/* באנר — יוחלף לתמונה אמיתית (public/morzine-youth-banner.png) */}
@@ -126,14 +143,7 @@ export default function MorzineYouthPage() {
           (התקציר מנוסח בלשון זכר מטעמי נוחות בלבד, אך פונה לכל המינים באופן שווה)
         </p>
 
-        <video
-          src="/morzine-youth-video.mp4"
-          autoPlay
-          muted
-          loop
-          playsInline
-          style={{ width: '100%', height: 'auto', display: 'block', borderRadius: 14, marginBottom: 26 }}
-        />
+
 
         {/* פרטי החופשה */}
         <h2 style={h2}>📅 פרטי החופשה</h2>
