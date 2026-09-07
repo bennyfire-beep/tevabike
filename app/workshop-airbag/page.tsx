@@ -16,7 +16,7 @@ const C = {
 };
 
 const DATES = [
-  { value: "2026-09-04", label: "שישי 4.9", sub: "8:00–12:00" },
+  { value: "2026-09-25", label: "שישי 25.9", sub: "רגע לפני החג · 8:00–11:00" },
   { value: "2026-09-11", label: "שישי 11.9", sub: "ערב ראש השנה · 8:00–12:00" },
 ];
 
@@ -42,7 +42,7 @@ export default function WorkshopAirbagPage() {
     phone: "",
     email: "",
     age: "",
-    workshop_date: "2026-09-04",
+    workshop_date: "2026-09-25",
     bike_brand: "",
     notes: "",
   });
@@ -113,7 +113,7 @@ export default function WorkshopAirbagPage() {
             <br />
             כדי לשריין את המקום — נשאר רק להשלים תשלום:
           </p>
-          <a
+          
             href={PAYMENT_LINK}
             className="block w-full rounded-xl py-4 text-lg font-bold transition hover:opacity-90"
             style={{ background: C.brand, color: "#fff" }}
@@ -158,10 +158,10 @@ export default function WorkshopAirbagPage() {
             זה לא חוסר כישרון. זו טכניקה שאף אחד לא לימד אותך.
           </p>
           <p className="leading-relaxed" style={{ color: "#D8E2DC" }}>
-            כרית אוויר ייעודית בגובה{" "}
-            <b style={{ color: C.brand }}>1.20 מ׳</b> עם רמפה מודולרית בזווית נוחה
-            למתחילים — סביבה בטוחה לטעות, לתקן, ולבנות ביטחון אמיתי באוויר. תוך בוקר
-            אחד: המראה יציבה, שליטה באוויר, נחיתה רכה.
+            הפעם עם <b style={{ color: C.brand }}>שתי כריות אוויר</b> — אחת קטנה
+            לחימום ואחת גדולה להתקדמות — סביבה בטוחה לטעות, לתקן, ולבנות ביטחון
+            אמיתי באוויר. מתאים גם למתחילים שרוצים להתחיל בבטחה, וגם למתקדמים
+            שרוצים לדייק. תוך בוקר אחד: המראה יציבה, שליטה באוויר, נחיתה רכה.
           </p>
         </div>
       </section>
@@ -171,11 +171,11 @@ export default function WorkshopAirbagPage() {
         <div className="max-w-2xl mx-auto grid grid-cols-2 gap-3 text-sm">
           {[
             ["📍 איפה", "משגב, פארק אוסטרליה (בוויז)"],
-            ["🕗 מתי", "שישי 4.9 או 11.9 · 8:00–12:00"],
-            ["🎯 למי", "פתוח לכולם · רמת מתחילים"],
+            ["🕗 מתי", "שישי 25.9 (8:00–11:00) או 11.9 (8:00–12:00)"],
+            ["🎯 למי", "מתחילים ומתקדמים"],
             ["💰 עלות", "200 ₪ · Whistle/KTM/BH — ‏10% הנחה"],
             ["🚲 להביא", "אופניים תקינים, קסדת פול פייס, מיגון"],
-            ["👥 מקומות", "עד 16 משתתפים בלבד לסדנה"],
+            ["👥 מקומות", "מספר מקומות מוגבל לכל תאריך"],
           ].map(([k, v]) => (
             <div
               key={k}
@@ -198,9 +198,9 @@ export default function WorkshopAirbagPage() {
           <h2 className="font-bold text-lg mb-3">הלו״ז</h2>
           <ul className="space-y-2 text-sm" style={{ color: "#D8E2DC" }}>
             <li><b style={{ color: C.brand }}>8:00</b> — קפה קטן והיכרות</li>
-            <li><b style={{ color: C.brand }}>8:30</b> — תדריך ותחילת תרגול</li>
-            <li><b style={{ color: C.brand }}>10:00</b> — הפסקת רענון (15 דק׳)</li>
-            <li><b style={{ color: C.brand }}>12:00</b> — סיום וסיכום</li>
+            <li><b style={{ color: C.brand }}>8:30</b> — חימום על כרית האוויר הקטנה</li>
+            <li><b style={{ color: C.brand }}>9:00</b> — קפיצות על כרית האוויר הגדולה</li>
+            <li><b style={{ color: C.brand }}>סיום</b> — לפי השעה שנבחרה למעלה, סיכום והתארגנות</li>
           </ul>
         </div>
       </section>
