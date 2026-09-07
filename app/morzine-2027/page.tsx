@@ -106,30 +106,19 @@ export default function MorzineYouthPage() {
   return (
     <div dir="rtl" style={{ background: BG, minHeight: '100vh', color: TEXT, fontFamily: 'Heebo, Arial, sans-serif' }}>
 
-      {/* ═══ הירו — סרטון פתיחה: רקע מטושטש ממלא מסך + הסרטון האמיתי במרכז, לא חתוך ═══ */}
-      <section style={{
-        position: 'relative', height: '100vh', minHeight: 580, overflow: 'hidden',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000',
-      }}>
-        {/* רקע מטושטש — ממלא את כל המסך (אותה תחושה כמו דף הבית) */}
+      {/* ═══ הירו — סרטון פתיחה, אותו סגנון כמו בדף הבית (ממלא מסך, עם קצת חיתוך) ═══ */}
+      <section style={{ position: 'relative', height: '100vh', minHeight: 580, overflow: 'hidden' }}>
         <video
           src="/morzine-youth-video.mp4"
-          autoPlay muted loop playsInline
-          style={{
-            position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-            filter: 'blur(45px) brightness(0.5)', transform: 'scale(1.2)',
-          }}
+          autoPlay
+          muted
+          loop
+          playsInline
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }}
         />
-        {/* הסרטון האמיתי — גודל מלא, ללא חיתוך */}
-        <video
-          src="/morzine-youth-video.mp4"
-          autoPlay muted loop playsInline
-          style={{ position: 'relative', height: '100%', width: 'auto', maxWidth: '100%', objectFit: 'contain', zIndex: 1 }}
-        />
-        {/* שכבת גרדיאנט קלה, כמו בדף הבית */}
         <div style={{
-          position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none',
-          background: 'linear-gradient(160deg, rgba(12,24,20,0.35) 0%, rgba(12,24,20,0.05) 50%, rgba(12,24,20,0.45) 100%)',
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(160deg, rgba(12,24,20,0.55) 0%, rgba(12,24,20,0.15) 50%, rgba(12,24,20,0.6) 100%)',
         }} />
       </section>
 
