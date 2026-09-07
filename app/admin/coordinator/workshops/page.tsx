@@ -1,365 +1,359 @@
-// app/admin/coordinator/workshops/page.tsx — מסך נרשמי סדנאות איר באג
-'use client'
+// app/workshop-airbag/page.tsx — דף רישום סדנת איר באג (גרסה 7 — תיקון שם קובץ תמונה)
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import {
-  PAYMENT_METHODS, PAYMENT_METHOD_LABEL, PAYMENT_STATUSES, PAYMENT_STATUS_LABEL,
-  type PaymentMethod, type PaymentStatus,
-} from '@/lib/workshop-payment'
-import { downloadCsv } from '@/lib/csv-export'
-import WhatsappOptinBadge from '@/components/WhatsappOptinBadge'
+import { useEffect, useState } from "react";
+import { WHATSAPP_OPTIN_LABEL } from "@/lib/whatsapp-optin";
 
-type Reg = {
-  id: string
-  created_at: string
-  workshop_date: string
-  full_name: string
-  phone: string
-  email: string
-  age: number | null
-  bike_brand: string | null
-  notes: string | null
-  payment_status: string
-  utm_source: string | null
-  utm_medium: string | null
-  whatsapp_optin: boolean | null
-  whatsapp_optin_at: string | null
-}
+const PAYMENT_LINK = "https://arbox.link/IdCW6--f";
+
+const C = {
+  brand: "#D4288A",
+  brandHover: "#B51E77",
+  dark: "#0C1814",
+  green: "#152A1E",
+  greenMid: "#1F3D2A",
+  offWhite: "#F5F2EE",
+};
 
 const DATES = [
-  { value: '2026-09-04', label: 'שישי 4.9' },
-  { value: '2026-09-11', label: 'שישי 11.9' },
-]
-const CAPACITY = 16
-const DISCOUNT = ['whistle', 'ktm', 'bh']
+  { value: "2026-09-25", label: "שישי 25.9", sub: "רגע לפני החג · 8:00–11:00" },
+  { value: "2026-09-11", label: "שישי 11.9", sub: "ערב ראש השנה · 8:00–12:00" },
+];
 
-const BRAND_LABEL: Record<string, string> = {
-  whistle: 'Whistle', ktm: 'KTM', bh: 'BH', other: 'אחר',
-}
+const BRANDS = [
+  { value: "", label: "מותג האופניים שלי (לא חובה)" },
+  { value: "whistle", label: "Whistle — ‏10% הנחה 🎁" },
+  { value: "ktm", label: "KTM — ‏10% הנחה 🎁" },
+  { value: "bh", label: "BH — ‏10% הנחה 🎁" },
+  { value: "other", label: "מותג אחר" },
+];
 
-function sourceLabel(s: string | null, m: string | null): string {
-  if (!s) return 'ישיר'
-  if (s === 'fb') return 'פייסבוק (ממומן)'
-  if (s === 'facebook') return 'פייסבוק'
-  if (s === 'ig') return m === 'story' ? 'אינסטגרם (סטורי)' : 'אינסטגרם'
-  if (s === 'instagram') return 'אינסטגרם'
-  if (s === 'whatsapp') return 'וואטסאפ'
-  return s
-}
+const WAIVER = [
+  "אני מאשר/ת את השתתפותי בסדנת האיר באג של טבע בייק.",
+  "ידוע לי שרכיבת שטח וקפיצות הן פעילות אתגרית הכוללת סיכונים מהותיים, לרבות נפילה, פציעה ונזק גופני, ואני מאשר/ת את ההשתתפות מתוך בחירה מלאה ובאחריותי.",
+  "ידוע לי שנדרשת יכולת רכיבה בסיסית ומעלה.",
+  "אני אחראי/ת להגיע עם אופניים תקינים ובטיחותיים, קסדת פול פייס, מיגון גוף, מים וציוד אישי כנדרש.",
+  "אני מתחייב/ת לעדכן את מארגני הסדנה בכל מגבלה רפואית או רגישות רלוונטית.",
+];
 
-export default function WorkshopsAdminPage() {
-  const [regs, setRegs] = useState<Reg[]>([])
-  const [tab, setTab] = useState('2026-09-04')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [copied, setCopied] = useState(false)
-  const [waOnly, setWaOnly] = useState(false)
-
-  // Inline payment editing. Only one card is open at a time, so a single draft
-  // is enough. The notes line is written by the server, not here.
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [draftStatus, setDraftStatus] = useState<PaymentStatus>('pending')
-  const [draftMethod, setDraftMethod] = useState<PaymentMethod>('paybox')
-  const [savingId, setSavingId] = useState<string | null>(null)
-  const [saveError, setSaveError] = useState('')
+export default function WorkshopAirbagPage() {
+  const [form, setForm] = useState({
+    full_name: "",
+    phone: "",
+    email: "",
+    age: "",
+    workshop_date: "2026-09-25",
+    bike_brand: "",
+    notes: "",
+  });
+  const [waiver, setWaiver] = useState(false);
+  const [whatsappOptin, setWhatsappOptin] = useState(false);
+  const [utm, setUtm] = useState({ utm_source: "", utm_medium: "", utm_campaign: "" });
+  const [status, setStatus] = useState<"idle" | "sending" | "done" | "full" | "error">("idle");
 
   useEffect(() => {
-    ;(async () => {
-      const { data, error } = await supabase
-        .from('workshop_registrations')
-        .select('*')
-        .order('created_at', { ascending: true })
-      if (error) setError(error.message)
-      else
-        setRegs(
-          (data || []).filter(
-            (r: Reg) =>
-              !r.full_name.includes('בדיקה') && !r.full_name.includes('בידקה')
-          )
-        )
-      setLoading(false)
-    })()
-  }, [])
+    const p = new URLSearchParams(window.location.search);
+    setUtm({
+      utm_source: p.get("utm_source") || "",
+      utm_medium: p.get("utm_medium") || "",
+      utm_campaign: p.get("utm_campaign") || "",
+    });
+  }, []);
 
-  const current = useMemo(
-    () => regs
-      .filter((r) => r.workshop_date === tab && r.payment_status !== 'cancelled')
-      .filter((r) => !waOnly || r.whatsapp_optin),
-    [regs, tab, waOnly]
-  )
-  const paidCount = current.filter((r) => r.payment_status === 'paid').length
+  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  function exportCsv() {
-    downloadCsv(
-      `סדנת-איר-באג-${tab}-אישרו-וואטסאפ.csv`,
-      ['שם', 'טלפון', 'מייל', 'גיל', 'תאריך סדנה', 'אישר וואטסאפ בתאריך'],
-      current
-        .filter((r) => r.whatsapp_optin)
-        .map((r) => [
-          r.full_name, r.phone, r.email, r.age ?? '', r.workshop_date,
-          r.whatsapp_optin_at ? new Date(r.whatsapp_optin_at).toLocaleString('he-IL') : '',
-        ]),
-    )
-  }
-
-  function startEdit(r: Reg) {
-    setEditingId(r.id)
-    setDraftStatus(r.payment_status === 'paid' ? 'paid' : 'pending')
-    setDraftMethod('paybox')
-    setSaveError('')
-  }
-
-  async function savePayment(id: string) {
-    const status = draftStatus
-    const method = status === 'paid' ? draftMethod : null
-
-    setSavingId(id)
-    setSaveError('')
-
-    // Optimistic: the badge flips now, and rolls back if the write fails.
-    const before = regs
-    setRegs((prev) => prev.map((r) => (r.id === id ? { ...r, payment_status: status } : r)))
-
+  async function submit() {
+    if (!form.full_name.trim() || !form.phone.trim() || !form.email.trim()) {
+      alert("נא למלא שם, טלפון ומייל");
+      return;
+    }
+    if (!waiver) {
+      alert("כדי להירשם יש לאשר את תנאי ההשתתפות והאחריות");
+      return;
+    }
+    setStatus("sending");
     try {
-      const { data } = await supabase.auth.getSession()
-      const token = data.session?.access_token ?? ''
-      const res = await fetch('/api/workshop-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ id, payment_status: status, payment_method: method }),
-      })
-      const d = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setRegs(before)
-        setSaveError(d.error ?? 'עדכון התשלום נכשל')
-        return
+      const res = await fetch("/api/workshop-register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, ...utm, waiver_accepted: true, whatsapp_optin: whatsappOptin }),
+      });
+      if (res.ok) setStatus("done");
+      else {
+        const data = await res.json().catch(() => ({}));
+        setStatus(data?.error === "workshop_full" ? "full" : "error");
       }
-      // The server owns the notes line — take back what it actually wrote.
-      const saved = d.registration ?? null
-      if (saved) {
-        setRegs((prev) =>
-          prev.map((r) =>
-            r.id === id
-              ? { ...r, payment_status: saved.payment_status ?? status, notes: saved.notes ?? r.notes }
-              : r
-          )
-        )
-      }
-      setEditingId(null)
-    } catch (e) {
-      setRegs(before)
-      setSaveError('עדכון התשלום נכשל: ' + (e as Error).message)
-    } finally {
-      setSavingId(null)
+    } catch {
+      setStatus("error");
     }
   }
 
-  function copyPhones() {
-    const phones = current.map((r) => r.phone).join(', ')
-    navigator.clipboard.writeText(phones).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
+  const discount = ["whistle", "ktm", "bh"].includes(form.bike_brand);
+
+  const input =
+    "w-full rounded-lg p-3 outline-none border transition placeholder:opacity-60";
+  const inputStyle = {
+    background: C.dark,
+    borderColor: C.greenMid,
+    color: C.offWhite,
+  };
+
+  if (status === "done") {
+    return (
+      <main
+        dir="rtl"
+        className="min-h-screen flex items-center justify-center p-6"
+        style={{ background: C.dark, color: C.offWhite }}
+      >
+        <div className="max-w-md w-full text-center space-y-6">
+          <div className="text-6xl">🚵</div>
+          <h1 className="text-3xl font-black">נרשמת! עכשיו נשאר רק לעוף</h1>
+          <p style={{ color: "#BFD0C5" }}>
+            שלחנו לך מייל אישור עם כל הפרטים.
+            <br />
+            כדי לשריין את המקום — נשאר רק להשלים תשלום:
+          </p>
+          
+            href={PAYMENT_LINK}
+            className="block w-full rounded-xl py-4 text-lg font-bold transition hover:opacity-90"
+            style={{ background: C.brand, color: "#fff" }}
+          >
+            לתשלום מאובטח — 200 ₪ {discount && "(10% הנחה תינתן בסדנה)"}
+          </a>
+          <p className="text-xs" style={{ color: "#7E948A" }}>
+            ביטול עד 14 יום לפני הסדנה — החזר של 50% · פחות מ־3 ימים לפני — ללא החזר
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (
-    <div dir="rtl" className="p-6 max-w-5xl mx-auto text-stone-100">
-      <h1 className="text-3xl font-bold mb-1">סדנאות איר באג</h1>
-      <p className="text-stone-400 mb-6">נרשמים, תשלומים ומקורות הגעה</p>
-
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6">
-        {DATES.map((d) => {
-          const count = regs.filter(
-            (r) => r.workshop_date === d.value && r.payment_status !== 'cancelled'
-          ).length
-          return (
-            <button
-              key={d.value}
-              onClick={() => setTab(d.value)}
-              className={`px-5 py-2.5 rounded-xl font-bold transition border ${
-                tab === d.value
-                  ? 'bg-lime-400 text-stone-950 border-lime-400'
-                  : 'bg-stone-900 text-stone-300 border-stone-700 hover:border-lime-400/50'
-              }`}
-            >
-              {d.label} ({count})
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Counter */}
-      <div className="bg-stone-900 border border-stone-700 rounded-xl p-4 mb-6">
-        <div className="flex justify-between items-center mb-2">
-          <span className="font-bold text-lg">
-            {current.length} מתוך {CAPACITY} מקומות
-          </span>
-          <span className="text-stone-400 text-sm">
-            💰 שילמו: {paidCount} ({paidCount * 200} ₪) · ממתינים: {current.length - paidCount}
-          </span>
-        </div>
-        <div className="h-3 bg-stone-800 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-lime-400 transition-all"
-            style={{ width: `${Math.min(100, (current.length / CAPACITY) * 100)}%` }}
+    <main dir="rtl" className="min-h-screen" style={{ background: C.dark, color: C.offWhite }}>
+      {/* Hero */}
+      <section className="relative overflow-hidden px-6 pt-16 pb-12 text-center">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `radial-gradient(ellipse at top, ${C.brand}26, transparent 60%)`,
+          }}
+        />
+        <div className="relative max-w-2xl mx-auto space-y-5">
+          <img
+            src="/workshop-hero.jpg.jpg"
+            alt="רוכב באוויר מעל כרית האוויר של טבע בייק — סדנת איר באג"
+            className="w-full rounded-2xl border shadow-lg"
+            style={{ borderColor: `${C.brand}55` }}
           />
+          <p className="font-bold tracking-widest text-sm" style={{ color: C.brand }}>
+            טבע בייק · סדנת AIR BAG
+          </p>
+          <h1 className="text-4xl sm:text-5xl font-black leading-tight">
+            לשלוט באוויר.
+            <br />
+            <span style={{ color: C.brand }}>לא לפחד ממנו.</span>
+          </h1>
+          <p className="text-lg leading-relaxed" style={{ color: "#D8E2DC" }}>
+            מכיר את הרגע? אתה מגיע לקפיצה, החברים כבר באוויר — ואתה על הבלמים.
+            זה לא חוסר כישרון. זו טכניקה שאף אחד לא לימד אותך.
+          </p>
+          <p className="leading-relaxed" style={{ color: "#D8E2DC" }}>
+            הפעם עם <b style={{ color: C.brand }}>שתי כריות אוויר</b> — אחת קטנה
+            לחימום ואחת גדולה להתקדמות — סביבה בטוחה לטעות, לתקן, ולבנות ביטחון
+            אמיתי באוויר. מתאים גם למתחילים שרוצים להתחיל בבטחה, וגם למתקדמים
+            שרוצים לדייק. תוך בוקר אחד: המראה יציבה, שליטה באוויר, נחיתה רכה.
+          </p>
         </div>
-      </div>
+      </section>
 
-      {/* Actions */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <button
-          onClick={copyPhones}
-          disabled={current.length === 0}
-          className="px-4 py-2 rounded-lg bg-stone-800 border border-stone-600 text-sm hover:border-lime-400/60 disabled:opacity-40"
-        >
-          {copied ? '✓ הועתק!' : '📋 העתק רשימת טלפונים'}
-        </button>
-        <button
-          onClick={exportCsv}
-          disabled={current.filter((r) => r.whatsapp_optin).length === 0}
-          className="px-4 py-2 rounded-lg bg-lime-950 border border-lime-800 text-lime-300 text-sm font-semibold disabled:opacity-40"
-        >
-          ייצוא מאושרי וואטסאפ ל-CSV ({current.filter((r) => r.whatsapp_optin).length})
-        </button>
-        <label className="flex items-center gap-2 text-stone-300 text-sm cursor-pointer">
-          <input type="checkbox" checked={waOnly} onChange={(e) => setWaOnly(e.target.checked)} className="w-[15px] h-[15px] accent-lime-400 cursor-pointer" />
-          אישרו וואטסאפ בלבד
-        </label>
-      </div>
-
-      {loading && <p className="text-stone-400">טוען...</p>}
-      {error && <p className="text-red-400">שגיאה: {error}</p>}
-      {!loading && current.length === 0 && (
-        <p className="text-stone-400">אין עדיין נרשמים לתאריך הזה.</p>
-      )}
-
-      {/* Registrant cards */}
-      <div className="space-y-3">
-        {current.map((r, i) => {
-          const discount = r.bike_brand && DISCOUNT.includes(r.bike_brand)
-          const paid = r.payment_status === 'paid'
-          const editing = editingId === r.id
-          const saving = savingId === r.id
-          return (
+      {/* Details */}
+      <section className="px-6 pb-10">
+        <div className="max-w-2xl mx-auto grid grid-cols-2 gap-3 text-sm">
+          {[
+            ["📍 איפה", "משגב, פארק אוסטרליה (בוויז)"],
+            ["🕗 מתי", "שישי 25.9 (8:00–11:00) או 11.9 (8:00–12:00)"],
+            ["🎯 למי", "מתחילים ומתקדמים"],
+            ["💰 עלות", "200 ₪ · Whistle/KTM/BH — ‏10% הנחה"],
+            ["🚲 להביא", "אופניים תקינים, קסדת פול פייס, מיגון"],
+            ["👥 מקומות", "מספר מקומות מוגבל לכל תאריך"],
+          ].map(([k, v]) => (
             <div
-              key={r.id}
-              className="bg-stone-900 border border-stone-700 rounded-xl p-4 flex flex-wrap gap-3 items-center justify-between"
+              key={k}
+              className="rounded-xl p-4 border"
+              style={{ background: C.green, borderColor: C.greenMid }}
             >
-              <div className="min-w-0">
-                <div className="font-bold text-lg">
-                  {i + 1}. {r.full_name}
-                  {r.age ? <span className="text-stone-400 font-normal text-sm"> · גיל {r.age}</span> : null}
-                </div>
-                <div className="text-sm text-stone-300 flex flex-wrap gap-x-4 gap-y-1 mt-1">
-                  <a
-                    href={`https://wa.me/972${r.phone.replace(/^0/, '').replace(/[^0-9]/g, '')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-lime-400 hover:underline"
-                  >
-                    📱 {r.phone}
-                  </a>
-                  <a href={`mailto:${r.email}`} className="text-stone-300 hover:underline">
-                    ✉️ {r.email}
-                  </a>
-                </div>
-                <div className="text-xs text-stone-500 mt-1">
-                  מקור: {sourceLabel(r.utm_source, r.utm_medium)} · נרשם:{' '}
-                  {new Date(r.created_at).toLocaleDateString('he-IL')}
-                  {r.notes ? ` · 📝 ${r.notes}` : ''}
-                </div>
-                <div className="mt-1.5">
-                  <WhatsappOptinBadge optedIn={r.whatsapp_optin} optedAt={r.whatsapp_optin_at} />
-                </div>
-              </div>
-              <div className="flex gap-2 items-center flex-wrap">
-                {r.bike_brand && (
-                  <span
-                    className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                      discount
-                        ? 'bg-fuchsia-900/60 text-fuchsia-200 border border-fuchsia-500/40'
-                        : 'bg-stone-800 text-stone-400 border border-stone-600'
-                    }`}
-                  >
-                    {BRAND_LABEL[r.bike_brand] ?? r.bike_brand}
-                    {discount ? ' · 10% הנחה' : ''}
-                  </span>
-                )}
-                {editing ? (
-                  <div className="flex gap-2 items-center flex-wrap justify-end">
-                    <select
-                      value={draftStatus}
-                      onChange={(e) => setDraftStatus(e.target.value as PaymentStatus)}
-                      aria-label="סטטוס תשלום"
-                      className="px-3 py-1.5 rounded-lg bg-stone-800 border border-stone-600 text-sm text-stone-100"
-                    >
-                      {PAYMENT_STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {PAYMENT_STATUS_LABEL[s]}
-                        </option>
-                      ))}
-                    </select>
-
-                    {draftStatus === 'paid' && (
-                      <select
-                        value={draftMethod}
-                        onChange={(e) => setDraftMethod(e.target.value as PaymentMethod)}
-                        aria-label="אמצעי תשלום"
-                        className="px-3 py-1.5 rounded-lg bg-stone-800 border border-stone-600 text-sm text-stone-100"
-                      >
-                        {PAYMENT_METHODS.map((m) => (
-                          <option key={m} value={m}>
-                            {PAYMENT_METHOD_LABEL[m]}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-
-                    <button
-                      onClick={() => savePayment(r.id)}
-                      disabled={saving}
-                      className="px-4 py-1.5 rounded-lg bg-lime-400 text-stone-950 text-sm font-bold disabled:opacity-50"
-                    >
-                      {saving ? 'שומר...' : 'שמור'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditingId(null)
-                        setSaveError('')
-                      }}
-                      disabled={saving}
-                      aria-label="ביטול"
-                      className="px-3 py-1.5 rounded-lg bg-stone-800 border border-stone-600 text-sm text-stone-300 disabled:opacity-50"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => startEdit(r)}
-                    title="שינוי סטטוס תשלום"
-                    className={`px-3 py-1 rounded-full text-sm font-bold transition ${
-                      paid
-                        ? 'bg-lime-400/20 text-lime-300 border border-lime-400/50 hover:bg-lime-400/30'
-                        : 'bg-amber-400/15 text-amber-300 border border-amber-400/40 hover:bg-amber-400/25'
-                    }`}
-                  >
-                    {paid ? '✓ שולם' : '⏳ ממתין לתשלום'}
-                    <span className="opacity-60 mr-1.5">✎</span>
-                  </button>
-                )}
-              </div>
-
-              {editing && saveError && (
-                <p className="basis-full text-red-400 text-sm">{saveError}</p>
-              )}
+              <div className="font-bold mb-1" style={{ color: C.brand }}>{k}</div>
+              <div style={{ color: "#D8E2DC" }}>{v}</div>
             </div>
-          )
-        })}
-      </div>
-    </div>
-  )
+          ))}
+        </div>
+      </section>
+
+      {/* Schedule */}
+      <section className="px-6 pb-10">
+        <div
+          className="max-w-2xl mx-auto rounded-xl p-5 border"
+          style={{ background: C.green, borderColor: C.greenMid }}
+        >
+          <h2 className="font-bold text-lg mb-3">הלו״ז</h2>
+          <ul className="space-y-2 text-sm" style={{ color: "#D8E2DC" }}>
+            <li><b style={{ color: C.brand }}>8:00</b> — קפה קטן והיכרות</li>
+            <li><b style={{ color: C.brand }}>8:30</b> — חימום על כרית האוויר הקטנה</li>
+            <li><b style={{ color: C.brand }}>9:00</b> — קפיצות על כרית האוויר הגדולה</li>
+            <li><b style={{ color: C.brand }}>סיום</b> — לפי השעה שנבחרה למעלה, סיכום והתארגנות</li>
+          </ul>
+        </div>
+      </section>
+
+      {/* Form */}
+      <section className="px-6 pb-16">
+        <div
+          className="max-w-2xl mx-auto rounded-2xl p-6 space-y-4 border"
+          style={{ background: C.green, borderColor: `${C.brand}55` }}
+        >
+          <h2 className="text-2xl font-black">הרשמה לסדנה</h2>
+
+          {/* Date picker */}
+          <div className="grid grid-cols-2 gap-3">
+            {DATES.map((d) => {
+              const active = form.workshop_date === d.value;
+              return (
+                <button
+                  key={d.value}
+                  type="button"
+                  onClick={() => set("workshop_date", d.value)}
+                  className="rounded-xl p-4 text-center border transition"
+                  style={
+                    active
+                      ? { background: C.brand, borderColor: C.brand, color: "#fff", fontWeight: 700 }
+                      : { background: C.dark, borderColor: C.greenMid, color: "#D8E2DC" }
+                  }
+                >
+                  <div className="text-lg">{d.label}</div>
+                  <div className="text-xs opacity-80">{d.sub}</div>
+                </button>
+              );
+            })}
+          </div>
+
+          <input
+            className={input}
+            style={inputStyle}
+            placeholder="שם מלא *"
+            value={form.full_name}
+            onChange={(e) => set("full_name", e.target.value)}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              className={input}
+              style={inputStyle}
+              placeholder="טלפון *"
+              inputMode="tel"
+              value={form.phone}
+              onChange={(e) => set("phone", e.target.value)}
+            />
+            <input
+              className={input}
+              style={inputStyle}
+              placeholder="גיל"
+              inputMode="numeric"
+              value={form.age}
+              onChange={(e) => set("age", e.target.value)}
+            />
+          </div>
+          <input
+            className={input}
+            style={inputStyle}
+            placeholder="אימייל *"
+            inputMode="email"
+            value={form.email}
+            onChange={(e) => set("email", e.target.value)}
+          />
+          <select
+            className={input}
+            style={inputStyle}
+            value={form.bike_brand}
+            onChange={(e) => set("bike_brand", e.target.value)}
+          >
+            {BRANDS.map((b) => (
+              <option key={b.value} value={b.value}>{b.label}</option>
+            ))}
+          </select>
+          <textarea
+            className={input}
+            style={inputStyle}
+            placeholder="הערות (לא חובה)"
+            rows={2}
+            value={form.notes}
+            onChange={(e) => set("notes", e.target.value)}
+          />
+
+          {discount && (
+            <p className="text-sm font-bold" style={{ color: C.brand }}>
+              🎁 מגיעה לך 10% הנחה! ההנחה תינתן בסדנה עם הצגת האופניים.
+            </p>
+          )}
+
+          {/* תנאי השתתפות ואחריות */}
+          <div
+            className="rounded-xl p-4 border text-sm leading-relaxed"
+            style={{ background: C.dark, borderColor: C.greenMid, color: "#BFD0C5" }}
+          >
+            <div className="font-bold mb-2" style={{ color: C.offWhite }}>
+              תנאי השתתפות ואחריות
+            </div>
+            {WAIVER.map((line) => (
+              <p key={line} className="mb-1">{line}</p>
+            ))}
+            <p className="mt-2" style={{ color: "#7E948A" }}>
+              תנאי ביטול: ביטול עד 14 יום לפני הסדנה — החזר של 50%. פחות מ־3 ימים
+              לפני הסדנה — ללא החזר.
+            </p>
+            <label className="flex items-start gap-2 mt-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={waiver}
+                onChange={(e) => setWaiver(e.target.checked)}
+                className="mt-1 h-4 w-4 accent-pink-600"
+              />
+              <span style={{ color: C.offWhite }}>
+                קראתי ואני מאשר/ת את תנאי ההשתתפות, האחריות והביטול *
+              </span>
+            </label>
+          </div>
+
+          <label className="flex items-start gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={whatsappOptin}
+              onChange={(e) => setWhatsappOptin(e.target.checked)}
+              className="mt-1 h-4 w-4 accent-pink-600"
+            />
+            <span style={{ color: "#D8E2DC" }}>{WHATSAPP_OPTIN_LABEL}</span>
+          </label>
+
+          <button
+            onClick={submit}
+            disabled={status === "sending"}
+            className="w-full rounded-xl py-4 text-lg font-black transition disabled:opacity-50 hover:opacity-90"
+            style={{ background: C.brand, color: "#fff" }}
+          >
+            {status === "sending" ? "שולח..." : "הירשם עכשיו ותתחיל לעוף 🚀"}
+          </button>
+
+          {status === "full" && (
+            <p className="text-sm font-bold" style={{ color: "#FF8FA3" }}>
+              הסדנה בתאריך הזה מלאה 😢 נסה את התאריך השני, או השאר פרטים בצור קשר
+              ונעדכן אם יתפנה מקום.
+            </p>
+          )}
+          {status === "error" && (
+            <p className="text-sm" style={{ color: "#FF8FA3" }}>
+              משהו השתבש. נסה שוב או כתוב לנו בוואטסאפ.
+            </p>
+          )}
+        </div>
+      </section>
+    </main>
+  );
 }
