@@ -113,7 +113,7 @@ export default function WorkshopAirbagPage() {
             <br />
             כדי לשריין את המקום — נשאר רק להשלים תשלום:
           </p>
-          
+          <a
             href={PAYMENT_LINK}
             className="block w-full rounded-xl py-4 text-lg font-bold transition hover:opacity-90"
             style={{ background: C.brand, color: "#fff" }}
