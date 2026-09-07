@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
-import { DEFAULT_HOURLY_RATE } from '@/lib/attendance'
+import { DEFAULT_HOURLY_RATE, GEFEN_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
 import { lessonPayConfigOf, lessonRateFor, coTaughtPresent } from '@/lib/lesson-pay'
 import { isSalaryAdmin, isBenny } from '@/lib/salary-access'
@@ -70,6 +70,7 @@ type SessionRow = {
   // instructor_pay is deliberately absent: the column is revoked from
   // `authenticated`, and every amount here is derived live from staff_pay.
   type: 'regular' | 'special' | null
+  is_gefen: boolean | null
   activity_name: string | null
   instructor_ids: string[] | null
   duration: number | null
@@ -179,7 +180,7 @@ export default function PayrollPage() {
     // absent lesson.
     const { data: sessions } = await supabase
       .from('class_sessions')
-      .select('id, instructor_id, class_name, branch, session_date, present_count, type, activity_name, instructor_ids, duration')
+      .select('id, instructor_id, class_name, branch, session_date, present_count, type, is_gefen, activity_name, instructor_ids, duration')
       .gte('session_date', first)
       .lte('session_date', last)
       .order('session_date')
@@ -244,11 +245,19 @@ export default function PayrollPage() {
       }
 
       if (s.type === 'special') {
+        // "גפן" is priced at a fixed rate regardless of this instructor's own
+        // staff_pay.hourly_rate — the same person can also teach ordinary
+        // special activities (camps) at a different rate. Applies even to a
+        // credited instructor with no staff_pay row at all (e.g. Benny would,
+        // if his entries weren't filtered out above as unpaid) — the rate
+        // comes from GEFEN_HOURLY_RATE, never from rateOf/DEFAULT_HOURLY_RATE.
         for (const iid of credited) {
+          const rate = s.is_gefen ? GEFEN_HOURLY_RATE : (rateOf[iid] ?? DEFAULT_HOURLY_RATE)
           items.push({
             key: s.id + iid, name: nameOf[iid] ?? 'מדריך לא ידוע', kind: 'special',
-            label: s.activity_name ?? s.class_name, branch: s.branch, date: s.session_date,
-            present: s.present_count ?? 0, pay: round2(Number(s.duration ?? 0) * (rateOf[iid] ?? DEFAULT_HOURLY_RATE)),
+            label: s.is_gefen ? `גפן · ${s.branch ?? '—'}` : (s.activity_name ?? s.class_name),
+            branch: s.branch, date: s.session_date,
+            present: s.present_count ?? 0, pay: round2(Number(s.duration ?? 0) * rate),
             sessionId: s.id,
           })
         }

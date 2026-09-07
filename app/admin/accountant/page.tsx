@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAdminAuth } from '@/lib/use-admin-auth'
-import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
+import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON, GEFEN_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, travelConfigOf, TRAVEL_LABEL } from '@/lib/travel'
 import { lessonPayFor, coTaughtPresent } from '@/lib/lesson-pay'
 
@@ -14,9 +14,10 @@ type InstructorSummary = {
   lessons:       number   // ordinary weekly lessons
   ratePerLesson: number
   lessonPay:     number
-  specialHours:  number   // camps / ימי שיא
+  specialHours:  number   // camps / ימי שיא — excludes גפן, priced separately below
   hourlyRate:    number
-  specialPay:    number
+  gefenHours:    number   // גפן — always ₪90/h (GEFEN_HOURLY_RATE), regardless of hourlyRate
+  specialPay:    number   // includes both: hours×hourlyRate + gefenHours×GEFEN_HOURLY_RATE
   travelPay:     number
   travelLabel:   string
   totalPay:      number
@@ -133,7 +134,7 @@ export default function AccountantPage() {
     // `duration` (not duration_hours) is the real column on class_sessions.
     const { data: sessions } = await supabase
       .from('class_sessions')
-      .select('instructor_id, instructor_ids, type, duration, session_date, present_count')
+      .select('instructor_id, instructor_ids, type, is_gefen, duration, session_date, present_count')
       .gte('session_date', firstDay)
       .lte('session_date', lastDay)
 
@@ -141,7 +142,8 @@ export default function AccountantPage() {
     // One entry per ordinary lesson, holding its attendance — the by_attendance
     // model prices each lesson on its own, so a count is not enough.
     const lessonPresents = new Map<string, number[]>()
-    const specialHours = new Map<string, number>()
+    const specialHours = new Map<string, number>()   // special activities other than גפן
+    const gefenHours   = new Map<string, number>()   // גפן — priced separately, see below
     const workDays     = new Map<string, Set<string>>()
     for (const s of sessions ?? []) {
       const ids = new Set<string>()
@@ -153,7 +155,10 @@ export default function AccountantPage() {
         if (!workDays.has(id)) workDays.set(id, new Set())
         workDays.get(id)!.add(s.session_date)
         if (s.type === 'special') {
-          specialHours.set(id, (specialHours.get(id) ?? 0) + (Number(s.duration) || 0))
+          // גפן has its own fixed rate and must never be summed together with
+          // hours priced at this instructor's own hourly_rate.
+          const bucket = s.is_gefen ? gefenHours : specialHours
+          bucket.set(id, (bucket.get(id) ?? 0) + (Number(s.duration) || 0))
         } else {
           if (!lessonPresents.has(id)) lessonPresents.set(id, [])
           lessonPresents.get(id)!.push(bandPresent)
@@ -178,9 +183,13 @@ export default function AccountantPage() {
       const presents    = lessonPresents.get(r.id) ?? []
       const n           = presents.length
       const hours       = Math.round((specialHours.get(r.id) ?? 0) * 10) / 10
+      const gHours      = Math.round((gefenHours.get(r.id) ?? 0) * 10) / 10
       const workingDays = workDays.get(r.id)?.size ?? 0
       const lessonPay   = lessonPayFor(p, presents)
-      const specialPay  = hours * hourlyRate
+      // גפן is folded into specialPay (fixed ₪90/h, never hourlyRate) rather
+      // than a separate field — this screen's table has no room for a sixth
+      // column; the breakdown label below spells out the two rates separately.
+      const specialPay  = hours * hourlyRate + gHours * GEFEN_HOURLY_RATE
       const reportedKm  = reportedOf.has(r.id) ? Math.round(reportedOf.get(r.id)! * 100) / 100 : null
       const travelPay   = computeTravel(p, workingDays, overrideOf.has(r.id) ? overrideOf.get(r.id)! : null, reportedKm)
 
@@ -193,6 +202,7 @@ export default function AccountantPage() {
         lessonPay:   Math.round(lessonPay),
         specialHours: hours,
         hourlyRate,
+        gefenHours:  gHours,
         specialPay:  Math.round(specialPay),
         travelPay:   Math.round(travelPay),
         travelLabel: TRAVEL_LABEL[travelConfigOf(p).type],
@@ -388,7 +398,10 @@ export default function AccountantPage() {
                       <div>
                         <div style={{ color: '#c084fc', fontWeight: 700, fontSize: 14 }}>₪{ins.specialPay.toLocaleString()}</div>
                         <div style={{ color: '#7a8f7d', fontSize: 11 }}>
-                          {ins.specialHours > 0 ? `${ins.specialHours}ש' × ₪${ins.hourlyRate}` : '—'}
+                          {[
+                            ins.specialHours > 0 ? `${ins.specialHours}ש' × ₪${ins.hourlyRate}` : '',
+                            ins.gefenHours > 0 ? `גפן ${ins.gefenHours}ש' × ₪${GEFEN_HOURLY_RATE}` : '',
+                          ].filter(Boolean).join(' + ') || '—'}
                         </div>
                       </div>
                       <div>

@@ -8,6 +8,14 @@ import { supabase } from './supabase'
 export const DEFAULT_HOURLY_RATE = 90
 export const DEFAULT_RATE_PER_LESSON = 150
 
+// "גפן" special activity (see lib/gefen-access.ts): a fixed rate, unrelated to
+// the instructor's own staff_pay.hourly_rate — the same person can also teach
+// ordinary special activities (camps) at a different rate, so this must never
+// be confused with DEFAULT_HOURLY_RATE above, even though the numbers
+// currently happen to match. class_sessions.is_gefen is what tells the payroll
+// code to price a session at this rate instead of the instructor's own.
+export const GEFEN_HOURLY_RATE = 90
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared attendance save.
 //

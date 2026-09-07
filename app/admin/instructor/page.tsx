@@ -9,8 +9,11 @@ import { supabase } from '@/lib/supabase'
 import RiderForm from '@/components/RiderForm'
 import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
 import { clearAdminSession } from '@/lib/auth-actions'
-import { today as localToday, monthLabel as fmtMonth } from '@/lib/month'
+import { today as localToday, monthLabel as fmtMonth, currentMonth, monthBounds } from '@/lib/month'
 import { rowForRole } from '@/lib/roles'
+import { GEFEN_HOURLY_RATE } from '@/lib/attendance'
+import { isGefenUser } from '@/lib/gefen-access'
+import { isBenny } from '@/lib/salary-access'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Instructor screen — for a SIGNED-IN instructor.
@@ -25,7 +28,7 @@ import { rowForRole } from '@/lib/roles'
 // aria-pressed on toggles, text+icon (not colour alone) to convey state, and
 // high-contrast colours on the dark background.
 //
-// Three tabs:
+// Three tabs for everyone, plus a fourth for the two people on GEFEN_USERS:
 //
 //   אימונים        — today's sessions first (mine, then everyone else's,
 //                    because instructors cover for each other), then my usual
@@ -34,6 +37,14 @@ import { rowForRole } from '@/lib/roles'
 //                    session today gets one opened for it server-side.
 //   התלמידים שלי   — the riders of the groups I teach.
 //   המשכורת שלי    — this month's pay, mine only.
+//   ★ גפן          — Benny and Tal only (lib/gefen-access.ts). Logs a special
+//                    activity session per school/date, exactly like the
+//                    coordinator's "★ פעילות מיוחדת" but with no roster to
+//                    pick and a fixed ₪90/h rate (class_sessions.is_gefen)
+//                    instead of the instructor's own staff_pay.hourly_rate.
+//                    Benny's own entries record the same way but are never
+//                    priced — he has no staff_pay row, so they fall into the
+//                    payroll report's "ללא שכר" list like any unpaid session.
 //
 // The last two, plus opening a register, are served by service-role routes that
 // resolve the instructor from the access token rather than from anything this
@@ -78,8 +89,9 @@ const FONT = 'Heebo, Arial, sans-serif'
 
 const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
 
-// The signed-in instructor's own staff row.
-type Account = { id: string; name: string; branch: string | null; role: string }
+// The signed-in instructor's own staff row. email comes straight from the
+// Supabase Auth user, not admin_roles — it's only used to gate the ★ גפן tab.
+type Account = { id: string; name: string; branch: string | null; role: string; email: string }
 
 type Session = {
   id: string
@@ -116,7 +128,16 @@ type Rider = {
 type TravelDay = { origin: string; km: number }
 type TravelStatus = { is_per_km: boolean; today: TravelDay | null; last: TravelDay | null }
 
-type Tab = 'sessions' | 'students' | 'salary'
+type Tab = 'sessions' | 'students' | 'salary' | 'gefen'
+
+// One row logged in the ★ גפן tab.
+type GefenEntry = {
+  id: string
+  session_date: string
+  branch: string | null   // school name
+  duration: number | null // hours
+  created_at: string | null
+}
 
 type Student = {
   id: string
@@ -226,16 +247,24 @@ function Centered({ children }: { children: React.ReactNode }) {
 }
 
 // ── Tabs ────────────────────────────────────────────────────────────────────
-const TABS: Array<{ id: Tab; label: string }> = [
+// Base set for everyone; the ★ גפן tab is appended only for GEFEN_USERS
+// (see the tabsFor() call at the bottom of this file), so TabBar takes the
+// list rather than reading a module-level constant.
+const BASE_TABS: Array<{ id: Tab; label: string }> = [
   { id: 'sessions', label: '🗓️ אימונים' },
   { id: 'students', label: '🚵 התלמידים שלי' },
   { id: 'salary',   label: '💰 המשכורת שלי' },
 ]
+const GEFEN_TAB: { id: Tab; label: string } = { id: 'gefen', label: '★ גפן' }
 
-function TabBar({ tab, onPick }: { tab: Tab; onPick: (t: Tab) => void }) {
+function tabsFor(email: string): Array<{ id: Tab; label: string }> {
+  return isGefenUser(email) ? [...BASE_TABS, GEFEN_TAB] : BASE_TABS
+}
+
+function TabBar({ tabs, tab, onPick }: { tabs: Array<{ id: Tab; label: string }>; tab: Tab; onPick: (t: Tab) => void }) {
   return (
     <nav aria-label="מסכי המדריך" style={{ display: 'flex', gap: 8, marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
-      {TABS.map(t => {
+      {tabs.map(t => {
         const on = t.id === tab
         return (
           <button
@@ -482,6 +511,123 @@ function SalarySection({
   )
 }
 
+// Noon anchor again — see fmtDay above; a real timestamp doesn't need it, but
+// the session_date column is a bare date and reading it as UTC risks the same
+// day-early slip fmtDay exists to avoid.
+const fmtClock = (iso: string) =>
+  new Date(iso).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
+
+// ── "★ גפן" ──────────────────────────────────────────────────────────────────
+// Benny and Tal only (lib/gefen-access.ts). No roster to pick, unlike the
+// coordinator's "★ פעילות מיוחדת": a school class isn't in `riders`, so this
+// just logs the session itself — school, hours, and (from the row) the day and
+// time it was filed. `payable` decides whether this signed-in person's own
+// entries show a computed wage: true for Tal (₪90/h, fixed — see
+// GEFEN_HOURLY_RATE), false for Benny, who logs the same hours for the record
+// but draws no salary from the club he owns.
+function GefenSection({
+  payable, entries, loading, error,
+  school, setSchool, hours, setHours, saving, formError, onSave,
+}: {
+  payable: boolean
+  entries: GefenEntry[]
+  loading: boolean
+  error: string
+  school: string
+  setSchool: (v: string) => void
+  hours: string
+  setHours: (v: string) => void
+  saving: boolean
+  formError: string
+  onSave: () => void
+}) {
+  const monthTotal = payable
+    ? entries.reduce((sum, e) => sum + (Number(e.duration) || 0) * GEFEN_HOURLY_RATE, 0)
+    : 0
+
+  return (
+    <section aria-label="גפן">
+      <h1 style={{ fontSize: 24, fontWeight: 900, margin: '0 0 4px' }}>★ גפן</h1>
+      <p style={{ color: C.muted, fontSize: 15, margin: '0 0 20px', lineHeight: 1.7 }}>
+        {payable
+          ? `דיווח שעות בבתי ספר בפרויקט גפן — כל שעה ₪${GEFEN_HOURLY_RATE}, נוסף כשורה נפרדת "גפן" לדוח השכר.`
+          : 'דיווח שעות בבתי ספר בפרויקט גפן, לרישום בלבד — ללא תשלום.'}
+      </p>
+
+      <div style={{ background: C.surface, border: `1px solid ${C.purple}`, borderRadius: 20, padding: '20px 18px', marginBottom: 20 }}>
+        <label htmlFor="gefen-school" style={{ display: 'block', color: C.muted, fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
+          בית ספר
+        </label>
+        <input
+          id="gefen-school"
+          value={school}
+          onChange={e => setSchool(e.target.value)}
+          placeholder="למשל: בית הספר כברי"
+          style={{ width: '100%', minHeight: 56, boxSizing: 'border-box', background: C.surface2, border: `1px solid ${C.border}`, color: C.text, borderRadius: 14, padding: '0 16px', fontFamily: FONT, fontSize: 18, marginBottom: 14 }}
+        />
+
+        <label htmlFor="gefen-hours" style={{ display: 'block', color: C.muted, fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
+          שעות עבודה
+        </label>
+        <input
+          id="gefen-hours"
+          value={hours}
+          onChange={e => setHours(e.target.value)}
+          type="number" inputMode="decimal" step="0.5" min="0.5" max="12" placeholder="0"
+          style={{ width: '100%', minHeight: 56, boxSizing: 'border-box', background: C.surface2, border: `1px solid ${C.border}`, color: C.text, borderRadius: 14, padding: '0 16px', fontFamily: FONT, fontSize: 18 }}
+        />
+
+        {formError && (
+          <p role="alert" style={{ color: C.absent, fontSize: 15, margin: '12px 0 0' }}>{formError}</p>
+        )}
+
+        <button
+          onClick={onSave}
+          disabled={saving}
+          style={{ width: '100%', marginTop: 16, minHeight: 56, background: saving ? C.surface2 : `linear-gradient(90deg, ${C.purple}, ${C.pink})`, color: saving ? C.muted : '#fff', border: 'none', borderRadius: 16, fontFamily: FONT, fontWeight: 900, fontSize: 18, cursor: saving ? 'default' : 'pointer' }}
+        >
+          {saving ? 'שומר...' : '💾 שמירת דיווח'}
+        </button>
+      </div>
+
+      <h2 style={{ fontSize: 17, fontWeight: 900, margin: '0 0 12px', color: C.purpleSoft }}>הדיווחים שלי</h2>
+
+      {error ? (
+        <p role="alert" style={{ color: C.absent, fontSize: 15 }}>{error}</p>
+      ) : loading ? (
+        <p style={{ color: C.muted, textAlign: 'center', padding: 30, fontSize: 16 }}>טוען...</p>
+      ) : entries.length === 0 ? (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, padding: 32, textAlign: 'center' }}>
+          <p style={{ color: C.muted, fontSize: 16, margin: 0 }}>עדיין אין דיווחים החודש</p>
+        </div>
+      ) : (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, overflow: 'hidden' }}>
+          {entries.map((e, i) => (
+            <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '13px 16px', borderTop: i === 0 ? 'none' : `1px solid ${C.border}` }}>
+              <span style={{ minWidth: 90, fontSize: 13, color: C.muted }}>
+                {fmtDay(e.session_date)}{e.created_at ? ` · ${fmtClock(e.created_at)}` : ''}
+              </span>
+              <span style={{ flex: 1, minWidth: 130, fontSize: 15.5, fontWeight: 700, color: C.text }}>{e.branch ?? '—'}</span>
+              <span style={{ fontSize: 14, color: C.muted }}>{e.duration ?? 0} ש׳</span>
+              {payable && (
+                <span style={{ fontSize: 17, fontWeight: 900, color: C.present }}>
+                  {fmtMoney((Number(e.duration) || 0) * GEFEN_HOURLY_RATE)}
+                </span>
+              )}
+            </div>
+          ))}
+          {payable && (
+            <div style={{ display: 'flex', alignItems: 'center', padding: '15px 16px', borderTop: `2px solid ${C.border}`, background: C.surface2 }}>
+              <span style={{ flex: 1, fontSize: 16, fontWeight: 800, color: C.text }}>סה״כ החודש</span>
+              <span style={{ fontSize: 20, fontWeight: 900, color: C.present }}>{fmtMoney(monthTotal)}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 export default function InstructorPage() {
   const router = useRouter()
@@ -549,6 +695,15 @@ export default function InstructorPage() {
   const [payLoading, setPayLoading] = useState(false)
   const [payError,   setPayError]   = useState('')
 
+  // ── "★ גפן" (Benny + Tal only — see tabsFor / isGefenUser) ────────────────
+  const [gefenEntries, setGefenEntries] = useState<GefenEntry[] | null>(null)
+  const [gefenLoading, setGefenLoading] = useState(false)
+  const [gefenError,   setGefenError]   = useState('')
+  const [gefenSchool,  setGefenSchool]  = useState('')
+  const [gefenHours,   setGefenHours]   = useState('')
+  const [gefenSaving,  setGefenSaving]  = useState(false)
+  const [gefenFormError, setGefenFormError] = useState('')
+
   // ── Identify the instructor ───────────────────────────────────────────────
   // admin_roles.user_id is the link between the Supabase login and the staff
   // row. This read only drives the UI; every API route re-resolves the same
@@ -575,7 +730,7 @@ export default function InstructorPage() {
 
       const rd = rowForRole(rows, 'instructor')
       if (!rd) { setAuthState('no-role'); return }
-      setAccount({ id: rd.id, name: rd.name, branch: rd.branch ?? null, role: rd.role })
+      setAccount({ id: rd.id, name: rd.name, branch: rd.branch ?? null, role: rd.role, email: supaUser.email ?? '' })
       setAuthState('ok')
     }
     identify().catch(() => { if (!cancelled) setAuthState('no-role') })
@@ -936,13 +1091,85 @@ export default function InstructorPage() {
     }
   }, [])
 
+  // ── ★ גפן — plain client-side queries, not a service-role route: unlike pay,
+  // these rows carry no staff_pay and are readable under the same RLS as any
+  // other class_sessions row (class_sessions_read: "any admin"). Scoped to
+  // this month, same as the salary report, so "סה״כ החודש" means the same
+  // thing everywhere in the app.
+  const loadGefen = useCallback(async () => {
+    if (!account) return
+    setGefenLoading(true)
+    setGefenError('')
+    try {
+      const { first, last } = monthBounds(currentMonth())
+      const { data, error: err } = await supabase
+        .from('class_sessions')
+        .select('id, session_date, branch, duration, created_at')
+        .eq('instructor_id', account.id)
+        .eq('is_gefen', true)
+        .gte('session_date', first)
+        .lte('session_date', last)
+        .order('session_date', { ascending: false })
+        .order('created_at', { ascending: false })
+      if (err) { setGefenError('טעינת הדיווחים נכשלה: ' + err.message); return }
+      setGefenEntries((data ?? []) as GefenEntry[])
+    } catch (e) {
+      setGefenError('טעינת הדיווחים נכשלה: ' + (e as Error).message)
+    } finally {
+      setGefenLoading(false)
+    }
+  }, [account])
+
+  async function saveGefen() {
+    if (!account) return
+    const school = gefenSchool.trim()
+    const hrs = parseFloat(gefenHours)
+    if (!school) { setGefenFormError('צריך למלא בית ספר'); return }
+    if (!Number.isFinite(hrs) || hrs <= 0 || hrs > 12) { setGefenFormError('מספר שעות לא תקין'); return }
+
+    setGefenFormError('')
+    setGefenSaving(true)
+    try {
+      // A stand-alone special-activity session, same shape createSpecialActivity
+      // writes on the coordinator screen — just no participants, since a school
+      // class isn't in `riders`, and is_gefen: true so the payroll code prices
+      // it at the fixed GEFEN_HOURLY_RATE instead of this instructor's own
+      // staff_pay.hourly_rate.
+      const { data, error } = await supabase
+        .from('class_sessions')
+        .insert({
+          type: 'special',
+          is_gefen: true,
+          activity_name: 'גפן',
+          class_name: 'גפן',
+          branch: school,
+          session_date: localToday(),
+          duration: hrs,
+          instructor_id: account.id,
+          instructor_ids: [account.id],
+          status: 'open',
+        })
+        .select('id, session_date, branch, duration, created_at')
+        .single()
+      if (error) { setGefenFormError('השמירה נכשלה: ' + error.message); return }
+      setGefenEntries(p => [data as GefenEntry, ...(p ?? [])])
+      setGefenSchool('')
+      setGefenHours('')
+    } catch (e) {
+      setGefenFormError('השמירה נכשלה: ' + (e as Error).message)
+    } finally {
+      setGefenSaving(false)
+    }
+  }
+
   // Fetch when the tab is first opened rather than from an effect: an effect
   // keyed on "no data yet" would re-fire forever once a request fails.
   const openTab = useCallback((t: Tab) => {
     setTab(t)
     if (t === 'students' && students === null && !studentsLoading) loadStudents()
     if (t === 'salary'   && payReport === null && !payLoading)     loadSalary()
-  }, [students, studentsLoading, loadStudents, payReport, payLoading, loadSalary])
+    if (t === 'gefen'    && gefenEntries === null && !gefenLoading) loadGefen()
+  }, [students, studentsLoading, loadStudents, payReport, payLoading, loadSalary, gefenEntries, gefenLoading, loadGefen])
 
   const presentCount = riders.filter(r => attendance[r.id] !== false).length
 
@@ -1041,7 +1268,7 @@ export default function InstructorPage() {
 
     return (
       <Shell account={account} onLogout={logout} sub={`שלום ${account.name} 👋 · ${todayLabel}`}>
-        <TabBar tab={tab} onPick={openTab} />
+        <TabBar tabs={tabsFor(account.email)} tab={tab} onPick={openTab} />
 
         {tab === 'students' && (
           <StudentsSection students={students} loading={studentsLoading} error={studentsError} onRetry={loadStudents} />
@@ -1049,6 +1276,20 @@ export default function InstructorPage() {
 
         {tab === 'salary' && (
           <SalarySection report={payReport} loading={payLoading} error={payError} onRetry={loadSalary} />
+        )}
+
+        {tab === 'gefen' && (
+          <GefenSection
+            payable={!isBenny(account.email)}
+            entries={gefenEntries ?? []}
+            loading={gefenLoading}
+            error={gefenError}
+            school={gefenSchool} setSchool={setGefenSchool}
+            hours={gefenHours} setHours={setGefenHours}
+            saving={gefenSaving}
+            formError={gefenFormError}
+            onSave={saveGefen}
+          />
         )}
 
         {tab === 'sessions' && (

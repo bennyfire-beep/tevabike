@@ -2,7 +2,7 @@
 // SalariesClient v4 — ק״מ ידני לחודש + שכר לפי נוכחות + ק״מ שדיווח המדריך
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON } from '@/lib/attendance'
+import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON, GEFEN_HOURLY_RATE } from '@/lib/attendance'
 import {
   computeTravel, travelConfigOf, travelDetail, TRAVEL_LABEL, type TravelType,
 } from '@/lib/travel'
@@ -22,10 +22,13 @@ type Row = {
   ratePerLesson: number       // the flat rate; unused when lessonModel is by_attendance
   lessonDetail: string
   lessonPay: number
-  // Special activities (camps / ימי שיא) — hours × hourly_rate.
+  // Special activities (camps / ימי שיא) — hours × hourly_rate. specialHours
+  // excludes גפן, which is folded into specialPay at its own fixed rate
+  // (GEFEN_HOURLY_RATE) — see gefenHours for the breakdown.
   specialCount: number
   specialHours: number
   hourlyRate: number
+  gefenHours: number
   specialPay: number
   // Travel — arrangement per instructor.
   travelType: TravelType
@@ -84,7 +87,7 @@ export default function SalariesClient() {
         .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, travel_type, travel_km, travel_rate, travel_monthly_amount'),
       supabase
         .from('class_sessions')
-        .select('id, instructor_id, instructor_ids, type, duration, session_date, present_count')
+        .select('id, instructor_id, instructor_ids, type, is_gefen, duration, session_date, present_count')
         .gte('session_date', from)
         .lte('session_date', to),
       // Per-month override — a fixed sum, or manual km for a per_km instructor.
@@ -104,8 +107,9 @@ export default function SalariesClient() {
     // One entry per ordinary lesson taught, holding that lesson's attendance —
     // by_attendance prices every lesson on its own, so a count is not enough.
     const lessonPresents = new Map<string, number[]>()
-    const specialCount = new Map<string, number>()
-    const specialHours = new Map<string, number>()
+    const specialCount = new Map<string, number>()   // includes גפן — just a count
+    const specialHours = new Map<string, number>()   // excludes גפן — see gefenHours
+    const gefenHours   = new Map<string, number>()   // גפן — priced separately, see below
     const workDays     = new Map<string, Set<string>>()   // distinct dates actually taught
 
     for (const s of sessions ?? []) {
@@ -121,7 +125,10 @@ export default function SalariesClient() {
 
         if (s.type === 'special') {
           specialCount.set(id, (specialCount.get(id) ?? 0) + 1)
-          specialHours.set(id, (specialHours.get(id) ?? 0) + (Number(s.duration) || 0))
+          // גפן has its own fixed rate and must never be summed together with
+          // hours priced at this instructor's own hourly_rate.
+          const bucket = s.is_gefen ? gefenHours : specialHours
+          bucket.set(id, (bucket.get(id) ?? 0) + (Number(s.duration) || 0))
         } else {
           if (!lessonPresents.has(id)) lessonPresents.set(id, [])
           lessonPresents.get(id)!.push(bandPresent)
@@ -152,10 +159,13 @@ export default function SalariesClient() {
         const presents    = lessonPresents.get(i.id) ?? []
         const n           = presents.length
         const hours       = specialHours.get(i.id) ?? 0
+        const gHours      = gefenHours.get(i.id) ?? 0
         const workingDays = workDays.get(i.id)?.size ?? 0
         const lessonModel = lessonPayConfigOf(p).model
         const lessonPay   = lessonPayFor(p, presents)
-        const specialPay  = hours * hourlyRate
+        // גפן is folded in at its own fixed rate (GEFEN_HOURLY_RATE), never
+        // hourlyRate — see the label built below for the two-rate breakdown.
+        const specialPay  = hours * hourlyRate + gHours * GEFEN_HOURLY_RATE
 
         const cfg       = travelConfigOf(p)
         const override  = overrideOf.get(i.id) ?? null
@@ -182,6 +192,7 @@ export default function SalariesClient() {
           specialCount: specialCount.get(i.id) ?? 0,
           specialHours: hours,
           hourlyRate,
+          gefenHours: gHours,
           specialPay,
           travelType: cfg.type,
           travelRate: cfg.rate,
@@ -285,7 +296,10 @@ export default function SalariesClient() {
                       ★ פעילויות מיוחדות
                       <span style={{ opacity: 0.75 }}>
                         {r.specialCount > 0
-                          ? ` · ${r.specialCount} · ${r.specialHours} ש׳ × ${ils(r.hourlyRate)}`
+                          ? ` · ${r.specialCount} · ${[
+                              r.specialHours > 0 ? `${r.specialHours} ש׳ × ${ils(r.hourlyRate)}` : '',
+                              r.gefenHours > 0 ? `גפן ${r.gefenHours} ש׳ × ${ils(GEFEN_HOURLY_RATE)}` : '',
+                            ].filter(Boolean).join(' + ')}`
                           : ' · אין'}
                       </span>
                     </span>

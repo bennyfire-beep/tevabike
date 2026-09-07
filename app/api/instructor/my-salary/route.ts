@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveCaller, currentMonth, monthBounds } from '@/lib/instructor-identity'
-import { DEFAULT_HOURLY_RATE } from '@/lib/attendance'
+import { DEFAULT_HOURLY_RATE, GEFEN_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
 import { lessonPayConfigOf, lessonRateFor, coTaughtPresent } from '@/lib/lesson-pay'
 
@@ -57,6 +57,7 @@ type SessionRow = {
   present_count: number | null
   duration: number | null
   type: 'regular' | 'special' | null
+  is_gefen: boolean | null
   // Needed only to count how many instructors this lesson was credited to,
   // for coTaughtPresent — not shown to the instructor.
   instructor_id: string | null
@@ -82,7 +83,7 @@ export async function GET(req: NextRequest) {
       .eq('admin_role_id', adminRoleId)
       .maybeSingle(),
     db.from('class_sessions')
-      .select('id, class_name, activity_name, branch, session_date, present_count, duration, type, instructor_id, instructor_ids')
+      .select('id, class_name, activity_name, branch, session_date, present_count, duration, type, is_gefen, instructor_id, instructor_ids')
       .or(credited)
       .gte('session_date', first)
       .lte('session_date', last)
@@ -151,14 +152,21 @@ export async function GET(req: NextRequest) {
     if (s.type === 'special') {
       specialCount++
       const hours = Number(s.duration ?? 0)
+      // "גפן" is priced at a fixed rate, unrelated to this instructor's own
+      // hourly_rate — the same person can also teach ordinary special
+      // activities (camps) at a different rate.
+      const rate  = s.is_gefen ? GEFEN_HOURLY_RATE : hourly
+      const label = s.is_gefen
+        ? `גפן · ${s.branch ?? '—'} · ${hours} ש׳ × ₪${rate}`
+        : `${s.activity_name ?? s.class_name ?? 'פעילות מיוחדת'} · ${hours} ש׳ × ₪${rate}`
       items.push({
         key: 'sp-' + s.id,
         kind: 'special',
-        label: `${s.activity_name ?? s.class_name ?? 'פעילות מיוחדת'} · ${hours} ש׳ × ₪${hourly}`,
+        label,
         branch: s.branch,
         date: s.session_date,
         present,
-        pay: round2(hours * hourly),
+        pay: round2(hours * rate),
       })
     } else {
       lessonCount++
