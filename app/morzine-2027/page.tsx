@@ -114,7 +114,7 @@ export default function MorzineYouthPage() {
           muted
           loop
           playsInline
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top' }}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 25%' }}
         />
         <div style={{
           position: 'absolute', inset: 0,
