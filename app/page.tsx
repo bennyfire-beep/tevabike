@@ -15,8 +15,8 @@ const KIDS_CLASSES = [
   { level: 'מיני גרביטי',    branch: 'משגב',        days: "א' + ה' 15:30–17:00", age: '6-10',  icon: '🌱' },
   { level: 'גרביטי מתחילים', branch: 'משגב',        days: "א' + ה' 15:30–17:00", age: '6-10',  icon: '🌱' },
   { level: 'גרביטי פרו',     branch: 'משגב',        days: "א' + ה' 15:30–17:00", age: '12+',   icon: '⚡' },
-  { level: 'מיני גרביטי',    branch: 'ביריה',       days: "ב' 15:45–17:15",      age: '6-10',  icon: '🌱' },
-  { level: 'גרביטי מתקדמים', branch: 'ביריה',       days: "ב' 15:45–17:15",      age: '10-14', icon: '🔥' },
+  { level: 'מיני גרביטי',    branch: 'ביריה',       days: "ב' + ד' 16:00–17:15", age: '6-10',  icon: '🌱' },
+  { level: 'גרביטי מתקדמים', branch: 'ביריה',       days: "ב' + ד' 16:00–17:15", age: '10-14', icon: '🔥' },
   { level: 'מיני גרביטי',    branch: 'מטה אשר',     days: "ג'",                  age: '6-10',  icon: '🌱' },
   { level: 'גרביטי מתקדמים', branch: 'מטה אשר',     days: "ג'",                  age: '10-14', icon: '🔥' },
   { level: 'גרביטי מתקדמים', branch: 'פרוד-אמירים', days: "ד' 15:45–17:00",      age: '10-14', icon: '🔥' },
@@ -540,6 +540,17 @@ export default function Home() {
                 >
                   <span style={{ width: 30, height: 30, borderRadius: 8, background: `${PINK}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>✉️</span>
                   info@tevbike.com
+                </a>
+                <a
+                  href="https://waze.com/ul/hsvc4fmkzh"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'rgba(255,255,255,0.42)', fontSize: 14, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, transition: 'color .2s' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#33ccff'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.42)'}
+                >
+                  <span style={{ width: 30, height: 30, borderRadius: 8, background: '#33ccff22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>📍</span>
+                  הגעה (Waze)
                 </a>
               </div>
             </div>
