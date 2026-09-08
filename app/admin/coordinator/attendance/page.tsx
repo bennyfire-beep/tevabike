@@ -5,6 +5,7 @@ import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
 import { saveAttendance as persistAttendance } from '@/lib/attendance'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { isBenny } from '@/lib/salary-access'
+import { isGefenUser, GEFEN_INSTRUCTOR_NAMES, createGefenSession } from '@/lib/gefen-access'
 import RiderForm from '@/components/RiderForm'
 
 const BRANCH_COLOR: Record<string, string> = {
@@ -27,6 +28,7 @@ type Session = {
   start_time: string | null
   end_time: string | null
   type: 'regular' | 'special' | null
+  is_gefen: boolean | null
   activity_name: string | null
   instructor_ids: string[] | null
 }
@@ -95,6 +97,16 @@ export default function AttendancePage() {
   const [spSearching, setSpSearching]     = useState(false)
   const [spCreating, setSpCreating]       = useState(false)
 
+  // "★ גפן" — Benny and Tal only (lib/gefen-access.ts). Same underlying
+  // session as "★ פעילות מיוחדת" (is_gefen: true, priced at the fixed
+  // GEFEN_HOURLY_RATE instead of the credited instructor's own rate), but no
+  // participant roster — a school class isn't in `riders`.
+  const [showGefen, setShowGefen]     = useState(false)
+  const [gfSchool, setGfSchool]       = useState('')
+  const [gfHours, setGfHours]         = useState('1')
+  const [gfInstructorId, setGfInst]   = useState('')
+  const [gfCreating, setGfCreating]   = useState(false)
+
   useEffect(() => {
     if (!user) return
     // Load all instructors (active + inactive) so old sessions still resolve
@@ -118,7 +130,7 @@ export default function AttendancePage() {
     setAtt({})
     const { data } = await supabase
       .from('class_sessions')
-      .select('id, class_name, branch, session_date, duration, instructor_id, status, notes, group_id, start_time, end_time, type, activity_name, instructor_ids')
+      .select('id, class_name, branch, session_date, duration, instructor_id, status, notes, group_id, start_time, end_time, type, is_gefen, activity_name, instructor_ids')
       .eq('session_date', date)
       .order('class_name')
     setSessions((data ?? []) as Session[])
@@ -197,7 +209,7 @@ export default function AttendancePage() {
         instructor_ids: ids.length ? ids : null,
         duration: parseFloat(newHours) || 1.5, status: 'open',
       })
-      .select('id, class_name, branch, session_date, duration, instructor_id, status, notes, group_id, start_time, end_time, type, activity_name, instructor_ids')
+      .select('id, class_name, branch, session_date, duration, instructor_id, status, notes, group_id, start_time, end_time, type, is_gefen, activity_name, instructor_ids')
       .single()
     if (error) { alert(error.message); setCreating(false); return }
     const s = data as unknown as Session
@@ -245,7 +257,7 @@ export default function AttendancePage() {
         instructor_ids: spInstructors,
         status: 'open',
       })
-      .select('id, class_name, branch, session_date, duration, instructor_id, status, notes, group_id, start_time, end_time, type, activity_name, instructor_ids')
+      .select('id, class_name, branch, session_date, duration, instructor_id, status, notes, group_id, start_time, end_time, type, is_gefen, activity_name, instructor_ids')
       .single()
     if (error) { alert(error.message); setSpCreating(false); return }
     const s = data as unknown as Session
@@ -257,6 +269,34 @@ export default function AttendancePage() {
     setShowSpecial(false)
     setSpName(''); setSpHours('6'); setSpInstructors([]); setSpParts([]); setSpSearchQ(''); setSpSearchRes([])
     setSpCreating(false)
+  }
+
+  async function createGefen() {
+    const school = gfSchool.trim()
+    const hours = parseFloat(gfHours) || 0
+    if (!school || !gfInstructorId || hours <= 0) return
+    setGfCreating(true)
+    // Shared with the instructor screen's "★ גפן" tab (lib/gefen-access.ts) so
+    // the two entry points can't drift apart on the session's shape.
+    const { data, error } = await createGefenSession({
+      instructorId: gfInstructorId, school, hours, date,
+    })
+    if (error) { alert(error); setGfCreating(false); return }
+    // createGefenSession only selects the columns the ★ גפן tab's own list
+    // needs; re-read as a full Session so it slots into this page's list and
+    // attendance panel like any other session.
+    const { data: full } = await supabase
+      .from('class_sessions')
+      .select('id, class_name, branch, session_date, duration, instructor_id, status, notes, group_id, start_time, end_time, type, is_gefen, activity_name, instructor_ids')
+      .eq('id', data?.id)
+      .single()
+    if (!full) { setGfCreating(false); return }
+    const s = full as unknown as Session
+    setSessions(p => [...p, s])
+    loadAttendance(s)
+    setShowGefen(false)
+    setGfSchool(''); setGfHours('1')
+    setGfCreating(false)
   }
 
   async function saveAttendance() {
@@ -380,17 +420,32 @@ export default function AttendancePage() {
             style={{ background: '#0d0f0e', border: '1px solid #252b27', borderRadius: 8, color: '#e8efe9', fontFamily: 'Heebo, Arial, sans-serif', fontSize: 13, padding: '7px 12px', outline: 'none' }}
           />
           <button
-            onClick={() => { setShowNew(p => !p); setShowSpecial(false) }}
+            onClick={() => { setShowNew(p => !p); setShowSpecial(false); setShowGefen(false) }}
             style={{ background: showNew ? '#1a1e1c' : '#b5e853', color: showNew ? '#7a8f7d' : '#0d0f0e', border: '1px solid #252b27', borderRadius: 8, padding: '7px 16px', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
           >
             {showNew ? '✕ ביטול' : '+ אימון חדש'}
           </button>
           <button
-            onClick={() => { setShowSpecial(p => !p); setShowNew(false) }}
+            onClick={() => { setShowSpecial(p => !p); setShowNew(false); setShowGefen(false) }}
             style={{ background: showSpecial ? '#1a1e1c' : '#c084fc', color: showSpecial ? '#c084fc' : '#0d0f0e', border: '1px solid #c084fc55', borderRadius: 8, padding: '7px 16px', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
           >
             {showSpecial ? '✕ ביטול' : '★ פעילות מיוחדת'}
           </button>
+          {isGefenUser(user?.email) && (
+            <button
+              onClick={() => {
+                setShowGefen(p => !p); setShowNew(false); setShowSpecial(false)
+                // Default to the button-opener's own instructor row, if it's on the list.
+                if (!gfInstructorId) {
+                  const mine = instructors.find(i => i.name === user?.name && GEFEN_INSTRUCTOR_NAMES.includes(i.name as typeof GEFEN_INSTRUCTOR_NAMES[number]))
+                  if (mine) setGfInst(mine.id)
+                }
+              }}
+              style={{ background: showGefen ? '#1a1e1c' : '#4cdb7a', color: showGefen ? '#4cdb7a' : '#0d0f0e', border: '1px solid #4cdb7a55', borderRadius: 8, padding: '7px 16px', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+            >
+              {showGefen ? '✕ ביטול' : '★ גפן'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -536,6 +591,49 @@ export default function AttendancePage() {
         </div>
       )}
 
+      {/* ── New גפן activity — Benny and Tal only. Same session shape as
+          "★ פעילות מיוחדת" (see createGefenSession) but no participant picker:
+          a school class isn't in `riders`, and pay is fixed (₪90/h) rather
+          than the credited instructor's own rate. ── */}
+      {showGefen && (
+        <div style={{ background: '#0f1f16', border: '1px solid #4cdb7a44', borderRadius: 12, padding: 20, marginBottom: 20 }}>
+          <h3 style={{ margin: '0 0 4px', fontSize: 15, color: '#4cdb7a' }}>★ גפן — דיווח שעות</h3>
+          <p style={{ margin: '0 0 16px', fontSize: 12, color: '#7aa58f' }}>בית ספר + שעות — תשלום קבוע של ₪90 לשעה, ללא קשר לתעריף הרגיל של המדריך</p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 16 }}>
+            <div>
+              <label htmlFor="gf-instructor" style={{ fontSize: 11, color: '#7aa58f', display: 'block', marginBottom: 4 }}>מי מדווח *</label>
+              <select id="gf-instructor" value={gfInstructorId} onChange={e => setGfInst(e.target.value)} style={{ ...inp, borderColor: '#2f4a3a' }}>
+                <option value="">בחר...</option>
+                {instructors
+                  .filter(i => GEFEN_INSTRUCTOR_NAMES.includes(i.name as typeof GEFEN_INSTRUCTOR_NAMES[number]))
+                  .map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="gf-school" style={{ fontSize: 11, color: '#7aa58f', display: 'block', marginBottom: 4 }}>בית ספר *</label>
+              <input id="gf-school" value={gfSchool} onChange={e => setGfSchool(e.target.value)} placeholder="לדוגמה: בית הספר כברי" style={{ ...inp, borderColor: '#2f4a3a' }} />
+            </div>
+            <div>
+              <label htmlFor="gf-hours" style={{ fontSize: 11, color: '#7aa58f', display: 'block', marginBottom: 4 }}>שעות *</label>
+              <input id="gf-hours" type="number" step="0.5" min="0.5" value={gfHours} onChange={e => setGfHours(e.target.value)} style={{ ...inp, borderColor: '#2f4a3a' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: '#7aa58f', display: 'block', marginBottom: 4 }}>תאריך</label>
+              <div style={{ ...inp, borderColor: '#2f4a3a', color: '#7aa58f' }}>{new Date(date + 'T12:00:00').toLocaleDateString('he-IL')}</div>
+            </div>
+          </div>
+
+          <button
+            onClick={createGefen}
+            disabled={gfCreating || !gfInstructorId || !gfSchool.trim() || !(parseFloat(gfHours) > 0)}
+            style={{ background: (gfCreating || !gfInstructorId || !gfSchool.trim() || !(parseFloat(gfHours) > 0)) ? '#1f2e26' : '#4cdb7a', color: (gfCreating || !gfInstructorId || !gfSchool.trim() || !(parseFloat(gfHours) > 0)) ? '#7aa58f' : '#0d0f0e', border: 'none', borderRadius: 8, padding: '10px 22px', fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, fontSize: 15, cursor: (gfCreating || !gfInstructorId || !gfSchool.trim() || !(parseFloat(gfHours) > 0)) ? 'default' : 'pointer' }}
+          >
+            {gfCreating ? 'יוצר...' : '★ שמור דיווח'}
+          </button>
+        </div>
+      )}
+
       {/* ── Main content: session list + attendance panel ── */}
       {loadingSess ? (
         <div style={{ color: '#7a8f7d', textAlign: 'center', padding: 60 }}>טוען...</div>
@@ -562,9 +660,11 @@ export default function AttendancePage() {
                     onClick={() => loadAttendance(s)}
                     style={{ background: isSelected ? '#1a2e1a' : '#141716', border: `1px solid ${isSelected ? '#b5e85366' : '#252b27'}`, borderRadius: 10, padding: '12px 14px', cursor: 'pointer', transition: 'background .15s' }}
                   >
-                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 5, color: isSelected ? (s.type === 'special' ? '#c084fc' : '#b5e853') : '#e8efe9' }}>{s.class_name}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 5, color: isSelected ? (s.is_gefen ? '#4cdb7a' : s.type === 'special' ? '#c084fc' : '#b5e853') : '#e8efe9' }}>{s.class_name}</div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                      {s.type === 'special'
+                      {s.is_gefen
+                        ? <span style={{ background: '#4cdb7a22', color: '#4cdb7a', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>★ גפן{s.branch ? ` · ${s.branch}` : ''}</span>
+                        : s.type === 'special'
                         ? <span style={{ background: '#c084fc22', color: '#c084fc', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>★ מיוחדת</span>
                         : <span style={{ background: bc + '22', color: bc, borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>{s.branch}</span>}
                       {s.start_time && <span style={{ color: '#7a8f7d', fontSize: 11 }}>🕒 {fmtTime(s.start_time)}</span>}
@@ -585,8 +685,10 @@ export default function AttendancePage() {
               {/* Panel header */}
               <div style={{ padding: '14px 20px', borderBottom: '1px solid #252b27', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <span style={{ fontWeight: 800, fontSize: 16 }}>{selected.class_name}</span>
-                <span style={{ color: selected.type === 'special' ? '#c084fc' : '#b5e853', fontSize: 13, fontWeight: 600 }}>📅 {new Date(selected.session_date + 'T12:00:00').toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: 'numeric' })}</span>
-                {selected.type === 'special'
+                <span style={{ color: selected.is_gefen ? '#4cdb7a' : selected.type === 'special' ? '#c084fc' : '#b5e853', fontSize: 13, fontWeight: 600 }}>📅 {new Date(selected.session_date + 'T12:00:00').toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: 'numeric' })}</span>
+                {selected.is_gefen
+                  ? <span style={{ background: '#4cdb7a22', color: '#4cdb7a', borderRadius: 10, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>★ גפן · {selected.branch} · {selected.duration}ש׳</span>
+                  : selected.type === 'special'
                   ? <span style={{ background: '#c084fc22', color: '#c084fc', borderRadius: 10, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>★ מיוחדת · {selected.duration}ש׳</span>
                   : <span style={{ color: '#7a8f7d', fontSize: 13 }}>📍 {selected.branch}</span>}
                 {selected.start_time && <span style={{ color: '#7a8f7d', fontSize: 13 }}>🕒 {fmtTime(selected.start_time)}{selected.end_time ? `–${fmtTime(selected.end_time)}` : ''}</span>}

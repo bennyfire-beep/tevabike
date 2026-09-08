@@ -12,7 +12,7 @@ import { clearAdminSession } from '@/lib/auth-actions'
 import { today as localToday, monthLabel as fmtMonth, currentMonth, monthBounds } from '@/lib/month'
 import { rowForRole } from '@/lib/roles'
 import { GEFEN_HOURLY_RATE } from '@/lib/attendance'
-import { isGefenUser } from '@/lib/gefen-access'
+import { isGefenUser, createGefenSession } from '@/lib/gefen-access'
 import { isBenny } from '@/lib/salary-access'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1130,28 +1130,12 @@ export default function InstructorPage() {
     setGefenFormError('')
     setGefenSaving(true)
     try {
-      // A stand-alone special-activity session, same shape createSpecialActivity
-      // writes on the coordinator screen — just no participants, since a school
-      // class isn't in `riders`, and is_gefen: true so the payroll code prices
-      // it at the fixed GEFEN_HOURLY_RATE instead of this instructor's own
-      // staff_pay.hourly_rate.
-      const { data, error } = await supabase
-        .from('class_sessions')
-        .insert({
-          type: 'special',
-          is_gefen: true,
-          activity_name: 'גפן',
-          class_name: 'גפן',
-          branch: school,
-          session_date: localToday(),
-          duration: hrs,
-          instructor_id: account.id,
-          instructor_ids: [account.id],
-          status: 'open',
-        })
-        .select('id, session_date, branch, duration, created_at')
-        .single()
-      if (error) { setGefenFormError('השמירה נכשלה: ' + error.message); return }
+      // Shared with the coordinator screen's "★ גפן" button (lib/gefen-access.ts)
+      // so the two entry points can't drift apart on the session's shape.
+      const { data, error } = await createGefenSession({
+        instructorId: account.id, school, hours: hrs, date: localToday(),
+      })
+      if (error) { setGefenFormError('השמירה נכשלה: ' + error); return }
       setGefenEntries(p => [data as GefenEntry, ...(p ?? [])])
       setGefenSchool('')
       setGefenHours('')
