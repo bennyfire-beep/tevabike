@@ -89,9 +89,25 @@ const PRODUCTS: Product[] = [
       "ירוק ליים": "2009",
     },
   },
+  {
+    slug: "ixs_carve_2_knee_guards",
+    brand: "IXS",
+    name: "מגיני רגל IXS CARVE 2.0",
+    spec: "מגיני ברך/שוק מקצועיים · רצועות התאמה כפולות",
+    price: 550,
+    marketPrice: 550,
+    variantLabel: "מידה",
+    variants: ["S", "M", "L", "XL"],
+    image:
+      "https://fmxkkwunwzmrjsvejzub.supabase.co/storage/v1/object/public/product-images/ixs_carve_2_knee_guards/1788878130301-w5s25i.png",
+  },
 ];
 
-// קישורי תשלום בארבוקס לכל צירוף אפשרי (7 = 3 בודדים + 3 זוגות + שלישיה).
+// קישורי תשלום בארבוקס לכל צירוף אפשרי. עם 4 מוצרים יש 15 צירופים אפשריים
+// (2^4-1) — כרגע יש קישורים רק ל-7 צירופי ה-SPANK המקוריים ולמגיני IXS
+// Carve בפני עצמם; שאר הצירופים (למשל IXS Carve + פדלים) יציגו ללקוח הודעה
+// לפנות בוואטסאפ במקום כפתור תשלום שבור (ראו את בדיקת payLink-חסר למטה) —
+// בני יכול להוסיף להם קישור בכל שלב, בלי לגעת בקוד מעבר לשורה כאן.
 const ARBOX_LINKS: Record<string, string> = {
   "spank-spoon-35": "https://arbox.link/Ww_B1s0m",
   "spank-spike-33-grip": "https://arbox.link/b47ZV4mf",
@@ -100,6 +116,7 @@ const ARBOX_LINKS: Record<string, string> = {
   "spank-spike-33-grip+spank-spoon-pedals": "https://arbox.link/argsWl45",
   "spank-spoon-35+spank-spoon-pedals": "https://arbox.link/irFHdfoU",
   "spank-spoon-35+spank-spike-33-grip+spank-spoon-pedals": "https://arbox.link/dVxDfHUx",
+  "ixs_carve_2_knee_guards": "https://arbox.link/QxFoE0Rp",
 };
 
 function comboKey(slugs: string[]): string {
@@ -263,7 +280,7 @@ export default function ShopPage() {
         </div>
       </div>
 
-      {tab === "tshirts" && <TshirtSection category="clothing" />}
+      {tab === "tshirts" && <TshirtSection />}
 
       {tab === "accessories" && (
       <>
@@ -313,9 +330,11 @@ export default function ShopPage() {
                 </p>
                 <div className="mb-1">
                   <span className="text-2xl font-black">{p.price} ₪</span>
-                  <span className="text-xs mr-2 line-through" style={{ color: "#7E948A" }}>
-                    {p.marketPrice} ₪
-                  </span>
+                  {p.marketPrice > p.price && (
+                    <span className="text-xs mr-2 line-through" style={{ color: "#7E948A" }}>
+                      {p.marketPrice} ₪
+                    </span>
+                  )}
                 </div>
                 {discountPct > 0 && (
                   <p className="text-xs font-bold mb-1" style={{ color: C.brand }}>
@@ -356,11 +375,6 @@ export default function ShopPage() {
           })}
         </div>
       </section>
-
-      {/* אביזרים נוספים שאינם חלק מהצירוף/תשלום המשולב של SPANK למעלה —
-          מוצרים מנוהלים דרך tshirt_products (category='accessories'), כל
-          אחד עם עגלת/קישור תשלום נפרדים משלו (ראו TshirtSection). */}
-      <TshirtSection category="accessories" />
 
       {selectedSlugs.length > 0 && (
         <div
@@ -546,6 +560,13 @@ export default function ShopPage() {
                     </a>
                   </span>
                 </label>
+
+                {!payLink && (
+                  <p className="text-sm text-center" style={{ color: "#FF8FA3" }}>
+                    הצירוף הזה עדיין לא זמין להזמנה באתר. נסו שילוב אחר, או כתבו לנו בוואטסאפ
+                    ונסדר את זה ידנית.
+                  </p>
+                )}
 
                 <button
                   onClick={submit}
