@@ -1,10 +1,13 @@
-// app/shop/TshirtSection.tsx — טאב "חולצות" בעמוד /shop: הזמנה מוקדמת של
-// חולצות טבע בייק ממותגות. שונה מהאביזרים (PRODUCTS ב-page.tsx): המוצרים
-// נשלפים מטבלת tshirt_products ב-Supabase, לא hardcoded — כי המחיר/מצב
-// ההזמנה-המוקדמת/קישור התשלום צריכים להיות ניתנים לעריכה מפאנל הניהול בלי
-// דיפלוי (בני עוד ישלח קישורי Arbox אמיתיים). וגם — בניגוד לאביזרים, אין כאן
-// הגבלה על כמות/שילוב: כל אחד יכול להזמין כמה חולצות שהוא רוצה בכל מידה
-// (למשל למשפחה), אז זו עגלה עם כמה שורות במקום בחירה בודדת.
+// app/shop/TshirtSection.tsx — רכיב מוצרים הנשלפים מטבלת tshirt_products
+// ב-Supabase, לא hardcoded — כי המחיר/מצב ההזמנה-המוקדמת/קישור התשלום
+// צריכים להיות ניתנים לעריכה מפאנל הניהול בלי דיפלוי. משמש גם בטאב
+// "ביגוד" (category ברירת מחדל 'clothing') וגם בטאב "אביזרים" (category
+// 'accessories' — למשל מגיני IXS Carve, ששייכים לוגית לאביזרים אבל
+// מנוהלים דרך אותה טבלה כי היא כבר תומכת במידות/כמות/תמונות/קישור Arbox
+// לכל מוצר, מה שאין ל-PRODUCTS הקבוע ב-page.tsx). בניגוד ל-PRODUCTS הקבוע
+// (בחירה בודדת + תשלום משולב לכל הצירוף), כאן אין הגבלה על כמות/שילוב —
+// כל אחד יכול להזמין כמה פריטים שהוא רוצה בכל מידה (למשל משפחה שלמה),
+// אז זו עגלה עם כמה שורות במקום בחירה בודדת.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -44,8 +47,10 @@ type CartLine = {
 
 type PaymentLink = { slug: string; name: string; link: string | null };
 type Status = "idle" | "sending" | "done" | "error";
+type Category = "clothing" | "accessories";
 
-export default function TshirtSection() {
+export default function TshirtSection({ category = "clothing" }: { category?: Category }) {
+  const sectionLabel = category === "accessories" ? "מדור האביזרים" : "מדור הביגוד";
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   // מתג נפרד מ-preorder_active של כל מוצר: זה כיבוי/הדלקה של כל המדור,
@@ -71,6 +76,7 @@ export default function TshirtSection() {
         .select(
           "slug, name, description, image_urls, sizes, requires_back_name, preorder_price, regular_price, preorder_active, preorder_deadline_label"
         )
+        .eq("category", category)
         .order("display_order", { ascending: true }),
       supabase.from("tshirt_shop_settings").select("is_active, coming_soon_message").eq("id", true).maybeSingle(),
     ]).then(([productsRes, settingsRes]) => {
@@ -83,7 +89,7 @@ export default function TshirtSection() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [category]);
 
   function addToCart(p: Product) {
     const size = sizeBySlug[p.slug] || p.sizes[0];
@@ -184,7 +190,7 @@ export default function TshirtSection() {
   if (!shopActive) {
     return (
       <div className="px-6 py-16 text-center max-w-md mx-auto">
-        <div className="text-4xl mb-3">👕</div>
+        <div className="text-4xl mb-3">{category === "accessories" ? "🦺" : "👕"}</div>
         <p className="text-lg font-bold mb-1">בקרוב</p>
         <p style={{ color: "#9FB3A8" }}>{comingSoonMessage || "המדור עוד לא פעיל."}</p>
       </div>
@@ -194,7 +200,7 @@ export default function TshirtSection() {
   if (products.length === 0) {
     return (
       <div className="px-6 py-16 text-center" style={{ color: "#9FB3A8" }}>
-        מדור הביגוד עדיין לא זמין.
+        {sectionLabel} עדיין לא זמין.
       </div>
     );
   }
