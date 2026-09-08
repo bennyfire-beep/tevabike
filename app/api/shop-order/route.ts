@@ -13,7 +13,7 @@ import { BENNY_EMAIL, orderHtml, sendEmail } from '@/lib/shop-order-email'
 
 export const dynamic = 'force-dynamic'
 
-const VALID_SLUGS = ['spank-spoon-35', 'spank-spike-33-grip', 'spank-spoon-pedals']
+const VALID_SLUGS = ['spank-spoon-35', 'spank-spike-33-grip', 'spank-spoon-pedals', 'ixs_carve_2_knee_guards']
 // אין יותר איסוף עצמי — כל הזמנה יוצאת במשלוח.
 const VALID_FULFILLMENT = ['delivery']
 
@@ -21,6 +21,7 @@ const PRODUCT_PRICES: Record<string, number> = {
   'spank-spoon-35': 399,
   'spank-spike-33-grip': 139,
   'spank-spoon-pedals': 449,
+  'ixs_carve_2_knee_guards': 550,
 }
 const SHIPPING_COST = 35
 const FREE_SHIPPING_THRESHOLD = 600
@@ -29,7 +30,7 @@ const MAX_SHORT = 100
 const MAX_PHONE = 30
 const MAX_ADDRESS_PART = 150
 const MAX_EMAIL = 200
-const MAX_ITEMS = 3
+const MAX_ITEMS = 4
 
 function clean(v: unknown, max: number): string | null {
   if (typeof v !== 'string') return null
