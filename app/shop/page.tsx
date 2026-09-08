@@ -95,7 +95,7 @@ const PRODUCTS: Product[] = [
     name: "מגיני רגל IXS CARVE 2.0",
     spec: "מגיני ברך/שוק מקצועיים · רצועות התאמה כפולות",
     price: 550,
-    marketPrice: 550,
+    marketPrice: 590,
     variantLabel: "מידה",
     variants: ["S", "M", "L", "XL"],
     image:
