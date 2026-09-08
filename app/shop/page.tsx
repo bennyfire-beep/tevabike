@@ -263,7 +263,7 @@ export default function ShopPage() {
         </div>
       </div>
 
-      {tab === "tshirts" && <TshirtSection />}
+      {tab === "tshirts" && <TshirtSection category="clothing" />}
 
       {tab === "accessories" && (
       <>
@@ -356,6 +356,11 @@ export default function ShopPage() {
           })}
         </div>
       </section>
+
+      {/* אביזרים נוספים שאינם חלק מהצירוף/תשלום המשולב של SPANK למעלה —
+          מוצרים מנוהלים דרך tshirt_products (category='accessories'), כל
+          אחד עם עגלת/קישור תשלום נפרדים משלו (ראו TshirtSection). */}
+      <TshirtSection category="accessories" />
 
       {selectedSlugs.length > 0 && (
         <div
