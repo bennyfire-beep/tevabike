@@ -22,6 +22,7 @@ type ProductRow = {
   preorder_arbox_link: string | null
   regular_arbox_link: string | null
   preorder_deadline_label: string | null
+  image_urls: string[]
 }
 
 type OrderRow = {
@@ -152,10 +153,95 @@ function ShopActiveBanner({ settings, onSaved }: { settings: ShopSettings; onSav
   )
 }
 
+function ProductImages({ product, onSaved }: { product: ProductRow; onSaved: (p: ProductRow) => void }) {
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const images = product.image_urls ?? []
+
+  async function saveUrls(urls: string[]) {
+    const { error } = await supabase.from('tshirt_products').update({ image_urls: urls }).eq('slug', product.slug)
+    if (error) { setError(error.message); return }
+    onSaved({ ...product, image_urls: urls })
+  }
+
+  async function addImage(file: File) {
+    setError(null)
+    setUploading(true)
+    const ext = file.name.split('.').pop() || 'jpg'
+    const path = `${product.slug}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const { error: upErr } = await supabase.storage.from('product-images').upload(path, file)
+    if (upErr) { setError(upErr.message); setUploading(false); return }
+    const publicUrl = supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl
+    await saveUrls([...images, publicUrl])
+    setUploading(false)
+  }
+
+  async function removeImage(url: string) {
+    if (!confirm('להסיר את התמונה?')) return
+    await saveUrls(images.filter((u) => u !== url))
+  }
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <label style={{ fontSize: 11, color: '#7a8f7d' }}>תמונות המוצר</label>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6, marginBottom: 8 }}>
+        {images.map((url) => (
+          <div key={url} style={{ position: 'relative', width: 64, height: 64 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt=""
+              style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid #252b27' }}
+            />
+            <button
+              onClick={() => removeImage(url)}
+              aria-label="הסר תמונה"
+              style={{
+                position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%',
+                background: '#e85353', color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer', lineHeight: '20px',
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        {images.length === 0 && (
+          <span style={{ fontSize: 12, color: '#7a8f7d' }}>אין עדיין תמונות — מוצג &quot;תמונה בקרוב&quot; באתר</span>
+        )}
+      </div>
+      <label
+        style={{
+          display: 'inline-block', fontSize: 12, fontWeight: 700, cursor: uploading ? 'default' : 'pointer',
+          background: 'transparent', color: '#b5e853', border: '1px solid #b5e853', borderRadius: 8,
+          padding: '6px 10px', opacity: uploading ? 0.5 : 1,
+        }}
+      >
+        {uploading ? 'מעלה...' : '+ הוספת תמונה'}
+        <input
+          type="file"
+          accept="image/*"
+          disabled={uploading}
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (file) addImage(file)
+          }}
+          style={{ display: 'none' }}
+        />
+      </label>
+      {error && <p style={{ color: '#ff8fa3', fontSize: 12, marginTop: 6 }}>{error}</p>}
+    </div>
+  )
+}
+
 function ProductSettingsCard({ product, onSaved }: { product: ProductRow; onSaved: (p: ProductRow) => void }) {
   const [draft, setDraft] = useState(product)
   const [saving, setSaving] = useState(false)
-  const dirty = JSON.stringify(draft) !== JSON.stringify(product)
+  // תמונות נשמרות ישירות מ-ProductImages (לא דרך draft/save, נכנס לתוקף
+  // מיד) — image_urls מוצא מהשוואת ה-dirty כדי שהעלאה/הסרה לא תדליק פה
+  // "יש שינויים לא שמורים" על שדות המחיר/קישורים.
+  const dirty =
+    JSON.stringify({ ...draft, image_urls: undefined }) !== JSON.stringify({ ...product, image_urls: undefined })
 
   async function save() {
     setSaving(true)
@@ -188,6 +274,7 @@ function ProductSettingsCard({ product, onSaved }: { product: ProductRow; onSave
           הזמנה מוקדמת פעילה
         </label>
       </div>
+      <ProductImages product={product} onSaved={onSaved} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
         <div>
           <label style={{ fontSize: 11, color: '#7a8f7d' }}>מחיר הזמנה מוקדמת (₪)</label>
@@ -266,7 +353,7 @@ export default function TshirtOrdersPage() {
     const [{ data: p }, { data: o }, { data: s }] = await Promise.all([
       supabase
         .from('tshirt_products')
-        .select('slug, name, preorder_price, regular_price, preorder_active, preorder_arbox_link, regular_arbox_link, preorder_deadline_label')
+        .select('slug, name, preorder_price, regular_price, preorder_active, preorder_arbox_link, regular_arbox_link, preorder_deadline_label, image_urls')
         .order('display_order', { ascending: true }),
       supabase
         .from('tshirt_orders')
