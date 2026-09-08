@@ -115,7 +115,9 @@ export async function POST(req: NextRequest) {
   if (!delivery_city || !delivery_street) {
     return NextResponse.json({ error: 'missing_address' }, { status: 400 })
   }
-  if (marketing_optin && !customer_email) {
+  // חובה תמיד עכשיו — בלי זה אין דרך לשלוח ללקוח אישור הזמנה עם פרטי
+  // המשלוח אחרי שבני מוודא תשלום (הוא מקבל רק חשבונית מארבוקס בלעדיו).
+  if (!customer_email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer_email)) {
     return NextResponse.json({ error: 'missing_email' }, { status: 400 })
   }
 

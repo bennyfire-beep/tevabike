@@ -164,8 +164,10 @@ export default function ShopPage() {
       alert("נא למלא עיר וכתובת למשלוח");
       return;
     }
-    if (form.marketing_optin && !form.customer_email.trim()) {
-      alert("נא להזין אימייל כדי לקבל מבצעים והמלצות");
+    // חובה — בלי זה אין דרך לשלוח ללקוח אישור הזמנה עם פרטי המשלוח (הוא מקבל
+    // רק חשבונית מארבוקס, שלא כוללת את זה).
+    if (!form.customer_email.trim()) {
+      alert("נא למלא אימייל — נשלח אליו אישור הזמנה עם פרטי המשלוח");
       return;
     }
     if (!form.termsAccepted) {
@@ -480,8 +482,9 @@ export default function ShopPage() {
                 <input
                   className={input}
                   style={inputStyle}
-                  placeholder={form.marketing_optin ? "אימייל *" : "אימייל (לא חובה)"}
+                  placeholder="אימייל * (לאישור ההזמנה)"
                   type="email"
+                  required
                   value={form.customer_email}
                   onChange={(e) => set("customer_email", e.target.value)}
                 />
