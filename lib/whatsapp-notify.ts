@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 import { WHATSAPP_GRAPH_VERSION } from '@/lib/whatsapp'
+import { sendEmail } from '@/lib/shop-order-email'
 
 // Who to tell when a WhatsApp message comes in — shared by the push
 // notification (this file) and the personal-number template alert (also this
@@ -141,6 +142,28 @@ async function sendTemplateAlerts(targetEmails: Set<string>, vars: { senderName:
   }))
 }
 
+// ── Email — נגד "לא ראיתי את ה-push" ────────────────────────────────────────
+// ה-push כבר קיים ועובד, אבל בפועל הוא נופל בקלות (הרשאה לא ניתנה, טאב
+// סגור, טלפון לא נעול על הדפדפן) ובני לא תמיד רואה אותו. מייל הוא ערוץ
+// שהוא כן בודק כמעט תמיד (ראו כל שיחת ה-shop הזו) — אז זו רשת ביטחון
+// שנייה, לא תחליף לפוש, נשלחת באותו רגע לכל מי שגם מקבל פוש.
+
+function whatsappAlertHtml(alert: InboundAlert, url: string) {
+  return `
+  <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;padding:20px">
+    <h2 style="margin:0 0 12px;color:#25D366">💬 הודעת וואטסאפ חדשה — טרם נענתה</h2>
+    <p style="margin:0 0 8px"><b>מאת:</b> ${alert.senderName || 'לקוח'} · ${alert.senderPhone}</p>
+    <p style="margin:0 0 16px;color:#555;background:#f5f5f5;padding:12px;border-radius:8px">${alert.preview}</p>
+    <p style="margin:0"><a href="${url}" style="background:#25D366;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold">לפתיחת השיחה</a></p>
+  </div>`
+}
+
+async function sendEmailToTargets(emails: string[], alert: InboundAlert, url: string) {
+  const subject = `💬 וואטסאפ מ-${alert.senderName || alert.senderPhone} — טרם נענה`
+  const html = whatsappAlertHtml(alert, url)
+  await Promise.all(emails.map((to) => sendEmail(to, undefined, subject, html).catch(() => false)))
+}
+
 // ── Entry point called from the webhook ─────────────────────────────────────
 
 /** Best-effort: any failure in here is caught and logged, never thrown. */
@@ -152,15 +175,16 @@ export async function notifyInbound(admin: SupabaseClient, alert: InboundAlert):
 
     const title = alert.senderName || alert.senderPhone
     const body = alert.preview.length > 120 ? alert.preview.slice(0, 120) + '…' : alert.preview
-    const url = `/admin/coordinator/whatsapp?conversation=${alert.conversationId}`
+    const path = `/admin/coordinator/whatsapp?conversation=${alert.conversationId}`
 
     await Promise.all([
-      sendPushToEmails(admin, targets.map(t => t.email), { title, body, url }),
+      sendPushToEmails(admin, targets.map(t => t.email), { title, body, url: path }),
       sendTemplateAlerts(new Set(targets.map(t => t.email)), {
         senderName: alert.senderName || 'לקוח',
         senderPhone: alert.senderPhone,
         preview: body,
       }),
+      sendEmailToTargets(targets.map(t => t.email), { ...alert, preview: body }, `https://www.tevabike.com${path}`),
     ])
   } catch (e) {
     console.error('[whatsapp-notify] unhandled error:', (e as Error).message)
