@@ -14,7 +14,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
-import { BENNY_EMAIL, sendEmail } from '@/lib/shop-order-email'
+import { BENNY_EMAIL, SUPPLIER_REPLY_TO, sendEmail } from '@/lib/shop-order-email'
+
+// ה-webhook של Resend שולח רק metadata (from/to/subject/email_id) — לא את
+// גוף המייל עצמו. צריך לשלוף את זה בנפרד. ראו:
+// https://resend.com/docs/api-reference/emails/retrieve-received-email
+async function fetchReceivedBody(emailId: string): Promise<{ text: string; html: string } | null> {
+  const key = process.env.RESEND_API_KEY
+  if (!key) return null
+  try {
+    const res = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
+      headers: { Authorization: `Bearer ${key}` },
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return { text: data.text || '', html: data.html || '' }
+  } catch {
+    return null
+  }
+}
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -87,9 +105,35 @@ export async function POST(req: NextRequest) {
   }
 
   const data = payload.data ?? {}
-  const text: string = data.text || data.html || ''
+  const emailId: string | undefined = data.email_id
   const from: string = data.from || 'לא ידוע'
   const subject: string = data.subject || '(ללא נושא)'
+  const toList: string[] = Array.isArray(data.to) ? data.to : []
+
+  const body = emailId ? await fetchReceivedBody(emailId) : null
+  const text = body?.text || body?.html || ''
+
+  // ה-MX על mail.tevabike.com קולט הכל, לא רק תשובות לפאן רייד — למשל
+  // תשובות של לקוחות למיילי הרשמה שנשלחו מ-info@mail.tevabike.com בלי
+  // reply-to מפורש. רק תשובה שהגיעה ל-SUPPLIER_REPLY_TO היא באמת תשובת
+  // פאן רייד שיש טעם לנסות להתאים להזמנה.
+  const isSupplierReply = toList.some((t) => t.toLowerCase().includes(SUPPLIER_REPLY_TO))
+
+  if (!isSupplierReply) {
+    await sendEmail(
+      BENNY_EMAIL,
+      undefined,
+      `תשובה שהגיעה ל-${toList[0] || 'מייל המערכת'} (לא הזמנת חנות)`,
+      `<div dir="rtl" style="font-family:Heebo,Arial,sans-serif;padding:20px">
+        <p style="margin:0 0 8px"><b>מאת:</b> ${from}</p>
+        <p style="margin:0 0 8px"><b>אל:</b> ${toList.join(', ') || '?'}</p>
+        <p style="margin:0 0 8px"><b>נושא:</b> ${subject}</p>
+        <p style="margin:0 0 16px;color:#555">זו לא תשובת פאן רייד — מישהו ענה למייל אחר של המערכת. תטפל ידנית.</p>
+        <pre style="white-space:pre-wrap;font-family:Heebo,Arial,sans-serif;font-size:13px;background:#f5f5f5;padding:12px;border-radius:8px">${replyOnly(text) || text || '(לא הצלחנו לקרוא את תוכן המייל)'}</pre>
+      </div>`
+    )
+    return NextResponse.json({ ok: true, routed: 'not_supplier' })
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
