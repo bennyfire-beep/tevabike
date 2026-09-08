@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
   const { data: rows, error } = await admin
     .from('shop_orders')
-    .select('id, product_name, color, customer_name, customer_phone, fulfillment, delivery_address, shipping_amount, total_amount')
+    .select('id, product_name, color, customer_name, customer_phone, customer_email, fulfillment, delivery_address, shipping_amount, total_amount')
     .eq('order_group', order_group)
 
   if (error || !rows || rows.length === 0) {
@@ -80,5 +80,29 @@ export async function POST(req: NextRequest) {
   const ids = rows.map((r: any) => r.id)
   await admin.from('shop_orders').update({ supplier_notified: true }).in('id', ids)
 
-  return NextResponse.json({ ok: true })
+  // אישור ללקוח, רק אם השאיר מייל בטופס — לא חובה שם. נשלח רק כאן, אחרי
+  // שבני כבר וידא תשלום בארבוקס (זה מה שהופך את זה לבטוח, בדיוק כמו השליחה
+  // לפאן רייד). מעתיקים לבני (CC) כדי שיהיה לו תיעוד מלא.
+  let customerNotified: boolean | null = null
+  if (first.customer_email) {
+    customerNotified = await sendEmail(
+      first.customer_email,
+      BENNY_EMAIL,
+      `ההזמנה שלך מטבע בייק אושרה ✓ — ${items.map((i) => i.product_name).join(' + ')}`,
+      orderHtml(rows[0].id, {
+        items,
+        customer_name: first.customer_name,
+        customer_phone: first.customer_phone,
+        fulfillment: first.fulfillment,
+        delivery_address: first.delivery_address,
+        subtotal: total - shipping,
+        shipping,
+        total,
+        audience: 'customer',
+      })
+      // reply-to נשאר ברירת המחדל (בני) — כדי שתשובה של הלקוח תגיע ישירות אליו.
+    )
+  }
+
+  return NextResponse.json({ ok: true, customerNotified })
 }

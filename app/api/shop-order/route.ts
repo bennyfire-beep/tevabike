@@ -138,6 +138,7 @@ export async function POST(req: NextRequest) {
     quantity: 1,
     customer_name,
     customer_phone,
+    customer_email, // נשמר תמיד כשקיים, גם בלי marketing_optin — צריך אותו כדי לשלוח אישור הזמנה אחרי אימות תשלום
     fulfillment,
     delivery_address,
     shipping_amount: shipping,

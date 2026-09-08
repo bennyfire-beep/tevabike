@@ -161,6 +161,9 @@ export default function ShopOrdersPage() {
       if (!res.ok) { alert(d.error || 'שליחה נכשלה'); setBusyKey(null); return }
       const ids = group.rows.map(r => r.id)
       setOrders(prev => prev.map(r => (ids.includes(r.id) ? { ...r, supplier_notified: true } : r)))
+      // אישור ללקוח נשלח כאן רק אם הוא השאיר מייל בטופס — אם לא, false/null
+      // ולא שולחים כלום. customerNotified === true הוא ההצלחה, לא ברירת המחדל.
+      if (d.customerNotified === false) alert('נשלח לפאן רייד, אבל מייל האישור ללקוח נכשל — כדאי לעדכן אותו בוואטסאפ.')
     } catch {
       alert('שליחה נכשלה — בדוק חיבור')
     }
