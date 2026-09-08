@@ -66,13 +66,12 @@ export async function POST(req: NextRequest) {
       subtotal: total - shipping,
       shipping,
       total,
-    })
-    // הערה: reply-to ייעודי (SUPPLIER_REPLY_TO) עדיין לא מופעל כאן בכוונה —
-    // הוא יעבוד אמין רק אחרי שרשומת ה-MX ב-GoDaddy מופצת בפועל ו-
-    // RESEND_WEBHOOK_SECRET מוגדר ב-Vercel. עד אז נשארים על ברירת המחדל
-    // (בני, כמו תמיד) כדי שתשובות פאן רייד לא "יאבדו" בדרך. להפעיל בחזרה
-    // (העברת SUPPLIER_REPLY_TO כפרמטר חמישי ל-sendEmail) רק אחרי ששני
-    // התנאים אושרו.
+    }),
+    // reply-to ייעודי (לא בני) — MX מאומת ב-Resend ו-RESEND_WEBHOOK_SECRET
+    // מוגדר ב-Vercel (8.9.26), אז תשובת פאן רייד תיקלט אוטומטית דרך
+    // app/api/webhooks/resend-inbound ותפוענח. בני עדיין מקבל כל תשובה
+    // בפועל, כי הראוט הזה מעביר לו אותה בעצמו.
+    SUPPLIER_REPLY_TO
   )
 
   if (!sent) {
