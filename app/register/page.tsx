@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 
-const MATNAS_URL = 'https://www.matnasmatteasher.org.il/%D7%9E%D7%97%D7%9C%D7%A7%D7%AA-%D7%A1%D7%A4%D7%95%D7%A8%D7%98/'
+const MATNAS_URL = 'https://hugim.eprmuni.co.il/class-search-results?municipalityCode=41&classes=2181'
 
 // המבצע יורד אוטומטית ב-1 בספטמבר 2026
 const PROMO_ENDS = new Date('2026-09-01T00:00:00+03:00')
