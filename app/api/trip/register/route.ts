@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { analyzeFileWithGemini } from '@/lib/gemini'
 import { buildICS } from '@/lib/ics'
+import { safeEqual } from '@/lib/security'
 
 // ============================================================
 // נתיב: app/api/trip/register/route.ts
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     if (!trip || !trip.is_open) {
       return NextResponse.json({ error: 'ההרשמה סגורה' }, { status: 404 })
     }
-    if (key !== trip.access_code) {
+    if (!key || !trip.access_code || !safeEqual(key, trip.access_code)) {
       return NextResponse.json({ error: 'קישור לא תקין' }, { status: 403 })
     }
 

@@ -18,12 +18,17 @@ const isPresent = (a: Att) => a.status === 'present' || a.present === true
 const fmt = (d: string) => new Date(d).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })
 
 export async function GET(req: NextRequest) {
+  // Fail closed: no CRON_SECRET configured means nobody gets in, not "anyone
+  // gets in" — this route runs with the service-role key and emails/WhatsApps
+  // real customers, so an unset secret must never silently open it up.
   const secret = process.env.CRON_SECRET
-  if (secret) {
-    const auth = req.headers.get('authorization')
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
-    }
+  if (!secret) {
+    console.error('[absence-alerts] CRON_SECRET is not set — refusing to run.')
+    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+  }
+  const auth = req.headers.get('authorization')
+  if (auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL

@@ -111,9 +111,11 @@ export default function RegistrationsPage() {
     setBusy(reg.id)
     setMsg('')
     try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token ?? ''
       const res = await fetch('/api/registrations/approve', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ registration_id: reg.id, group_id: groupId }),
       })
       const data = await res.json()

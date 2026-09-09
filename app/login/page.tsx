@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { checkRateLimit } from '@/lib/auth-actions'
 import { rolesOf, homeFor } from '@/lib/roles'
 
 export default function LoginPage() {
@@ -17,6 +18,15 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
+
+    // Same brute-force throttle as /admin/login — this page hits the same
+    // signInWithPassword call and had none.
+    const rl = await checkRateLimit(email.toLowerCase(), 'login')
+    if (!rl.allowed) {
+      setError(rl.message)
+      setLoading(false)
+      return
+    }
 
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
 

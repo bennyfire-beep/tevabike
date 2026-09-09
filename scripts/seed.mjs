@@ -10,6 +10,7 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve, dirname }        from 'node:path'
 import { fileURLToPath }           from 'node:url'
+import { randomBytes }             from 'node:crypto'
 import { createClient }            from '@supabase/supabase-js'
 
 // ─── Load .env.local ──────────────────────────────────────────────────────────
@@ -67,13 +68,23 @@ const anon = createClient(SUPABASE_URL, ANON_KEY ?? '', {
 // Use service-role client for DB writes when available (bypasses RLS)
 const db = admin ?? anon
 
+// A fresh, unguessable password per run — never hardcoded, never reused
+// across runs. This script used to commit real, static passwords (including
+// the owner's own login) straight into git history; anyone who ever had read
+// access to the repo effectively had those credentials forever. Generating
+// one here means the only place the password exists is this run's console
+// output, for the operator to copy once.
+function randomPassword() {
+  return randomBytes(12).toString('base64url') // 16 chars, URL-safe, ~96 bits
+}
+
 // ─── Seed data ────────────────────────────────────────────────────────────────
 // Note: 'admin' is mapped to 'coordinator' — coordinator has full read access
 // and is the only role that can edit instructor hourly rates in the salary page.
 const USERS = [
   {
     email:       'bennyfire@gmail.com',
-    password:    'Tevabike2024!',
+    password:    randomPassword(),
     name:        'בני להט',
     role:        'coordinator',   // coordinator = admin / owner
     branch:      null,
@@ -82,7 +93,7 @@ const USERS = [
   },
   {
     email:       'mor@tevabike.com',
-    password:    'Mor2024!',
+    password:    randomPassword(),
     name:        'מור בזק',
     role:        'instructor',
     branch:      'משגב',
@@ -91,7 +102,7 @@ const USERS = [
   },
   {
     email:       'erez@tevabike.com',
-    password:    'Erez2024!',
+    password:    randomPassword(),
     name:        'ארז ברזון',
     role:        'instructor',
     branch:      'מצובה',
@@ -100,7 +111,7 @@ const USERS = [
   },
   {
     email:       'omri@tevabike.com',
-    password:    'Omri2024!',
+    password:    randomPassword(),
     name:        'עמרי זילברשטיין',
     role:        'instructor',
     branch:      'ביריה',
@@ -116,19 +127,21 @@ async function resolveUserId(email, password) {
     const { data, error } = await admin.auth.admin.createUser({
       email, password, email_confirm: true,
     })
-    if (!error) return { id: data.user.id, created: true }
+    if (!error) return { id: data.user.id, created: true, passwordSet: true }
 
-    // User already exists → paginate listUsers to find them
+    // User already exists → paginate listUsers to find them. Deliberately NOT
+    // resetting their password here: this used to silently overwrite it with
+    // whatever the script generated, so re-running seed.mjs to add one new
+    // instructor would quietly change everyone else's password too — locking
+    // the owner out of their own already-logged-in account with no warning.
+    // Only a brand-new user gets the freshly generated password above.
     if (/already|exists/i.test(error.message)) {
       let page = 1
       while (true) {
         const { data: list } = await admin.auth.admin.listUsers({ page, perPage: 50 })
         if (!list?.users?.length) break
         const found = list.users.find(u => u.email === email)
-        if (found) {
-          await admin.auth.admin.updateUserById(found.id, { password })
-          return { id: found.id, created: false }
-        }
+        if (found) return { id: found.id, created: false, passwordSet: false }
         if (list.users.length < 50) break
         page++
       }
@@ -141,20 +154,20 @@ async function resolveUserId(email, password) {
   // Note: Supabase free tier has strict email rate limits.
   // Add SUPABASE_SERVICE_ROLE_KEY to .env.local for reliable seeding.
   const { data, error } = await anon.auth.signUp({ email, password })
-  if (!error && data?.user?.id) return { id: data.user.id, created: true }
+  if (!error && data?.user?.id) return { id: data.user.id, created: true, passwordSet: true }
 
-  // Some Supabase plans return identities:[] instead of an error when user exists
+  // Some Supabase plans return identities:[] instead of an error when user exists.
+  // This only confirms the existing password still works — it never changes it.
   if (data?.user?.identities?.length === 0) {
-    // Try sign-in to retrieve their ID
     const { data: si, error: siErr } = await anon.auth.signInWithPassword({ email, password })
-    if (!siErr && si?.user?.id) { await anon.auth.signOut(); return { id: si.user.id, created: false } }
+    if (!siErr && si?.user?.id) { await anon.auth.signOut(); return { id: si.user.id, created: false, passwordSet: false } }
     return { id: null, error: 'User exists — sign-in failed (wrong password or email unconfirmed)' }
   }
 
   const msg = error?.message ?? error?.status ?? JSON.stringify(error) ?? 'unknown error'
   if (/already|registered|exists/i.test(msg)) {
     const { data: si, error: siErr } = await anon.auth.signInWithPassword({ email, password })
-    if (!siErr && si?.user?.id) { await anon.auth.signOut(); return { id: si.user.id, created: false } }
+    if (!siErr && si?.user?.id) { await anon.auth.signOut(); return { id: si.user.id, created: false, passwordSet: false } }
   }
   return { id: null, error: msg }
 }
@@ -170,7 +183,7 @@ const results = []
 for (const u of USERS) {
   process.stdout.write(`  ${u.name.padEnd(22)} `)
 
-  const { id: userId, created, error: resolveErr } = await resolveUserId(u.email, u.password)
+  const { id: userId, created, passwordSet, error: resolveErr } = await resolveUserId(u.email, u.password)
   if (!userId) {
     console.log(`❌  ${resolveErr}`)
     results.push({ ...u, status: 'error', error: resolveErr })
@@ -187,8 +200,8 @@ for (const u of USERS) {
     console.log(`❌  admin_roles: ${roleErr.message}`)
     results.push({ ...u, status: 'error', error: roleErr.message })
   } else {
-    console.log(`✅  ${created ? 'created' : 'updated'}`)
-    results.push({ ...u, status: 'ok' })
+    console.log(`✅  ${created ? 'created' : 'role synced (password unchanged)'}`)
+    results.push({ ...u, status: 'ok', passwordSet })
   }
 }
 
@@ -206,10 +219,16 @@ for (const r of USERS) {
   const status = res?.status === 'ok' ? '✅' : '⚠️ '
   const rate   = r.hourly_rate ? `  ·  ₪${r.hourly_rate}/שעה` : ''
   const path   = r.role === 'coordinator' ? 'coordinator' : 'instructor'
+  // Never print a password we didn't actually set — for an already-existing
+  // user this run only synced their admin_roles row, and the freshly
+  // generated string above was never applied to their account.
+  const passwordLine = res?.passwordSet
+    ? r.password
+    : '(unchanged — user already existed, not modified by this run)'
   console.log(`
   ${status} ${r.name} (${r.label})
      Email    : ${r.email}
-     Password : ${r.password}
+     Password : ${passwordLine}
      Role     : ${r.role}${rate}
      Login at : /admin/login  →  /admin/${path}`)
 }

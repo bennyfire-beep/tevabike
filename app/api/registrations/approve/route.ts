@@ -1,19 +1,27 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireCoordinator } from '@/lib/whatsapp-server'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { registration_id, group_id } = await req.json()
-    if (!registration_id || !group_id) {
-      return NextResponse.json({ error: 'חסר מזהה הרשמה או קבוצה' }, { status: 400 })
-    }
-
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
+
+    // Approving a registration creates a rider row, emails a payment link, and
+    // sends WhatsApp — a privileged staff action. Only a signed-in coordinator
+    // or admin may trigger it; the caller's bearer token is checked against
+    // admin_roles server-side, same pattern as workshop-payment.
+    const auth = await requireCoordinator(req, supabase)
+    if (!auth.ok) return auth.response
+
+    const { registration_id, group_id } = await req.json()
+    if (!registration_id || !group_id) {
+      return NextResponse.json({ error: 'חסר מזהה הרשמה או קבוצה' }, { status: 400 })
+    }
 
     // 1. משיכת ההרשמה והקבוצה
     const { data: reg, error: regErr } = await supabase

@@ -61,9 +61,15 @@ const LOCK_MS    = 60 * 60 * 1000   // 1 hour lockout
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  // Service role bypasses RLS — required for rate_limits table
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key) throw new Error('Supabase env vars missing')
+  // Service role bypasses RLS — required for rate_limits table, which has no
+  // policies for anon/authenticated (see supabase/schema.sql). Falling back to
+  // the anon key used to mean every query here silently returned no row, and
+  // checkRateLimit() reads "no row" as "window expired, allow" — so a missing
+  // service key quietly turned off brute-force protection instead of erroring.
+  // Fail closed instead: no service key means we cannot verify the limit, so
+  // refuse rather than guess.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) throw new Error('SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL missing — rate limiting cannot run without them')
   return createClient(url, key)
 }
 

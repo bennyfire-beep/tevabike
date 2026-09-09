@@ -1,5 +1,6 @@
-  import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { safeEqual } from '@/lib/security'
 
 // ============================================================
 // נתיב: app/api/trip/[slug]/route.ts
@@ -33,8 +34,7 @@ export async function GET(
     return NextResponse.json({ error: 'not found' }, { status: 404 })
   }
 
-  // constant-time-ish compare
-  if (!key || key !== trip.access_code) {
+  if (!key || !trip.access_code || !safeEqual(key, trip.access_code)) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
 

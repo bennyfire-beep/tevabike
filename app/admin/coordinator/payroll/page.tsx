@@ -401,8 +401,12 @@ export default function PayrollPage() {
       })),
     }
     try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token ?? ''
       const r = await fetch('/api/payroll/email', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
       })
       const d = await r.json().catch(() => ({}))
       if (r.ok && d.ok) {

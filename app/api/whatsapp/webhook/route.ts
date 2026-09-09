@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { whatsappServiceClient } from '@/lib/whatsapp-server'
 import { bodyLabel, isMsgStatus } from '@/lib/whatsapp'
@@ -27,6 +28,31 @@ export const maxDuration = 30
 // GET handshake, it never touches a message. process.env wins when set; this
 // is just so the webhook works before Vercel env vars are configured.
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'tevabike-wa-2026'
+
+// Meta signs every POST body with the app secret (HMAC-SHA256, sent as
+// `X-Hub-Signature-256: sha256=<hex>`). Without checking it, anyone who finds
+// this URL can POST a forged payload and it gets treated as a real inbound
+// message — inserted into whatsapp_messages, alerted to staff, and fed to the
+// Gemini auto-reply bot, which sends real outbound WhatsApp messages back.
+//
+// Requires WHATSAPP_APP_SECRET (the app secret shown in the Meta App
+// dashboard → App settings → Basic — not WHATSAPP_TOKEN, and not the webhook
+// verify token below). Until it's set in the deploy environment, every
+// inbound POST is refused (logged, not processed) rather than trusted
+// unverified — so this must be added to Vercel's env vars for the WhatsApp
+// inbox to keep working after this change ships.
+function verifyMetaSignature(rawBody: string, signatureHeader: string | null, appSecret: string): boolean {
+  if (!signatureHeader) return false
+  const expected = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex')
+  const a = Buffer.from(signatureHeader)
+  const b = Buffer.from(expected)
+  if (a.length !== b.length) return false
+  try {
+    return crypto.timingSafeEqual(a, b)
+  } catch {
+    return false
+  }
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -214,7 +240,21 @@ export async function POST(req: NextRequest) {
     const admin = whatsappServiceClient()
     if (!admin) return NextResponse.json({ received: true }) // still 200 — misconfigured server shouldn't make Meta retry forever
 
-    const payload = await req.json().catch(() => null)
+    const rawBody = await req.text()
+
+    const appSecret = process.env.WHATSAPP_APP_SECRET
+    if (!appSecret) {
+      console.error('[whatsapp/webhook] WHATSAPP_APP_SECRET not set — refusing inbound payload (nothing processed)')
+      return NextResponse.json({ received: true }) // 200 so Meta doesn't retry-storm; just not processed
+    }
+    if (!verifyMetaSignature(rawBody, req.headers.get('x-hub-signature-256'), appSecret)) {
+      console.error('[whatsapp/webhook] signature verification failed — payload discarded')
+      return NextResponse.json({ received: true })
+    }
+
+    const payload = (() => {
+      try { return JSON.parse(rawBody) } catch { return null }
+    })()
     const entries = payload?.entry ?? []
 
     for (const entry of entries) {

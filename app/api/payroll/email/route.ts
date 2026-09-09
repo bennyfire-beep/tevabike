@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { requireCoordinator } from '@/lib/whatsapp-server'
 
 // Email the monthly payroll report (per-instructor totals + session breakdown).
 //
@@ -11,6 +13,12 @@ export const dynamic = 'force-dynamic'
 
 // Report recipients — extend this array to add more.
 const RECIPIENTS = ['bennyfire@gmail.com', 'shirkobi8@gmail.com']
+
+function escapeHtml(s: unknown): string {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string
+  ))
+}
 
 type Item = { date: string | null; label: string; isSpecial: boolean; isBase?: boolean; present: number | null; pay: number }
 type Group = { name: string; totalSessions: number; totalPresent: number; totalPay: number; items: Item[] }
@@ -34,14 +42,14 @@ function buildHtml(p: Payload): string {
     const rows = g.items.map(it => `
       <tr>
         <td style="padding:6px 10px;border-bottom:1px solid #eee;color:#666">${fmtDate(it.date)}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #eee">${it.label}${tag(it)}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #eee">${escapeHtml(it.label)}${tag(it)}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center">${it.present ?? '—'}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:center;font-weight:700;color:#16A34A">₪${it.pay.toLocaleString()}</td>
       </tr>`).join('')
     return `
       <div style="margin-bottom:20px;border:1px solid #eee;border-radius:10px;overflow:hidden">
         <div style="background:#faf7ff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center">
-          <strong style="font-size:15px">${g.name}</strong>
+          <strong style="font-size:15px">${escapeHtml(g.name)}</strong>
           <span style="color:#666;font-size:13px">${g.totalSessions} פעילויות · ${g.totalPresent} נוכחים · <strong style="color:#16A34A">₪${g.totalPay.toLocaleString()}</strong></span>
         </div>
         <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -57,12 +65,12 @@ function buildHtml(p: Payload): string {
   }).join('')
 
   return `<!DOCTYPE html>
-<html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>דוח שכר – ${p.monthLabel}</title></head>
+<html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>דוח שכר – ${escapeHtml(p.monthLabel)}</title></head>
 <body style="font-family:Arial,sans-serif;background:#f5f5f3;margin:0;padding:20px">
   <div style="max-width:640px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
     <div style="background:#1a1320;padding:24px 28px;color:#fff">
       <div style="font-size:22px;font-weight:900;margin-bottom:4px">🚵 טבע בייק</div>
-      <div style="color:rgba(255,255,255,.7);font-size:14px">דוח שכר מדריכים — ${p.monthLabel}</div>
+      <div style="color:rgba(255,255,255,.7);font-size:14px">דוח שכר מדריכים — ${escapeHtml(p.monthLabel)}</div>
     </div>
     <div style="padding:24px 28px">
       <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap">
@@ -84,6 +92,19 @@ function buildHtml(p: Payload): string {
 }
 
 export async function POST(req: NextRequest) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !serviceKey) {
+    console.error('[payroll/email] SUPABASE_SERVICE_ROLE_KEY or URL not set')
+    return NextResponse.json({ ok: false, error: 'השרת לא מוגדר נכון' }, { status: 500 })
+  }
+  const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
+
+  // This sends a real email under the payroll brand to the finance recipients —
+  // only a signed-in coordinator/admin may trigger it (same check as workshop-payment).
+  const auth = await requireCoordinator(req, admin)
+  if (!auth.ok) return auth.response
+
   let p: Payload
   try {
     p = await req.json()
