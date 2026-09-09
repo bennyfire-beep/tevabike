@@ -103,11 +103,11 @@ const PRODUCTS: Product[] = [
   },
 ];
 
-// קישורי תשלום בארבוקס לכל צירוף אפשרי. עם 4 מוצרים יש 15 צירופים אפשריים
-// (2^4-1) — כרגע יש קישורים רק ל-7 צירופי ה-SPANK המקוריים ולמגיני IXS
-// Carve בפני עצמם; שאר הצירופים (למשל IXS Carve + פדלים) יציגו ללקוח הודעה
-// לפנות בוואטסאפ במקום כפתור תשלום שבור (ראו את בדיקת payLink-חסר למטה) —
-// בני יכול להוסיף להם קישור בכל שלב, בלי לגעת בקוד מעבר לשורה כאן.
+// קישורי תשלום בארבוקס לכל צירוף אפשרי (7 צירופי ה-SPANK המקוריים +
+// מגיני IXS Carve בפני עצמם ובכל שילוב עם SPANK — 15 = 2^4-1 בסך הכל).
+// אם יתווסף מוצר חמישי, יחסרו עוד קישורים — במקום כפתור תשלום שבור, פאנל
+// התשלום מציג ללקוח הודעה לפנות בוואטסאפ כשאין קישור לצירוף שנבחר (ראו
+// בדיקת payLink-חסר למטה).
 const ARBOX_LINKS: Record<string, string> = {
   "spank-spoon-35": "https://arbox.link/Ww_B1s0m",
   "spank-spike-33-grip": "https://arbox.link/b47ZV4mf",
@@ -117,6 +117,14 @@ const ARBOX_LINKS: Record<string, string> = {
   "spank-spoon-35+spank-spoon-pedals": "https://arbox.link/irFHdfoU",
   "spank-spoon-35+spank-spike-33-grip+spank-spoon-pedals": "https://arbox.link/dVxDfHUx",
   "ixs_carve_2_knee_guards": "https://arbox.link/QxFoE0Rp",
+  "spank-spoon-35+ixs_carve_2_knee_guards": "https://arbox.link/H2ItraEW",
+  "spank-spike-33-grip+ixs_carve_2_knee_guards": "https://arbox.link/vZQBktuG",
+  "spank-spoon-pedals+ixs_carve_2_knee_guards": "https://arbox.link/NwKvwYjf",
+  "spank-spoon-35+spank-spike-33-grip+ixs_carve_2_knee_guards": "https://arbox.link/pV4qFGml",
+  "spank-spike-33-grip+spank-spoon-pedals+ixs_carve_2_knee_guards": "https://arbox.link/XnS-Bn-I",
+  "spank-spoon-35+spank-spoon-pedals+ixs_carve_2_knee_guards": "https://arbox.link/tWLuPcwy",
+  "spank-spoon-35+spank-spike-33-grip+spank-spoon-pedals+ixs_carve_2_knee_guards":
+    "https://arbox.link/YgJbrLTm",
 };
 
 function comboKey(slugs: string[]): string {
