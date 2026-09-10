@@ -86,7 +86,7 @@ const blankCreateFields = (keepGroupId: string) => ({
 })
 
 export default function RiderForm({
-  rider, groups, defaultGroupId, onClose, onSaved, onCreated, allowDelete = true,
+  rider, groups, defaultGroupId, onClose, onSaved, onCreated, onDeleted, allowDelete = true,
 }: {
   rider?: RiderRecord | null
   groups: GroupOpt[]
@@ -99,6 +99,11 @@ export default function RiderForm({
   // already-loaded roster (an open attendance screen, say) without waiting on
   // a server round trip. Optional: callers happy to just refetch can ignore it.
   onCreated?: (rider: { id: string; full_name: string; phone: string | null }) => void
+  // Fires once, only after a successful PERMANENT delete (see hardDelete
+  // below) — distinct from onSaved so a caller can show accurate wording
+  // ("נמחק לצמיתות" instead of "נשמר בהצלחה"). Falls back to onSaved if a
+  // caller doesn't care about the distinction.
+  onDeleted?: (deletedName: string) => void
   allowDelete?: boolean
 }) {
   const riderId = rider?.id ?? null
@@ -126,6 +131,8 @@ export default function RiderForm({
   const [err, setErr] = useState('')
   const [warn, setWarn] = useState('')          // אזהרת "הליד לא נפתח" — מוצגת במסך ההצלחה
   const [confirmDel, setConfirmDel] = useState(false)
+  const [confirmHardDel, setConfirmHardDel] = useState(false)
+  const [hardDelErr, setHardDelErr] = useState('')
   // מוגדר רק אחרי יצירה מוצלחת (לא עריכה) — מחליף את הטופס במסך "נוסף בהצלחה".
   const [savedRider, setSavedRider] = useState<{ name: string; phone: string } | null>(null)
 
@@ -319,6 +326,28 @@ export default function RiderForm({
     setSaving(false)
     if (error) { setErr(error.message); return }
     onSaved(riderName)
+  }
+
+  // מחיקה סופית — לניקוי כפילויות בלבד, לא לחניכים אמיתיים שעזבו (לזה
+  // מיועדת remove() למעלה, שרק מדביתה ושומרת היסטוריית נוכחות). מוחקת
+  // את שורת ה-riders בפועל; ה-DB חוסם (FK ללא CASCADE) אם יש לחניך
+  // רשומות נוכחות (attendance) או התראות תשלום (payment_alerts) — במקרה
+  // כזה זו כנראה לא כפילות אמיתית, ומציגים הודעה שמפנה ל"הוצאה מהמערכת".
+  async function hardDelete() {
+    if (!riderId) return
+    setSaving(true)
+    setHardDelErr('')
+    const { error } = await supabase.from('riders').delete().eq('id', riderId)
+    setSaving(false)
+    if (error) {
+      setHardDelErr(
+        error.code === '23503' || /foreign key/i.test(error.message)
+          ? 'אי אפשר למחוק — לחניך/ה הזה/ו יש היסטוריית נוכחות או התראות תשלום. זה כנראה לא כפילות; אפשר להשתמש ב"הוצאת החניך מהמערכת" למטה במקום.'
+          : error.message
+      )
+      return
+    }
+    ;(onDeleted ?? onSaved)(riderName)
   }
 
   const waParent = () => {
@@ -588,6 +617,33 @@ export default function RiderForm({
             <p style={{ color: MUTED, fontSize: 11.5, margin: '8px 0 0' }}>
               ההוצאה אינה מוחקת נתונים — היסטוריית הנוכחות נשמרת.
             </p>
+
+            {/* מחיקה סופית — לכפילויות בלבד, לא לחניכים אמיתיים */}
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px dashed ${BORDER}` }}>
+              {confirmHardDel ? (
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ color: '#fca5a5', fontSize: 13.5 }}>למחוק את {riderName} לצמיתות? לא ניתן לשחזר.</span>
+                  <button onClick={hardDelete} disabled={saving}
+                    style={{ background: '#7f2d2d', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px',
+                             fontSize: 13, fontWeight: 700, fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer' }}>כן, מחק לצמיתות</button>
+                  <button onClick={() => { setConfirmHardDel(false); setHardDelErr('') }}
+                    style={{ background: 'transparent', color: MUTED, border: `1px solid ${BORDER}`, borderRadius: 8,
+                             padding: '8px 16px', fontSize: 13, fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer' }}>ביטול</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmHardDel(true)}
+                  style={{ background: 'transparent', color: '#f87171', border: 'none', fontSize: 13,
+                           fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer', padding: 0 }}>
+                  🗑️ מחיקה סופית (לניקוי כפילויות)
+                </button>
+              )}
+              {hardDelErr && (
+                <p style={{ color: '#fca5a5', fontSize: 11.5, margin: '8px 0 0' }}>{hardDelErr}</p>
+              )}
+              <p style={{ color: MUTED, fontSize: 11.5, margin: '8px 0 0' }}>
+                לשימוש רק בכפילות אמיתית — מוחקת את הרשומה לגמרי מה-DB. לחניך עם היסטוריית נוכחות המחיקה תיחסם; במקרה כזה יש להשתמש ב"הוצאת החניך מהמערכת" למעלה.
+              </p>
+            </div>
           </div>
         )}
         </>

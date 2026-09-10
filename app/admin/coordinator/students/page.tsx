@@ -510,6 +510,12 @@ export default function StudentsPage() {
             reloadRiders()
             setTimeout(() => setToast(''), 4000)
           }}
+          onDeleted={name => {
+            setFormRider(undefined)
+            setToast(`${name} נמחק/ה לצמיתות מהמערכת`)
+            reloadRiders()
+            setTimeout(() => setToast(''), 4000)
+          }}
         />
       )}
     </div>
