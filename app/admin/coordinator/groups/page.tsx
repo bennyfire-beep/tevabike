@@ -31,12 +31,14 @@ type Group = {
   instructor_id: string | null
   is_active: boolean
   max_riders: number
+  arbox_link: string | null
 }
 type Instructor = { id: string; name: string; branch: string | null; active: boolean }
 
 const BLANK: Omit<Group, 'id'> = {
   name: '', branch: '', level: 'כללי', days: null, type: 'adults',
   start_time: null, end_time: null, instructor_id: null, is_active: true, max_riders: 15,
+  arbox_link: null,
 }
 
 const inp: React.CSSProperties = {
@@ -97,7 +99,7 @@ export default function GroupsPage() {
   function openEdit(g: Group) {
     setForm({ name: g.name, branch: g.branch, level: g.level, days: g.days, type: g.type,
               start_time: g.start_time, end_time: g.end_time, instructor_id: g.instructor_id,
-              is_active: g.is_active, max_riders: g.max_riders })
+              is_active: g.is_active, max_riders: g.max_riders, arbox_link: g.arbox_link })
     setEditing(g)
     setFormErr('')
     setModal(true)
@@ -107,7 +109,7 @@ export default function GroupsPage() {
     if (!form.name.trim() || !form.branch) { setFormErr('שם וסניף הם שדות חובה'); return }
     setSaving(true)
     setFormErr('')
-    const payload = { ...form, name: form.name.trim() }
+    const payload = { ...form, name: form.name.trim(), arbox_link: form.arbox_link?.trim() || null }
     const { error } = editing
       ? await supabase.from('groups').update(payload).eq('id', editing.id)
       : await supabase.from('groups').insert(payload)
@@ -253,9 +255,25 @@ export default function GroupsPage() {
                       </span>
                     </div>
                   )}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <span style={{ fontSize: 15 }}>👤</span>
                     <span style={{ fontSize: 13, color: '#7a8f7d' }}>{instName(g.instructor_id)}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                    <span style={{ fontSize: 15 }}>🔗</span>
+                    {g.arbox_link ? (
+                      <a
+                        href={g.arbox_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        style={{ fontSize: 13, color: '#4cdb7a', textDecoration: 'none' }}
+                      >
+                        קישור Arbox
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: 13, color: '#ff8080' }}>אין קישור Arbox</span>
+                    )}
                   </div>
 
                   {/* Capacity */}
@@ -371,6 +389,20 @@ export default function GroupsPage() {
                   value={form.max_riders}
                   onChange={e => setForm(p => ({ ...p, max_riders: parseInt(e.target.value) || 15 }))}
                   style={inp}
+                />
+              </div>
+
+              {/* קישור Arbox — full width. נשלח אוטומטית להורים באישור הרשמה
+                  (app/api/registrations/approve/route.ts); בלי קישור כאן, האישור
+                  יעבור אבל בלי שליחת הזמנת Arbox. */}
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ fontSize: 11, color: '#7a8f7d', display: 'block', marginBottom: 4 }}>קישור Arbox</label>
+                <input
+                  value={form.arbox_link ?? ''}
+                  onChange={e => setForm(p => ({ ...p, arbox_link: e.target.value || null }))}
+                  placeholder="https://arbox.link/..."
+                  dir="ltr"
+                  style={{ ...inp, textAlign: 'left' }}
                 />
               </div>
 
