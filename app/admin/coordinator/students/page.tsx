@@ -69,6 +69,8 @@ export default function StudentsPage() {
   // טופס חניך (יצירה / עריכה)
   const [formRider, setFormRider]     = useState<RiderRecord | null | undefined>(undefined)
   const [toast, setToast]             = useState('')
+  // תגית "תשלום" בטבלה — עדכון מהיר בלי לפתוח את טופס העריכה המלא.
+  const [payUpdating, setPayUpdating] = useState<string | null>(null)
 
   function reloadRiders() {
     supabase.from('riders').select('*').order('full_name')
@@ -119,6 +121,18 @@ export default function StudentsPage() {
   function closeModal() {
     setSelected(null)
     setSaveErr('')
+  }
+
+  // עדכון סטטוס תשלום ישירות מהתגית בטבלה, בלי לעבור דרך טופס העריכה המלא.
+  async function updatePaymentStatus(riderId: string, status: string) {
+    setPayUpdating(riderId)
+    const { error } = await supabase
+      .from('riders')
+      .update({ payment_status: status || null })
+      .eq('id', riderId)
+    setPayUpdating(null)
+    if (error) { setToast(`עדכון סטטוס התשלום נכשל: ${error.message}`); setTimeout(() => setToast(''), 4000); return }
+    setRiders(prev => prev.map(r => r.id === riderId ? { ...r, payment_status: status || null } : r))
   }
 
   function toggleGroup(id: string) {
@@ -343,18 +357,28 @@ export default function StudentsPage() {
                       {r.is_regular ? 'קבוע' : 'מזדמן'}
                     </span>
                   </span>
-                  <span>
-                    {r.payment_status === 'unpaid' ? (
-                      <span style={{ background: '#ff8f6b22', color: '#ff8f6b', border: '1px solid #ff8f6b55', borderRadius: 12, padding: '2px 9px', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>
-                        לא שולם
-                      </span>
-                    ) : r.payment_status === 'paid' ? (
-                      <span style={{ background: '#4cdb7a22', color: '#4cdb7a', borderRadius: 12, padding: '2px 9px', fontSize: 11, fontWeight: 600 }}>
-                        שולם
-                      </span>
-                    ) : (
-                      <span style={{ color: '#3a4f3a', fontSize: 11 }}>—</span>
-                    )}
+                  <span onClick={e => e.stopPropagation()}>
+                    <select
+                      aria-label={`סטטוס תשלום עבור ${r.full_name}`}
+                      value={r.payment_status ?? ''}
+                      disabled={payUpdating === r.id}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => updatePaymentStatus(r.id, e.target.value)}
+                      style={{
+                        border: r.payment_status === 'unpaid' ? '1px solid #ff8f6b55' : 'none',
+                        borderRadius: 12, padding: '2px 20px 2px 7px', fontSize: 11, fontWeight: r.payment_status ? 700 : 400,
+                        fontFamily: 'Heebo, Arial, sans-serif', cursor: payUpdating === r.id ? 'default' : 'pointer',
+                        appearance: 'none', WebkitAppearance: 'none',
+                        background: (r.payment_status === 'unpaid' ? '#ff8f6b22' : r.payment_status === 'paid' ? '#4cdb7a22' : '#1a1e1c')
+                          + ` url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='6'><path d='M0 0l4.5 6L9 0z' fill='%237a8f7d'/></svg>") left 6px center no-repeat`,
+                        color: r.payment_status === 'unpaid' ? '#ff8f6b' : r.payment_status === 'paid' ? '#4cdb7a' : '#3a4f3a',
+                        opacity: payUpdating === r.id ? 0.5 : 1,
+                      }}
+                    >
+                      <option value="">—</option>
+                      <option value="unpaid">לא שולם</option>
+                      <option value="paid">שולם</option>
+                    </select>
                   </span>
                 </div>
               )
