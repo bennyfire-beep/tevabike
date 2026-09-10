@@ -1,359 +1,280 @@
-// app/workshop-airbag/page.tsx — דף רישום סדנת איר באג (גרסה 7 — תיקון שם קובץ תמונה)
-"use client";
+'use client'
+// app/admin/coordinator/workshops/page.tsx — coordinator view of workshop
+// registrations (airbag clinic etc.), with a quick payment-status toggle.
+//
+// This file used to contain a duplicate of the PUBLIC registration form
+// (app/workshop-airbag/page.tsx) by mistake — nothing here ever queried
+// workshop_registrations, so clicking "סדנאות" showed a signup form instead
+// of the registrant list. This is the actual admin screen lib/workshop-payment.ts
+// already refers to ("a coordinator marks them paid by hand on
+// /admin/coordinator/workshops").
 
-import { useEffect, useState } from "react";
-import { WHATSAPP_OPTIN_LABEL } from "@/lib/whatsapp-optin";
+import { useEffect, useMemo, useState } from 'react'
+import { createClient } from '@supabase/supabase-js'
+import { downloadCsv } from '@/lib/csv-export'
+import {
+  PAYMENT_METHODS,
+  PAYMENT_METHOD_LABEL,
+  PAYMENT_STATUS_LABEL,
+  type PaymentMethod,
+} from '@/lib/workshop-payment'
 
-const PAYMENT_LINK = "https://arbox.link/IdCW6--f";
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
-const C = {
-  brand: "#D4288A",
-  brandHover: "#B51E77",
-  dark: "#0C1814",
-  green: "#152A1E",
-  greenMid: "#1F3D2A",
-  offWhite: "#F5F2EE",
-};
+type Registration = {
+  id: string
+  created_at: string
+  workshop_date: string
+  full_name: string
+  phone: string
+  email: string
+  age: number | null
+  bike_brand: string | null
+  discount_eligible: boolean
+  payment_status: string
+  notes: string | null
+  riding_experience: string | null
+  riding_style: string | null
+  learning_goals: string | null
+  health_declaration: boolean
+  whatsapp_optin: boolean | null
+}
 
-const DATES = [
-  { value: "2026-09-25", label: "שישי 25.9", sub: "רגע לפני החג · 8:00–11:00" },
-  { value: "2026-09-11", label: "שישי 11.9", sub: "ערב ראש השנה · 8:00–12:00" },
-];
+const STATUS_BADGE: Record<string, string> = {
+  paid: 'bg-lime-950 text-lime-300 border-lime-800',
+  pending: 'bg-amber-950 text-amber-300 border-amber-800',
+  cancelled: 'bg-stone-800 text-stone-400 border-stone-700',
+}
 
-const BRANDS = [
-  { value: "", label: "מותג האופניים שלי (לא חובה)" },
-  { value: "whistle", label: "Whistle — ‏10% הנחה 🎁" },
-  { value: "ktm", label: "KTM — ‏10% הנחה 🎁" },
-  { value: "bh", label: "BH — ‏10% הנחה 🎁" },
-  { value: "other", label: "מותג אחר" },
-];
+export default function WorkshopsAdminPage() {
+  const [regs, setRegs] = useState<Registration[]>([])
+  const [loading, setLoading] = useState(true)
+  const [dateFilter, setDateFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [pickingPay, setPickingPay] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [msg, setMsg] = useState('')
 
-const WAIVER = [
-  "אני מאשר/ת את השתתפותי בסדנת האיר באג של טבע בייק.",
-  "ידוע לי שרכיבת שטח וקפיצות הן פעילות אתגרית הכוללת סיכונים מהותיים, לרבות נפילה, פציעה ונזק גופני, ואני מאשר/ת את ההשתתפות מתוך בחירה מלאה ובאחריותי.",
-  "ידוע לי שנדרשת יכולת רכיבה בסיסית ומעלה.",
-  "אני אחראי/ת להגיע עם אופניים תקינים ובטיחותיים, קסדת פול פייס, מיגון גוף, מים וציוד אישי כנדרש.",
-  "אני מתחייב/ת לעדכן את מארגני הסדנה בכל מגבלה רפואית או רגישות רלוונטית.",
-];
-
-export default function WorkshopAirbagPage() {
-  const [form, setForm] = useState({
-    full_name: "",
-    phone: "",
-    email: "",
-    age: "",
-    workshop_date: "2026-09-25",
-    bike_brand: "",
-    notes: "",
-  });
-  const [waiver, setWaiver] = useState(false);
-  const [whatsappOptin, setWhatsappOptin] = useState(false);
-  const [utm, setUtm] = useState({ utm_source: "", utm_medium: "", utm_campaign: "" });
-  const [status, setStatus] = useState<"idle" | "sending" | "done" | "full" | "error">("idle");
+  async function load() {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('workshop_registrations')
+      .select('*')
+      .order('workshop_date', { ascending: true })
+      .order('created_at', { ascending: false })
+    if (error) setMsg(error.message)
+    else setRegs((data as Registration[]) || [])
+    setLoading(false)
+  }
 
   useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
-    setUtm({
-      utm_source: p.get("utm_source") || "",
-      utm_medium: p.get("utm_medium") || "",
-      utm_campaign: p.get("utm_campaign") || "",
-    });
-  }, []);
+    load()
+  }, [])
 
-  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const dates = useMemo(
+    () => Array.from(new Set(regs.map((r) => r.workshop_date))).sort(),
+    [regs]
+  )
 
-  async function submit() {
-    if (!form.full_name.trim() || !form.phone.trim() || !form.email.trim()) {
-      alert("נא למלא שם, טלפון ומייל");
-      return;
-    }
-    if (!waiver) {
-      alert("כדי להירשם יש לאשר את תנאי ההשתתפות והאחריות");
-      return;
-    }
-    setStatus("sending");
+  const shown = regs
+    .filter((r) => dateFilter === 'all' || r.workshop_date === dateFilter)
+    .filter((r) => statusFilter === 'all' || r.payment_status === statusFilter)
+
+  const fmtDate = (d: string) =>
+    new Date(`${d}T12:00:00`).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', weekday: 'long' })
+  const fmtDateTime = (iso: string) =>
+    new Date(iso).toLocaleString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+
+  async function setStatus(reg: Registration, status: 'pending' | 'paid', method?: PaymentMethod) {
+    setBusy(reg.id)
+    setMsg('')
     try {
-      const res = await fetch("/api/workshop-register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, ...utm, waiver_accepted: true, whatsapp_optin: whatsappOptin }),
-      });
-      if (res.ok) setStatus("done");
-      else {
-        const data = await res.json().catch(() => ({}));
-        setStatus(data?.error === "workshop_full" ? "full" : "error");
-      }
-    } catch {
-      setStatus("error");
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token ?? ''
+      const res = await fetch('/api/workshop-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: reg.id, payment_status: status, payment_method: method ?? null }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'העדכון נכשל')
+      setPickingPay(null)
+      await load()
+    } catch (e: any) {
+      setMsg(e.message)
+    } finally {
+      setBusy(null)
     }
   }
 
-  const discount = ["whistle", "ktm", "bh"].includes(form.bike_brand);
-
-  const input =
-    "w-full rounded-lg p-3 outline-none border transition placeholder:opacity-60";
-  const inputStyle = {
-    background: C.dark,
-    borderColor: C.greenMid,
-    color: C.offWhite,
-  };
-
-  if (status === "done") {
-    return (
-      <main
-        dir="rtl"
-        className="min-h-screen flex items-center justify-center p-6"
-        style={{ background: C.dark, color: C.offWhite }}
-      >
-        <div className="max-w-md w-full text-center space-y-6">
-          <div className="text-6xl">🚵</div>
-          <h1 className="text-3xl font-black">נרשמת! עכשיו נשאר רק לעוף</h1>
-          <p style={{ color: "#BFD0C5" }}>
-            שלחנו לך מייל אישור עם כל הפרטים.
-            <br />
-            כדי לשריין את המקום — נשאר רק להשלים תשלום:
-          </p>
-          <a
-            href={PAYMENT_LINK}
-            className="block w-full rounded-xl py-4 text-lg font-bold transition hover:opacity-90"
-            style={{ background: C.brand, color: "#fff" }}
-          >
-            לתשלום מאובטח — 200 ₪ {discount && "(10% הנחה תינתן בסדנה)"}
-          </a>
-          <p className="text-xs" style={{ color: "#7E948A" }}>
-            ביטול עד 14 יום לפני הסדנה — החזר של 50% · פחות מ־3 ימים לפני — ללא החזר
-          </p>
-        </div>
-      </main>
-    );
+  function exportCsv() {
+    downloadCsv(
+      'סדנאות-נרשמים.csv',
+      ['תאריך סדנה', 'נרשם בתאריך', 'שם מלא', 'טלפון', 'אימייל', 'גיל', 'מותג אופניים', 'סטטוס תשלום', 'הערות'],
+      shown.map((r) => [
+        fmtDate(r.workshop_date), fmtDateTime(r.created_at), r.full_name, r.phone, r.email,
+        r.age ?? '', r.bike_brand ?? '', PAYMENT_STATUS_LABEL[r.payment_status as 'pending' | 'paid'] ?? r.payment_status,
+        r.notes ?? '',
+      ]),
+    )
   }
+
+  const paidCount = shown.filter((r) => r.payment_status === 'paid').length
+  const pendingCount = shown.filter((r) => r.payment_status === 'pending').length
+  const activeCount = shown.filter((r) => r.payment_status !== 'cancelled').length
 
   return (
-    <main dir="rtl" className="min-h-screen" style={{ background: C.dark, color: C.offWhite }}>
-      {/* Hero */}
-      <section className="relative overflow-hidden px-6 pt-16 pb-12 text-center">
-        <div
-          className="absolute inset-0"
-          style={{
-            background: `radial-gradient(ellipse at top, ${C.brand}26, transparent 60%)`,
-          }}
-        />
-        <div className="relative max-w-2xl mx-auto space-y-5">
-          <img
-            src="/workshop-hero.jpg.jpg"
-            alt="רוכב באוויר מעל כרית האוויר של טבע בייק — סדנת איר באג"
-            className="w-full rounded-2xl border shadow-lg"
-            style={{ borderColor: `${C.brand}55` }}
-          />
-          <p className="font-bold tracking-widest text-sm" style={{ color: C.brand }}>
-            טבע בייק · סדנת AIR BAG
-          </p>
-          <h1 className="text-4xl sm:text-5xl font-black leading-tight">
-            לשלוט באוויר.
-            <br />
-            <span style={{ color: C.brand }}>לא לפחד ממנו.</span>
-          </h1>
-          <p className="text-lg leading-relaxed" style={{ color: "#D8E2DC" }}>
-            מכיר את הרגע? אתה מגיע לקפיצה, החברים כבר באוויר — ואתה על הבלמים.
-            זה לא חוסר כישרון. זו טכניקה שאף אחד לא לימד אותך.
-          </p>
-          <p className="leading-relaxed" style={{ color: "#D8E2DC" }}>
-            הפעם עם <b style={{ color: C.brand }}>שתי כריות אוויר</b> — אחת קטנה
-            לחימום ואחת גדולה להתקדמות — סביבה בטוחה לטעות, לתקן, ולבנות ביטחון
-            אמיתי באוויר. מתאים גם למתחילים שרוצים להתחיל בבטחה, וגם למתקדמים
-            שרוצים לדייק. תוך בוקר אחד: המראה יציבה, שליטה באוויר, נחיתה רכה.
-          </p>
-        </div>
-      </section>
+    <div dir="rtl" className="min-h-screen bg-stone-950 text-stone-100 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <header className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">סדנאות</h1>
+            <p className="text-stone-400 text-sm">נרשמים לסדנת האיר באג וסטטוס תשלום</p>
+          </div>
+          <button
+            onClick={exportCsv}
+            disabled={shown.length === 0}
+            className="bg-lime-950 border border-lime-800 text-lime-300 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-40"
+          >
+            ייצוא ל-CSV ({shown.length})
+          </button>
+        </header>
 
-      {/* Details */}
-      <section className="px-6 pb-10">
-        <div className="max-w-2xl mx-auto grid grid-cols-2 gap-3 text-sm">
-          {[
-            ["📍 איפה", "משגב, פארק אוסטרליה (בוויז)"],
-            ["🕗 מתי", "שישי 25.9 (8:00–11:00) או 11.9 (8:00–12:00)"],
-            ["🎯 למי", "מתחילים ומתקדמים"],
-            ["💰 עלות", "200 ₪ · Whistle/KTM/BH — ‏10% הנחה"],
-            ["🚲 להביא", "אופניים תקינים, קסדת פול פייס, מיגון"],
-            ["👥 מקומות", "מספר מקומות מוגבל לכל תאריך"],
-          ].map(([k, v]) => (
-            <div
-              key={k}
-              className="rounded-xl p-4 border"
-              style={{ background: C.green, borderColor: C.greenMid }}
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="bg-stone-900/60 border border-stone-800 rounded-xl p-3 text-center">
+            <div className="text-2xl font-bold">{activeCount}</div>
+            <div className="text-xs text-stone-500 mt-1">רשומים</div>
+          </div>
+          <div className="bg-stone-900/60 border border-lime-900 rounded-xl p-3 text-center">
+            <div className="text-2xl font-bold text-lime-400">{paidCount}</div>
+            <div className="text-xs text-stone-500 mt-1">שילמו</div>
+          </div>
+          <div className="bg-stone-900/60 border border-amber-900 rounded-xl p-3 text-center">
+            <div className="text-2xl font-bold text-amber-400">{pendingCount}</div>
+            <div className="text-xs text-stone-500 mt-1">ממתינים לתשלום</div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-3">
+          <button
+            onClick={() => setDateFilter('all')}
+            className={`px-3 py-1.5 rounded-lg text-xs ${dateFilter === 'all' ? 'bg-lime-400 text-stone-950 font-semibold' : 'bg-stone-900 text-stone-400'}`}
+          >
+            כל התאריכים
+          </button>
+          {dates.map((d) => (
+            <button
+              key={d}
+              onClick={() => setDateFilter(d)}
+              className={`px-3 py-1.5 rounded-lg text-xs ${dateFilter === d ? 'bg-lime-400 text-stone-950 font-semibold' : 'bg-stone-900 text-stone-400'}`}
             >
-              <div className="font-bold mb-1" style={{ color: C.brand }}>{k}</div>
-              <div style={{ color: "#D8E2DC" }}>{v}</div>
-            </div>
+              {fmtDate(d)} ({regs.filter((r) => r.workshop_date === d).length})
+            </button>
           ))}
         </div>
-      </section>
 
-      {/* Schedule */}
-      <section className="px-6 pb-10">
-        <div
-          className="max-w-2xl mx-auto rounded-xl p-5 border"
-          style={{ background: C.green, borderColor: C.greenMid }}
-        >
-          <h2 className="font-bold text-lg mb-3">הלו״ז</h2>
-          <ul className="space-y-2 text-sm" style={{ color: "#D8E2DC" }}>
-            <li><b style={{ color: C.brand }}>8:00</b> — קפה קטן והיכרות</li>
-            <li><b style={{ color: C.brand }}>8:30</b> — חימום על כרית האוויר הקטנה</li>
-            <li><b style={{ color: C.brand }}>9:00</b> — קפיצות על כרית האוויר הגדולה</li>
-            <li><b style={{ color: C.brand }}>סיום</b> — לפי השעה שנבחרה למעלה, סיכום והתארגנות</li>
-          </ul>
+        <div className="flex flex-wrap gap-2 mb-5">
+          {(['all', 'pending', 'paid', 'cancelled'] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 rounded-lg text-xs ${statusFilter === s ? 'bg-stone-100 text-stone-950 font-semibold' : 'bg-stone-900 text-stone-400'}`}
+            >
+              {s === 'all' ? 'הכל' : PAYMENT_STATUS_LABEL[s as 'pending' | 'paid'] ?? 'בוטל'}
+            </button>
+          ))}
         </div>
-      </section>
 
-      {/* Form */}
-      <section className="px-6 pb-16">
-        <div
-          className="max-w-2xl mx-auto rounded-2xl p-6 space-y-4 border"
-          style={{ background: C.green, borderColor: `${C.brand}55` }}
-        >
-          <h2 className="text-2xl font-black">הרשמה לסדנה</h2>
+        {msg && <div className="bg-red-950 border border-red-800 text-red-200 rounded-lg p-3 text-sm mb-4">{msg}</div>}
 
-          {/* Date picker */}
-          <div className="grid grid-cols-2 gap-3">
-            {DATES.map((d) => {
-              const active = form.workshop_date === d.value;
-              return (
-                <button
-                  key={d.value}
-                  type="button"
-                  onClick={() => set("workshop_date", d.value)}
-                  className="rounded-xl p-4 text-center border transition"
-                  style={
-                    active
-                      ? { background: C.brand, borderColor: C.brand, color: "#fff", fontWeight: 700 }
-                      : { background: C.dark, borderColor: C.greenMid, color: "#D8E2DC" }
-                  }
-                >
-                  <div className="text-lg">{d.label}</div>
-                  <div className="text-xs opacity-80">{d.sub}</div>
-                </button>
-              );
-            })}
+        {loading ? (
+          <p className="text-stone-500">טוען…</p>
+        ) : shown.length === 0 ? (
+          <div className="border border-dashed border-stone-800 rounded-xl p-10 text-center text-stone-500">
+            אין נרשמים תואמים לסינון הזה.
           </div>
+        ) : (
+          <div className="space-y-3">
+            {shown.map((reg) => (
+              <div key={reg.id} className="bg-stone-900/60 border border-stone-800 rounded-xl p-4">
+                <div className="flex justify-between items-start gap-3">
+                  <div>
+                    <h3 className="font-bold text-lg">
+                      {reg.full_name}{' '}
+                      {reg.age ? <span className="text-stone-500 text-sm font-normal">· גיל {reg.age}</span> : null}
+                    </h3>
+                    <p className="text-sm text-stone-400 mt-0.5">
+                      <a href={`tel:${reg.phone}`} className="text-lime-400">{reg.phone}</a> · {reg.email}
+                    </p>
+                    <p className="text-sm text-stone-500 mt-0.5">
+                      📅 {fmtDate(reg.workshop_date)}
+                      {reg.bike_brand && ` · 🚲 ${reg.bike_brand}`}
+                      {reg.discount_eligible && ' · 🎁 זכאי להנחה'}
+                    </p>
+                    {(reg.riding_experience || reg.riding_style || reg.learning_goals) && (
+                      <p className="text-sm text-stone-500 mt-0.5">
+                        {[reg.riding_experience, reg.riding_style, reg.learning_goals].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                    {reg.notes && <p className="text-sm text-amber-300/80 mt-2">📝 {reg.notes}</p>}
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="text-xs text-stone-600 whitespace-nowrap">{fmtDateTime(reg.created_at)}</span>
+                    <span className={`text-xs px-2 py-1 rounded-full border ${STATUS_BADGE[reg.payment_status] ?? STATUS_BADGE.cancelled}`}>
+                      {PAYMENT_STATUS_LABEL[reg.payment_status as 'pending' | 'paid'] ?? 'בוטל'}
+                    </span>
+                  </div>
+                </div>
 
-          <input
-            className={input}
-            style={inputStyle}
-            placeholder="שם מלא *"
-            value={form.full_name}
-            onChange={(e) => set("full_name", e.target.value)}
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <input
-              className={input}
-              style={inputStyle}
-              placeholder="טלפון *"
-              inputMode="tel"
-              value={form.phone}
-              onChange={(e) => set("phone", e.target.value)}
-            />
-            <input
-              className={input}
-              style={inputStyle}
-              placeholder="גיל"
-              inputMode="numeric"
-              value={form.age}
-              onChange={(e) => set("age", e.target.value)}
-            />
-          </div>
-          <input
-            className={input}
-            style={inputStyle}
-            placeholder="אימייל *"
-            inputMode="email"
-            value={form.email}
-            onChange={(e) => set("email", e.target.value)}
-          />
-          <select
-            className={input}
-            style={inputStyle}
-            value={form.bike_brand}
-            onChange={(e) => set("bike_brand", e.target.value)}
-          >
-            {BRANDS.map((b) => (
-              <option key={b.value} value={b.value}>{b.label}</option>
+                {reg.payment_status !== 'cancelled' && (
+                  <div className="mt-3 pt-3 border-t border-stone-800">
+                    {pickingPay === reg.id ? (
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <span className="text-xs text-stone-500">שולם באמצעות:</span>
+                        {PAYMENT_METHODS.map((m) => (
+                          <button
+                            key={m}
+                            disabled={busy === reg.id}
+                            onClick={() => setStatus(reg, 'paid', m)}
+                            className="bg-lime-400 text-stone-950 font-semibold px-3 py-1.5 rounded-lg text-xs disabled:opacity-50"
+                          >
+                            {PAYMENT_METHOD_LABEL[m]}
+                          </button>
+                        ))}
+                        <button onClick={() => setPickingPay(null)} className="text-stone-500 text-xs px-2">ביטול</button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        {reg.payment_status !== 'paid' && (
+                          <button
+                            onClick={() => setPickingPay(reg.id)}
+                            disabled={busy === reg.id}
+                            className="bg-lime-400 text-stone-950 font-semibold px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+                          >
+                            סמן כשולם
+                          </button>
+                        )}
+                        {reg.payment_status !== 'pending' && (
+                          <button
+                            onClick={() => setStatus(reg, 'pending')}
+                            disabled={busy === reg.id}
+                            className="border border-stone-700 text-stone-400 px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+                          >
+                            {busy === reg.id ? 'מעדכן…' : 'סמן כממתין'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             ))}
-          </select>
-          <textarea
-            className={input}
-            style={inputStyle}
-            placeholder="הערות (לא חובה)"
-            rows={2}
-            value={form.notes}
-            onChange={(e) => set("notes", e.target.value)}
-          />
-
-          {discount && (
-            <p className="text-sm font-bold" style={{ color: C.brand }}>
-              🎁 מגיעה לך 10% הנחה! ההנחה תינתן בסדנה עם הצגת האופניים.
-            </p>
-          )}
-
-          {/* תנאי השתתפות ואחריות */}
-          <div
-            className="rounded-xl p-4 border text-sm leading-relaxed"
-            style={{ background: C.dark, borderColor: C.greenMid, color: "#BFD0C5" }}
-          >
-            <div className="font-bold mb-2" style={{ color: C.offWhite }}>
-              תנאי השתתפות ואחריות
-            </div>
-            {WAIVER.map((line) => (
-              <p key={line} className="mb-1">{line}</p>
-            ))}
-            <p className="mt-2" style={{ color: "#7E948A" }}>
-              תנאי ביטול: ביטול עד 14 יום לפני הסדנה — החזר של 50%. פחות מ־3 ימים
-              לפני הסדנה — ללא החזר.
-            </p>
-            <label className="flex items-start gap-2 mt-3 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={waiver}
-                onChange={(e) => setWaiver(e.target.checked)}
-                className="mt-1 h-4 w-4 accent-pink-600"
-              />
-              <span style={{ color: C.offWhite }}>
-                קראתי ואני מאשר/ת את תנאי ההשתתפות, האחריות והביטול *
-              </span>
-            </label>
           </div>
-
-          <label className="flex items-start gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={whatsappOptin}
-              onChange={(e) => setWhatsappOptin(e.target.checked)}
-              className="mt-1 h-4 w-4 accent-pink-600"
-            />
-            <span style={{ color: "#D8E2DC" }}>{WHATSAPP_OPTIN_LABEL}</span>
-          </label>
-
-          <button
-            onClick={submit}
-            disabled={status === "sending"}
-            className="w-full rounded-xl py-4 text-lg font-black transition disabled:opacity-50 hover:opacity-90"
-            style={{ background: C.brand, color: "#fff" }}
-          >
-            {status === "sending" ? "שולח..." : "הירשם עכשיו ותתחיל לעוף 🚀"}
-          </button>
-
-          {status === "full" && (
-            <p className="text-sm font-bold" style={{ color: "#FF8FA3" }}>
-              הסדנה בתאריך הזה מלאה 😢 נסה את התאריך השני, או השאר פרטים בצור קשר
-              ונעדכן אם יתפנה מקום.
-            </p>
-          )}
-          {status === "error" && (
-            <p className="text-sm" style={{ color: "#FF8FA3" }}>
-              משהו השתבש. נסה שוב או כתוב לנו בוואטסאפ.
-            </p>
-          )}
-        </div>
-      </section>
-    </main>
-  );
+        )}
+      </div>
+    </div>
+  )
 }
