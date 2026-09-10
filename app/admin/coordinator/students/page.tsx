@@ -58,6 +58,7 @@ export default function StudentsPage() {
   const [search, setSearch]           = useState('')
   const [branchFilter, setBranchFilter] = useState('הכל')
   const [groupFilter, setGroupFilter] = useState('הכל')
+  const [statusFilter, setStatusFilter] = useState<'הכל' | 'קבוע' | 'מזדמן'>('הכל')
 
   // Modal state
   const [selected, setSelected]       = useState<Rider | null>(null)
@@ -181,6 +182,8 @@ export default function StudentsPage() {
       if (!inBranch) return false
     }
     if (groupFilter !== 'הכל' && !rg.some(g => g.name === groupFilter)) return false
+    if (statusFilter === 'קבוע' && !r.is_regular) return false
+    if (statusFilter === 'מזדמן' && r.is_regular) return false
     if (search) {
       const q = search.toLowerCase()
       if (!r.full_name.toLowerCase().includes(q) && !(r.phone ?? '').includes(q)) return false
@@ -237,7 +240,30 @@ export default function StudentsPage() {
         <select aria-label="סינון לפי קבוצה" value={groupFilter} onChange={e => setGroupFilter(e.target.value)} style={{ ...inp, flex: '0 0 180px' }}>
           {groupNames.map(g => <option key={g}>{g}</option>)}
         </select>
+        <select aria-label="סינון לפי סטטוס" value={statusFilter} onChange={e => setStatusFilter(e.target.value as typeof statusFilter)} style={{ ...inp, flex: '0 0 130px' }}>
+          <option>הכל</option>
+          <option>קבוע</option>
+          <option>מזדמן</option>
+        </select>
       </div>
+
+      {/* ── Payment summary for the current filter — the point of filtering by
+          group/status is usually "who here still needs to pay?" ── */}
+      {(branchFilter !== 'הכל' || groupFilter !== 'הכל' || statusFilter !== 'הכל') && !loading && (
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+          {[
+            { label: 'רשומים', value: filtered.length, color: '#e8efe9' },
+            { label: 'קבועים', value: filtered.filter(r => r.is_regular).length, color: '#4cdb7a' },
+            { label: 'שילמו', value: filtered.filter(r => r.payment_status === 'paid').length, color: '#4cdb7a' },
+            { label: 'לא שילמו', value: filtered.filter(r => r.payment_status === 'unpaid').length, color: '#ff8f6b' },
+          ].map(s => (
+            <div key={s.label} style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 10, padding: '10px 18px', textAlign: 'center', flex: '1 1 100px' }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
+              <div style={{ fontSize: 11, color: '#7a8f7d', marginTop: 2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Table ── */}
       {loading ? (
