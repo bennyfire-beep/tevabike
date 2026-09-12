@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 
 // Pages with their own dedicated chrome — the public site nav shouldn't
 // overlay these (staff dashboards, login, auth callback, API routes).
-const HIDE_PREFIXES = ['/admin', '/student', '/auth', '/login', '/api']
+const HIDE_PREFIXES = ['/admin', '/student', '/auth', '/login', '/api', '/interval']
 
 export default function SiteNav() {
   const [scrolled, setScrolled] = useState(false)

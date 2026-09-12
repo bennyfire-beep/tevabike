@@ -30,6 +30,7 @@ const NAV: NavGroup[] = [
     { href: '/admin/coordinator/groups', label: 'קבוצות', icon: '👥' },
     { href: '/admin/coordinator/students', label: 'תלמידים', icon: '🧑‍🎓' },
     { href: '/admin/coordinator/attendance', label: 'נוכחות', icon: '📋' },
+    { href: '/admin/coordinator/interval', label: 'טיימר אינטרוול', icon: '⏱️' },
     { href: '/admin/coordinator/history', label: 'היסטוריה', icon: '🕓' },
     { href: '/admin/coordinator/registrations', label: 'הרשמות', icon: '📝' },
     { href: '/admin/coordinator/workshops', label: 'סדנאות', icon: '🎒' },
