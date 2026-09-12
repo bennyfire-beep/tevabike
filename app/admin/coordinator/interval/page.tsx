@@ -20,6 +20,14 @@ const ACCENT = '#b5e853'
 const CARD   = '#141716'
 const BORDER = '#252b27'
 const MUTED  = '#7a8f7d'
+const WHATSAPP_GREEN = '#25D366'
+
+// Hardcoded rather than window.location.origin — this panel is only ever
+// used from the real domain (same pattern as the alert links in
+// lib/whatsapp-notify.ts), and a hardcoded string avoids a hydration
+// mismatch between server and client render.
+const JOIN_URL = 'https://www.tevabike.com/interval/join'
+const WHATSAPP_INVITE_TEXT = `🚴 טיימר אינטרוול טבע בייק — הצטרפו כדי לקבל אות (צליל+רטט) בכל שלב באימון, גם עם מסך נעול:\n${JOIN_URL}`
 
 type Phase = 'idle' | 'work' | 'rest' | 'done'
 type Status = 'idle' | 'running' | 'paused' | 'finished'
@@ -60,8 +68,22 @@ export default function IntervalControlPage() {
   const [workSeconds, setWorkSeconds] = useState('30')
   const [restSeconds, setRestSeconds] = useState('30')
   const [rounds, setRounds] = useState('6')
+  const [copied, setCopied] = useState(false)
 
   const skipInFlight = useRef(false)
+
+  async function copyJoinLink() {
+    try {
+      await navigator.clipboard.writeText(JOIN_URL)
+    } catch {
+      // Clipboard API needs a secure context / permission — fall back to the
+      // WhatsApp share button below, which works everywhere.
+      setError('ההעתקה לא הצליחה בדפדפן הזה — אפשר לשלוח ישירות בוואטסאפ')
+      return
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
   const wakeLock = useRef<{ release: () => Promise<void> } | null>(null)
 
   async function refetchSession() {
@@ -189,9 +211,25 @@ export default function IntervalControlPage() {
   return (
     <div dir="rtl" style={{ fontFamily: 'Heebo, Arial, sans-serif', color: '#e7e7e0', maxWidth: 720 }}>
       <h1 style={{ fontSize: 22, fontWeight: 900, margin: '0 0 4px' }}>⏱️ טיימר אינטרוול</h1>
-      <p style={{ color: MUTED, margin: '0 0 20px', fontSize: 14 }}>
-        קישור להצטרפות חניכים: <code style={{ background: CARD, padding: '2px 8px', borderRadius: 6 }}>tevabike.com/interval/join</code>
-      </p>
+
+      {/* קישור להצטרפות חניכים — העתקה מהירה או שליחה ישירה לוואטסאפ */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, background: CARD, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '12px 14px', marginBottom: 20 }}>
+        <code style={{ flex: '1 1 220px', color: MUTED, fontSize: 13.5, direction: 'ltr', textAlign: 'left', overflowWrap: 'anywhere' }}>{JOIN_URL}</code>
+        <button
+          onClick={copyJoinLink}
+          style={{ padding: '9px 14px', borderRadius: 9, border: `1px solid ${BORDER}`, background: copied ? '#1f3d2a' : '#1c211d', color: copied ? ACCENT : '#e7e7e0', fontWeight: 800, fontSize: 13.5, cursor: 'pointer', whiteSpace: 'nowrap' }}
+        >
+          {copied ? '✓ הועתק' : '📋 העתקת קישור'}
+        </button>
+        <a
+          href={`https://wa.me/?text=${encodeURIComponent(WHATSAPP_INVITE_TEXT)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ padding: '9px 14px', borderRadius: 9, border: 'none', background: WHATSAPP_GREEN, color: '#0d0f0e', fontWeight: 800, fontSize: 13.5, textDecoration: 'none', whiteSpace: 'nowrap' }}
+        >
+          💬 שליחה בוואטסאפ
+        </a>
+      </div>
 
       {error && (
         <p role="alert" style={{ background: '#3a1414', border: '1px solid #5a2323', color: '#f3a6a6', borderRadius: 10, padding: '10px 14px', fontSize: 14, marginBottom: 16 }}>{error}</p>

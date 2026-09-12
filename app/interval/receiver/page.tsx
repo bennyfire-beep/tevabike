@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 // /interval/receiver — the screen a rider actually looks at during the
@@ -56,9 +56,90 @@ function formatTime(totalSeconds: number): string {
   return `${mm}:${String(ss).padStart(2, '0')}`
 }
 
+// ── Sound + vibration on phase change ───────────────────────────────────────
+// The Web Push (see lib/interval-notify.ts) is what's supposed to wake a
+// LOCKED phone, but in practice that only works from the installed home-
+// screen PWA (iOS requires it; testing straight in a Safari tab never rings).
+// This is the fallback that actually matters for "screen is open, on the
+// table, nobody's looking at it every second": play an audible tone and
+// vibrate right here whenever the phase changes, independent of push/PWA
+// install status entirely.
+//
+// iOS Safari blocks audio started without a user gesture, and never supports
+// navigator.vibrate at all (Apple's own restriction, not fixable from here) —
+// so the page waits for one tap anywhere to unlock its AudioContext before
+// any of this can play.
+function beep(ctx: AudioContext, freq: number, atSeconds: number, durationSeconds: number, gain = 0.4) {
+  const osc = ctx.createOscillator()
+  const g = ctx.createGain()
+  osc.type = 'sine'
+  osc.frequency.value = freq
+  const t0 = ctx.currentTime + atSeconds
+  g.gain.setValueAtTime(0, t0)
+  g.gain.linearRampToValueAtTime(gain, t0 + 0.01)
+  g.gain.linearRampToValueAtTime(0, t0 + durationSeconds)
+  osc.connect(g)
+  g.connect(ctx.destination)
+  osc.start(t0)
+  osc.stop(t0 + durationSeconds + 0.02)
+}
+
+/** "תות תות" — short double beep, work starting. */
+function playStartSound(ctx: AudioContext) {
+  beep(ctx, 880, 0, 0.14)
+  beep(ctx, 880, 0.22, 0.14)
+}
+
+/** One long tone — this phase is over, stop / switch to rest. */
+function playStopSound(ctx: AudioContext) {
+  beep(ctx, 440, 0, 0.75, 0.45)
+}
+
+/** Three rising beeps — the whole workout is done. */
+function playFinishSound(ctx: AudioContext) {
+  beep(ctx, 660, 0, 0.16)
+  beep(ctx, 880, 0.22, 0.16)
+  beep(ctx, 1100, 0.44, 0.3)
+}
+
+function vibrate(pattern: number[]) {
+  try { navigator.vibrate?.(pattern) } catch { /* unsupported (all of iOS) — ignore */ }
+}
+
 export default function IntervalReceiverPage() {
   const [session, setSession] = useState<SessionRow | null>(null)
   const [now, setNow] = useState(() => Date.now())
+  const [soundEnabled, setSoundEnabled] = useState(false)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const lastPhaseRef = useRef<Phase | null>(null)
+
+  function enableSound() {
+    if (audioCtxRef.current) { audioCtxRef.current.resume(); setSoundEnabled(true); return }
+    const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!Ctor) return
+    audioCtxRef.current = new Ctor()
+    // A silent tick right now, inside this tap, is what actually unlocks the
+    // context on iOS — a later call from a Realtime callback (no user
+    // gesture behind it) would otherwise be silently ignored by Safari.
+    beep(audioCtxRef.current, 440, 0, 0.01, 0.0001)
+    setSoundEnabled(true)
+  }
+
+  // Fires the right sound + vibration exactly on a phase transition — never
+  // on the initial load (lastPhaseRef starts null, so the first real value
+  // is treated as "nothing to compare yet", not a transition) and never
+  // twice for the same phase (Realtime can resend the same row on reconnect).
+  useEffect(() => {
+    const next = session?.current_phase
+    if (next === undefined) return // nothing loaded yet
+    const prev = lastPhaseRef.current
+    lastPhaseRef.current = next
+    if (prev === null || prev === next) return
+
+    if (next === 'work') { vibrate([200, 100, 200]); if (soundEnabled && audioCtxRef.current) playStartSound(audioCtxRef.current) }
+    else if (next === 'rest') { vibrate([600]); if (soundEnabled && audioCtxRef.current) playStopSound(audioCtxRef.current) }
+    else if (next === 'done') { vibrate([400, 100, 400, 100, 400]); if (soundEnabled && audioCtxRef.current) playFinishSound(audioCtxRef.current) }
+  }, [session?.current_phase, soundEnabled])
 
   useEffect(() => {
     let cancelled = false
@@ -119,12 +200,22 @@ export default function IntervalReceiverPage() {
   const bg = PHASE_BG[phase]
 
   return (
-    <div dir="rtl" style={{
-      minHeight: '100vh', background: bg, color: '#fff',
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'Heebo, Arial, sans-serif', padding: 24, textAlign: 'center',
-      transition: 'background 0.4s ease',
-    }}>
+    <div
+      dir="rtl"
+      onClick={soundEnabled ? undefined : enableSound}
+      style={{
+        minHeight: '100vh', background: bg, color: '#fff',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'Heebo, Arial, sans-serif', padding: 24, textAlign: 'center',
+        transition: 'background 0.4s ease', cursor: soundEnabled ? 'default' : 'pointer',
+      }}
+    >
+      {!soundEnabled && (
+        <div style={{ position: 'fixed', top: 0, insetInline: 0, background: 'rgba(0,0,0,0.55)', padding: '10px 16px', fontSize: 14, fontWeight: 800 }}>
+          🔊 הקישו על המסך כדי להפעיל צליל לאותות
+        </div>
+      )}
+
       <img src="/logo.png" alt="טבע בייק" style={{ height: 44, borderRadius: 8, marginBottom: 28, opacity: 0.95 }} />
 
       {status === 'finished' || phase === 'done' ? (
