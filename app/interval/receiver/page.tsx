@@ -84,6 +84,21 @@ export default function IntervalReceiverPage() {
     }
   }, [])
 
+  // A locked/backgrounded phone can suspend the Realtime socket — when the
+  // rider unlocks and looks at this screen, re-sync from the DB immediately
+  // instead of showing whatever phase was last rendered until a Realtime
+  // event happens to arrive (the Web Push already woke them; this just makes
+  // sure the screen they glance at matches reality right away).
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState !== 'visible') return
+      supabase.from('interval_sessions').select('*').eq('id', SESSION_ID).single()
+        .then(({ data }) => { if (data) setSession(data as SessionRow) })
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
   // Local 1x/sec tick so the countdown reads smoothly between server updates
   // — the source of truth is always phase_ends_at, this just re-renders.
   useEffect(() => {

@@ -62,6 +62,12 @@ export default function IntervalControlPage() {
   const [rounds, setRounds] = useState('6')
 
   const skipInFlight = useRef(false)
+  const wakeLock = useRef<{ release: () => Promise<void> } | null>(null)
+
+  async function refetchSession() {
+    const { data } = await supabase.from('interval_sessions').select('*').eq('id', SESSION_ID).single()
+    if (data) setSession(data as SessionRow)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -98,6 +104,46 @@ export default function IntervalControlPage() {
     const id = setInterval(() => setNow(Date.now()), 250)
     return () => clearInterval(id)
   }, [])
+
+  // A backgrounded/locked phone can suspend the Realtime socket outright — on
+  // returning to the tab, re-sync from the DB instead of trusting whatever
+  // Realtime event (if any) eventually arrives. Cheap, and it's exactly the
+  // moment a stale display would otherwise be most visible to the coordinator.
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === 'visible') refetchSession()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
+  // Screen Wake Lock — this panel's own auto-advance (below) only runs while
+  // its tab is alive and ticking; a phone/tablet screen turning off during a
+  // live session would stall it. Best-effort: unsupported browsers (older
+  // Safari) just fall back to "keep the screen on yourself", same as today.
+  useEffect(() => {
+    const nav = navigator as Navigator & { wakeLock?: { request: (type: 'screen') => Promise<{ release: () => Promise<void> }> } }
+    if (!nav.wakeLock) return
+
+    async function acquire() {
+      try { wakeLock.current = await nav.wakeLock!.request('screen') } catch { /* denied/unsupported — carry on without it */ }
+    }
+    async function release() {
+      try { await wakeLock.current?.release() } catch { /* already released */ }
+      wakeLock.current = null
+    }
+    function onVisible() {
+      // The wake lock is auto-released whenever the tab is hidden — re-request
+      // it once the coordinator comes back, if the session is still running.
+      if (document.visibilityState === 'visible' && session?.status === 'running' && !wakeLock.current) acquire()
+    }
+
+    if (session?.status === 'running') acquire()
+    else release()
+
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [session?.status])
 
   async function call(action: string, extra?: Record<string, unknown>) {
     setBusy(true)
