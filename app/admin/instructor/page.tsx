@@ -807,18 +807,20 @@ export default function InstructorPage() {
   useEffect(() => {
     if (!account) return
     let cancelled = false
-    fetch(`/api/instructor/travel-status?instructor_id=${encodeURIComponent(account.id)}&date=${today}`)
-      .then(r => r.json())
-      .then((d: TravelStatus) => {
-        if (cancelled || !d?.is_per_km) return
-        setTravel(d)
-        // Prefill from today's report, or the last one filed — most instructors
-        // leave from the same place every week.
-        const prefill = d.today ?? d.last
-        setTravelOrigin(prefill?.origin ?? '')
-        setTravelKm(prefill ? String(prefill.km) : '')
-      })
-      .catch(() => {})
+    async function load() {
+      const headers = await authHeaders()
+      if (!headers || cancelled) return
+      const r = await fetch(`/api/instructor/travel-status?date=${today}`, { headers })
+      const d: TravelStatus = await r.json()
+      if (cancelled || !d?.is_per_km) return
+      setTravel(d)
+      // Prefill from today's report, or the last one filed — most instructors
+      // leave from the same place every week.
+      const prefill = d.today ?? d.last
+      setTravelOrigin(prefill?.origin ?? '')
+      setTravelKm(prefill ? String(prefill.km) : '')
+    }
+    load().catch(() => {})
     return () => { cancelled = true }
   }, [account, today])
 
@@ -1001,9 +1003,11 @@ export default function InstructorPage() {
     // Saved through the service-role route: attendance and its present_count
     // are what the pay reports price the lesson from.
     try {
+      const headers = await authHeaders()
+      if (!headers) { alert('החיבור פג — יש להתחבר מחדש'); return }
       const r = await fetch('/api/instructor/save', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({
           session: {
             id: s.id,
@@ -1041,10 +1045,12 @@ export default function InstructorPage() {
     setTravelSaving(true)
     setTravelError('')
     try {
+      const headers = await authHeaders()
+      if (!headers) { setTravelError('החיבור פג — יש להתחבר מחדש'); return }
       const r = await fetch('/api/instructor/travel-save', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instructor_id: me.id, travel_date: today, origin: travelOrigin.trim(), km }),
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ travel_date: today, origin: travelOrigin.trim(), km }),
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) { setTravelError(d.error ?? 'שמירת הנסיעות נכשלה'); return }

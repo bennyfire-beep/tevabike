@@ -1,32 +1,23 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from 'next/server'
+import { resolveCaller } from '@/lib/instructor-identity'
 
-// Active instructors for the no-login instructor mobile page.
-// admin_roles is only readable by authenticated users under RLS (and holds
-// staff PII), so we MUST read it with the service role. We deliberately do NOT
-// fall back to the anon key here: the anon key can't read admin_roles under RLS
-// and would silently return an empty list (this was the production bug —
-// the mobile page showed "לא נמצאו מדריכים פעילים"). Instead we fail loudly and log.
+// Active instructors — staff PII (name + branch) read with the service role
+// because admin_roles is only readable by authenticated users under RLS.
+//
+// Not called from anywhere in the app today (the instructor mobile page now
+// resolves its own identity from the login session instead of picking from
+// this list), but it was reachable with no login at all, which handed out
+// every active instructor's name and branch to anyone. Locked to any signed-in
+// staff member instead of removing the route outright, in case something
+// still depends on it that this pass didn't find.
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+export async function GET(req: NextRequest) {
+  const auth = await resolveCaller(req.headers.get('authorization'))
+  if (!auth.ok) return NextResponse.json({ error: auth.error, instructors: [] }, { status: auth.status })
+  const { db } = auth.identity
 
-  if (!url) {
-    console.error('[instructor/list] NEXT_PUBLIC_SUPABASE_URL is not set')
-    return NextResponse.json({ error: 'Supabase URL not configured', instructors: [] }, { status: 500 })
-  }
-  if (!serviceKey) {
-    console.error('[instructor/list] SUPABASE_SERVICE_ROLE_KEY is not set — cannot read admin_roles under RLS. Set it in the deployment environment (e.g. Vercel).')
-    return NextResponse.json(
-      { error: 'Server misconfigured: SUPABASE_SERVICE_ROLE_KEY missing', instructors: [] },
-      { status: 500 },
-    )
-  }
-
-  const db = createClient(url, serviceKey)
   const { data, error } = await db
     .from('admin_roles')
     .select('id, name, branch')

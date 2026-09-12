@@ -1,27 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { saveAttendanceAndPay, type SaveSession, type SaveRider } from '@/lib/attendance'
+import { resolveCaller } from '@/lib/instructor-identity'
 
-// Attendance save for the no-login instructor mobile page.
+// Attendance save for the instructor mobile page.
 //
-// The attendance / class_sessions writes are already anon-permitted by RLS, but
-// pay needs the instructor's rates from staff_pay, which is not anon-readable.
-// So the mobile page posts here and we run the shared save logic with a
-// service-role client. That keeps staff pay off the public anon key while
-// still computing the amount correctly.
+// The attendance / class_sessions writes are already coordinator-permitted by
+// RLS, but pay needs the instructor's rates from staff_pay, which is not
+// staff-readable. So the mobile page posts here and we run the shared save
+// logic with a service-role client. That keeps staff pay off the instructor's
+// own session while still computing the amount correctly.
+//
+// Authorization is deliberately just "is this a real, signed-in instructor" —
+// not "is this THEIR session". Instructors cover each other's groups all the
+// time (see /api/instructor/open-session), and a covered session keeps its
+// original instructor_id/instructor_ids on purpose, so tying this route to
+// those fields would block the exact covering flow the rest of the page is
+// built around. What resolveCaller closes is the real hole: before this,
+// anyone with no login at all could call this route.
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  // Require the service role: with the anon key we could still write attendance,
-  // but reading staff_pay for the instructor's rates would silently
-  // fail under RLS and understate pay. Fail loudly instead.
-  if (!url || !serviceKey) {
-    console.error('[instructor/save] SUPABASE_SERVICE_ROLE_KEY or URL not set — refusing to save with wrong pay. Configure it in the deployment environment.')
-    return NextResponse.json({ error: 'Server misconfigured: SUPABASE_SERVICE_ROLE_KEY missing' }, { status: 500 })
-  }
+  const auth = await resolveCaller(req.headers.get('authorization'), 'instructor')
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
+  const { db } = auth.identity
 
   let body: { session?: SaveSession; riders?: SaveRider[]; attendance?: Record<string, boolean> }
   try {
@@ -35,7 +37,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing session or riders' }, { status: 400 })
   }
 
-  const db = createClient(url, serviceKey)
   const res = await saveAttendanceAndPay(session, riders, attendance ?? {}, db)
   if (res.error) return NextResponse.json({ error: res.error }, { status: 500 })
 
