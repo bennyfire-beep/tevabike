@@ -1,0 +1,16 @@
+{
+  "name": "טבע בייק אינטרוול",
+  "short_name": "טבע בייק",
+  "description": "טיימר אינטרוול חי לאימוני טבע בייק",
+  "start_url": "/interval/receiver",
+  "scope": "/interval",
+  "display": "standalone",
+  "dir": "rtl",
+  "lang": "he",
+  "background_color": "#0d0f0e",
+  "theme_color": "#0d0f0e",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

@@ -8,7 +8,9 @@ import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 // Bottom-left, stacked ABOVE the accessibility link that lives in the root
 // layout (so the two don't overlap). Hidden on /admin. Submits to the
 // service-role /api/leads route. Accessible: labelled dialog, focus trap,
-// Esc/backdrop close, keyboard nav, AA-contrast colours.
+// Esc/backdrop close, keyboard nav, AA-contrast colours. Also hidden on
+// /interval — that's a full-screen kiosk-style PWA screen for the interval
+// timer, not a marketing page.
 
 const PURPLE = '#7c3aed'   // violet-600 — AA contrast with white text
 const PINK   = '#db2777'   // pink-600
@@ -16,7 +18,7 @@ const INK    = '#1a1230'
 
 export default function ContactWidget() {
   const pathname = usePathname()
-  const isAdmin = pathname?.startsWith('/admin') ?? false
+  const isAdmin = (pathname?.startsWith('/admin') || pathname?.startsWith('/interval')) ?? false
 
   const [mounted, setMounted]     = useState(false)
   const [open, setOpen]           = useState(false)
