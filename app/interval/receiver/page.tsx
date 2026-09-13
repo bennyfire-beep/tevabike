@@ -102,6 +102,11 @@ function playFinishSound(ctx: AudioContext) {
   beep(ctx, 1100, 0.44, 0.3)
 }
 
+/** One short confirmation beep — "yes, sound is on", played the moment the rider taps to enable it. */
+function playEnabledSound(ctx: AudioContext) {
+  beep(ctx, 660, 0, 0.12, 0.35)
+}
+
 function vibrate(pattern: number[]) {
   try { navigator.vibrate?.(pattern) } catch { /* unsupported (all of iOS) — ignore */ }
 }
@@ -114,14 +119,18 @@ export default function IntervalReceiverPage() {
   const lastPhaseRef = useRef<Phase | null>(null)
 
   function enableSound() {
-    if (audioCtxRef.current) { audioCtxRef.current.resume(); setSoundEnabled(true); return }
     const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-    if (!Ctor) return
-    audioCtxRef.current = new Ctor()
-    // A silent tick right now, inside this tap, is what actually unlocks the
-    // context on iOS — a later call from a Realtime callback (no user
-    // gesture behind it) would otherwise be silently ignored by Safari.
-    beep(audioCtxRef.current, 440, 0, 0.01, 0.0001)
+    if (!audioCtxRef.current) {
+      if (!Ctor) return
+      audioCtxRef.current = new Ctor()
+    }
+    // Resuming (or creating) right now, inside the tap itself, is what
+    // actually unlocks the context on iOS — a later call from a Realtime
+    // callback (no user gesture behind it) would otherwise be silently
+    // ignored by Safari. Play an audible beep, not a silent one: that's the
+    // rider's actual confirmation that sound is on, rather than trusting a
+    // banner disappearing.
+    audioCtxRef.current.resume().then(() => playEnabledSound(audioCtxRef.current!))
     setSoundEnabled(true)
   }
 
@@ -136,9 +145,20 @@ export default function IntervalReceiverPage() {
     lastPhaseRef.current = next
     if (prev === null || prev === next) return
 
-    if (next === 'work') { vibrate([200, 100, 200]); if (soundEnabled && audioCtxRef.current) playStartSound(audioCtxRef.current) }
-    else if (next === 'rest') { vibrate([600]); if (soundEnabled && audioCtxRef.current) playStopSound(audioCtxRef.current) }
-    else if (next === 'done') { vibrate([400, 100, 400, 100, 400]); if (soundEnabled && audioCtxRef.current) playFinishSound(audioCtxRef.current) }
+    if (next === 'work') vibrate([200, 100, 200])
+    else if (next === 'rest') vibrate([600])
+    else if (next === 'done') vibrate([400, 100, 400, 100, 400])
+
+    if (!soundEnabled || !audioCtxRef.current) return
+    const ctx = audioCtxRef.current
+    // iOS suspends the AudioContext on its own after even a brief background
+    // (screen dimming counts) — resume() is a no-op if it's already running,
+    // so it's safe to call unconditionally right before every sound.
+    ctx.resume().then(() => {
+      if (next === 'work') playStartSound(ctx)
+      else if (next === 'rest') playStopSound(ctx)
+      else if (next === 'done') playFinishSound(ctx)
+    })
   }, [session?.current_phase, soundEnabled])
 
   useEffect(() => {
@@ -175,6 +195,10 @@ export default function IntervalReceiverPage() {
       if (document.visibilityState !== 'visible') return
       supabase.from('interval_sessions').select('*').eq('id', SESSION_ID).single()
         .then(({ data }) => { if (data) setSession(data as SessionRow) })
+      // Coming back from even a brief lock/background — iOS suspends the
+      // AudioContext on its own, so re-arm it now rather than finding out
+      // silently mid-phase-change that it needs resuming.
+      audioCtxRef.current?.resume()
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
@@ -210,11 +234,11 @@ export default function IntervalReceiverPage() {
         transition: 'background 0.4s ease', cursor: soundEnabled ? 'default' : 'pointer',
       }}
     >
-      {!soundEnabled && (
-        <div style={{ position: 'fixed', top: 0, insetInline: 0, background: 'rgba(0,0,0,0.55)', padding: '10px 16px', fontSize: 14, fontWeight: 800 }}>
-          🔊 הקישו על המסך כדי להפעיל צליל לאותות
-        </div>
-      )}
+      <div style={{ position: 'fixed', top: 0, insetInline: 0, background: 'rgba(0,0,0,0.55)', padding: '10px 16px', fontSize: 13.5, fontWeight: 800 }}>
+        {soundEnabled
+          ? '🔊 צליל פעיל · השאירו את המסך פתוח (לא נעול) כדי לשמוע'
+          : '🔇 הקישו על המסך כדי להפעיל צליל לאותות'}
+      </div>
 
       <img src="/logo.png" alt="טבע בייק" style={{ height: 44, borderRadius: 8, marginBottom: 28, opacity: 0.95 }} />
 
