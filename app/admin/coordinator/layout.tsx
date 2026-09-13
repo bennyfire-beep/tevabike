@@ -36,6 +36,7 @@ const NAV: NavGroup[] = [
     { href: '/admin/coordinator/workshops', label: 'סדנאות', icon: '🎒' },
     { href: '/admin/coordinator/camp', label: 'ימי שיא', icon: '🏕️' },
     { href: '/admin/coordinator/camp-sukkot', label: 'מחנה סוכות', icon: '⛺' },
+    { href: '/admin/coordinator/hakpatzot', label: 'הקפצות', icon: '🚐' },
     { href: '/admin/coordinator/trips', label: 'טיולי חו״ל', icon: '✈️', salaryOnly: true },
   ]},
   { title: 'וואטסאפ ולקוחות', items: [
