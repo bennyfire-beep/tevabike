@@ -235,6 +235,10 @@ export default function IntervalJoinPage() {
             >
               המשך לטיימר ←
             </button>
+
+            <a href="/interval/personal" style={{ display: 'block', textAlign: 'center', marginTop: 16, color: '#6b6b6b', fontSize: 13.5, textDecoration: 'underline' }}>
+              רוצים להתאמן עכשיו לבד? הפעילו אינטרוול אישי ←
+            </a>
           </>
         )}
       </div>
