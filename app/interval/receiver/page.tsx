@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { playStartSound, playStopSound, playFinishSound, playEnabledSound, vibrate, formatTime } from '@/lib/interval-sound'
 
 // /interval/receiver — the screen a rider actually looks at during the
 // workout: one huge number, background colour telling them work vs rest at
@@ -48,68 +49,6 @@ const RECOMMENDATIONS = [
   { name: 'גריפים ספייק 33', price: 139, image: '/SPIKE33MAIN123.webp' },
   { name: 'מגיני רגל IXS CARVE 2.0', price: 550, image: 'https://fmxkkwunwzmrjsvejzub.supabase.co/storage/v1/object/public/product-images/ixs_carve_2_knee_guards/1788878130301-w5s25i.png' },
 ]
-
-function formatTime(totalSeconds: number): string {
-  const s = Math.max(0, Math.round(totalSeconds))
-  const mm = Math.floor(s / 60)
-  const ss = s % 60
-  return `${mm}:${String(ss).padStart(2, '0')}`
-}
-
-// ── Sound + vibration on phase change ───────────────────────────────────────
-// The Web Push (see lib/interval-notify.ts) is what's supposed to wake a
-// LOCKED phone, but in practice that only works from the installed home-
-// screen PWA (iOS requires it; testing straight in a Safari tab never rings).
-// This is the fallback that actually matters for "screen is open, on the
-// table, nobody's looking at it every second": play an audible tone and
-// vibrate right here whenever the phase changes, independent of push/PWA
-// install status entirely.
-//
-// iOS Safari blocks audio started without a user gesture, and never supports
-// navigator.vibrate at all (Apple's own restriction, not fixable from here) —
-// so the page waits for one tap anywhere to unlock its AudioContext before
-// any of this can play.
-function beep(ctx: AudioContext, freq: number, atSeconds: number, durationSeconds: number, gain = 0.4) {
-  const osc = ctx.createOscillator()
-  const g = ctx.createGain()
-  osc.type = 'sine'
-  osc.frequency.value = freq
-  const t0 = ctx.currentTime + atSeconds
-  g.gain.setValueAtTime(0, t0)
-  g.gain.linearRampToValueAtTime(gain, t0 + 0.01)
-  g.gain.linearRampToValueAtTime(0, t0 + durationSeconds)
-  osc.connect(g)
-  g.connect(ctx.destination)
-  osc.start(t0)
-  osc.stop(t0 + durationSeconds + 0.02)
-}
-
-/** "תות תות" — short double beep, work starting. */
-function playStartSound(ctx: AudioContext) {
-  beep(ctx, 880, 0, 0.14)
-  beep(ctx, 880, 0.22, 0.14)
-}
-
-/** One long tone — this phase is over, stop / switch to rest. */
-function playStopSound(ctx: AudioContext) {
-  beep(ctx, 440, 0, 0.75, 0.45)
-}
-
-/** Three rising beeps — the whole workout is done. */
-function playFinishSound(ctx: AudioContext) {
-  beep(ctx, 660, 0, 0.16)
-  beep(ctx, 880, 0.22, 0.16)
-  beep(ctx, 1100, 0.44, 0.3)
-}
-
-/** One short confirmation beep — "yes, sound is on", played the moment the rider taps to enable it. */
-function playEnabledSound(ctx: AudioContext) {
-  beep(ctx, 660, 0, 0.12, 0.35)
-}
-
-function vibrate(pattern: number[]) {
-  try { navigator.vibrate?.(pattern) } catch { /* unsupported (all of iOS) — ignore */ }
-}
 
 export default function IntervalReceiverPage() {
   const [session, setSession] = useState<SessionRow | null>(null)
@@ -258,6 +197,12 @@ export default function IntervalReceiverPage() {
             <div style={{ fontSize: 'clamp(20px, 5vw, 32px)', fontWeight: 700, opacity: 0.85, maxWidth: 320 }}>
               המדריך עוד לא התחיל את האימון — הישארו במסך הזה
             </div>
+          )}
+
+          {status === 'idle' && (
+            <a href="/interval/personal" style={{ display: 'inline-block', marginTop: 24, color: '#fff', opacity: 0.75, fontSize: 13.5, textDecoration: 'underline' }}>
+              רוצים להתאמן עכשיו לבד? הפעילו אינטרוול אישי ←
+            </a>
           )}
 
           {status !== 'idle' && (
