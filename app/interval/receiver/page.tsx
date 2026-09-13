@@ -111,11 +111,33 @@ function vibrate(pattern: number[]) {
   try { navigator.vibrate?.(pattern) } catch { /* unsupported (all of iOS) — ignore */ }
 }
 
+// iOS Safari suspends an AudioContext after a stretch of silence — even
+// while the tab stays fully visible and foregrounded the whole time, no
+// lock/background needed. That's exactly what made only the very first
+// sound (played moments after the enabling tap, while the context was still
+// definitely "warm") come through, and every later one during a long silent
+// countdown go missing even though ctx.resume() was called first: resume()
+// called from a non-gesture callback isn't reliably honoured once iOS has
+// actually suspended playback. The fix used by web-based metronomes/timers
+// is this: keep a completely silent buffer looping on the context for as
+// long as sound is enabled, so there's never a silent gap for iOS to
+// suspend in the first place — the real beeps then layer on top of it.
+function startSilentKeepAlive(ctx: AudioContext): AudioBufferSourceNode {
+  const buffer = ctx.createBuffer(1, 1, 22050)
+  const source = ctx.createBufferSource()
+  source.buffer = buffer
+  source.loop = true
+  source.connect(ctx.destination)
+  source.start(0)
+  return source
+}
+
 export default function IntervalReceiverPage() {
   const [session, setSession] = useState<SessionRow | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const [soundEnabled, setSoundEnabled] = useState(false)
   const audioCtxRef = useRef<AudioContext | null>(null)
+  const keepAliveRef = useRef<AudioBufferSourceNode | null>(null)
   const lastPhaseRef = useRef<Phase | null>(null)
 
   function enableSound() {
@@ -131,8 +153,19 @@ export default function IntervalReceiverPage() {
     // rider's actual confirmation that sound is on, rather than trusting a
     // banner disappearing.
     audioCtxRef.current.resume().then(() => playEnabledSound(audioCtxRef.current!))
+    if (!keepAliveRef.current) keepAliveRef.current = startSilentKeepAlive(audioCtxRef.current)
     setSoundEnabled(true)
   }
+
+  // Defensive belt-and-braces alongside the keep-alive buffer above: poll
+  // resume() every few seconds for as long as sound is on, in case iOS
+  // suspends the context anyway (e.g. a phone call, another app taking
+  // audio focus). resume() is a harmless no-op when already running.
+  useEffect(() => {
+    if (!soundEnabled) return
+    const id = setInterval(() => { audioCtxRef.current?.resume() }, 4000)
+    return () => clearInterval(id)
+  }, [soundEnabled])
 
   // Fires the right sound + vibration exactly on a phase transition — never
   // on the initial load (lastPhaseRef starts null, so the first real value
