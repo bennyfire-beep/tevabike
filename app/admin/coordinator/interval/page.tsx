@@ -269,7 +269,19 @@ export default function IntervalControlPage() {
       {/* כפתורי שליטה */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
         {status !== 'running' && (
-          <BigButton color={ACCENT} dark onClick={() => call(status === 'paused' ? 'resume' : 'start')} disabled={busy}>
+          <BigButton
+            color={ACCENT}
+            dark
+            onClick={() => call(
+              status === 'paused' ? 'resume' : 'start',
+              // Send the numbers currently in the fields on every fresh start —
+              // otherwise typing new values and hitting "התחל" without a
+              // separate "שמירת הגדרות" click first would silently start with
+              // whatever was last saved, not what's on screen.
+              status === 'paused' ? undefined : { work_seconds: Number(workSeconds), rest_seconds: Number(restSeconds), rounds: Number(rounds) },
+            )}
+            disabled={busy}
+          >
             {status === 'paused' ? '▶️ המשך' : '▶️ התחל'}
           </BigButton>
         )}
