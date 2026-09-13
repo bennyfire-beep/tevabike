@@ -15,6 +15,7 @@ type Reg = {
   created_at: string
   first_name: string
   last_name: string
+  phone: string
   group_type: string
   area: string
   consent: boolean
@@ -34,6 +35,11 @@ const STATUS_COLOR: Record<string, { bg: string; fg: string }> = {
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleString('he-IL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+const waLink = (phone: string, text: string) => {
+  const clean = phone.replace(/\D/g, '').replace(/^0/, '972')
+  return `https://wa.me/${clean}?text=${encodeURIComponent(text)}`
+}
 
 export default function HakpatzotAdminPage() {
   const user = useCoordinator()
@@ -71,9 +77,9 @@ export default function HakpatzotAdminPage() {
   const filtered = regs.filter(r => statusFilter === 'all' || r.status === statusFilter)
 
   const csv = () => {
-    const head = ['נרשם', 'שם פרטי', 'שם משפחה', 'קבוצה', 'אזור', 'תשלום']
+    const head = ['נרשם', 'שם פרטי', 'שם משפחה', 'טלפון', 'קבוצה', 'אזור', 'תשלום']
     const rows = filtered.map(r => [
-      fmtDate(r.created_at), r.first_name, r.last_name,
+      fmtDate(r.created_at), r.first_name, r.last_name, r.phone,
       GROUP_LABEL[r.group_type] ?? r.group_type, AREA_LABEL[r.area] ?? r.area,
       STATUS_LABEL[r.status] ?? r.status,
     ])
@@ -149,6 +155,10 @@ export default function HakpatzotAdminPage() {
                 <tr key={r.id} style={{ opacity: savingId === r.id ? 0.5 : 1 }}>
                   <td style={td}>
                     <div style={{ fontWeight: 700 }}>{r.first_name} {r.last_name}</div>
+                    <a href={waLink(r.phone, `היי ${r.first_name}, זה בני מטבע בייק לגבי יום ההקפצות`)}
+                      target="_blank" rel="noopener noreferrer" style={{ color: '#b5e853', fontSize: 12, textDecoration: 'none' }}>
+                      {r.phone}
+                    </a>
                   </td>
                   <td style={{ ...td, color: '#7a8f7d' }}>{GROUP_LABEL[r.group_type] ?? r.group_type}</td>
                   <td style={{ ...td, color: '#7a8f7d' }}>{AREA_LABEL[r.area] ?? r.area}</td>

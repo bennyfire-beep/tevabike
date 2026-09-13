@@ -55,6 +55,7 @@ export async function GET() {
 async function notifyBenny(r: {
   first_name: string
   last_name: string
+  phone: string
   group_type: string
   area: string
   count: number
@@ -74,6 +75,7 @@ async function notifyBenny(r: {
           <h2 style="margin:0 0 12px">🚐 הרשמה חדשה ליום ההקפצות</h2>
           <table style="border-collapse:collapse;font-size:15px">
             <tr><td style="padding:6px 12px;font-weight:700">שם</td><td style="padding:6px 12px">${r.first_name} ${r.last_name}</td></tr>
+            <tr><td style="padding:6px 12px;font-weight:700">טלפון</td><td style="padding:6px 12px">${r.phone}</td></tr>
             <tr><td style="padding:6px 12px;font-weight:700">קבוצה</td><td style="padding:6px 12px">${GROUP_LABEL[r.group_type] ?? r.group_type}</td></tr>
             <tr><td style="padding:6px 12px;font-weight:700">אזור</td><td style="padding:6px 12px">${AREA_LABEL[r.area] ?? r.area}</td></tr>
             <tr><td style="padding:6px 12px;font-weight:700">נרשמו עד כה</td><td style="padding:6px 12px">${r.count} / ${CAPACITY}</td></tr>
@@ -91,12 +93,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const first_name = String(body.first_name ?? '').trim().slice(0, 60)
     const last_name = String(body.last_name ?? '').trim().slice(0, 60)
+    const phone = String(body.phone ?? '').trim().slice(0, 20)
     const group_type = String(body.group_type ?? '')
     const area = String(body.area ?? '')
     const consent = body.consent === true
 
     if (!first_name || !last_name) {
       return NextResponse.json({ error: 'חסרים שם פרטי ושם משפחה' }, { status: 400 })
+    }
+    if (!phone || phone.replace(/\D/g, '').length < 9) {
+      return NextResponse.json({ error: 'מספר טלפון לא תקין' }, { status: 400 })
     }
     if (!['mini', 'full'].includes(group_type)) {
       return NextResponse.json({ error: 'יש לבחור קבוצה' }, { status: 400 })
@@ -123,7 +129,7 @@ export async function POST(req: NextRequest) {
 
     const { data: reg, error: insErr } = await db
       .from('hakpatzot_registrations')
-      .insert({ first_name, last_name, group_type, area, consent })
+      .insert({ first_name, last_name, phone, group_type, area, consent })
       .select('id, created_at')
       .single()
 
@@ -146,7 +152,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'המקום האחרון נתפס ממש עכשיו. ההרשמה סגורה.', closed: true }, { status: 409 })
     }
 
-    void notifyBenny({ first_name, last_name, group_type, area, count: rank ?? 0 })
+    void notifyBenny({ first_name, last_name, phone, group_type, area, count: rank ?? 0 })
 
     return NextResponse.json({ ok: true, count: rank ?? 0, closed: (rank ?? 0) >= CAPACITY })
   } catch (e) {

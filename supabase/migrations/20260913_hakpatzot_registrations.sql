@@ -16,6 +16,7 @@ create table if not exists hakpatzot_registrations (
   created_at timestamptz not null default now(),
   first_name text not null,
   last_name text not null,
+  phone text not null,
   group_type text not null check (group_type in ('mini', 'full')),
   area text not null check (area in ('misgav', 'mata_asher', 'biriya')),
   consent boolean not null default false,

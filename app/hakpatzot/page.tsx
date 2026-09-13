@@ -30,13 +30,13 @@ export default function HakpatzotPage() {
   const [status, setStatus] = useState<Status | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const [form, setForm] = useState({ first_name: '', last_name: '', group_type: '', area: '' })
+  const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', group_type: '', area: '' })
   const [consent, setConsent] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
-  const [done, setDone] = useState<{ first_name: string; last_name: string; group_type: string; area: string } | null>(null)
+  const [done, setDone] = useState<{ first_name: string; last_name: string; phone: string; group_type: string; area: string } | null>(null)
 
-  const set = (k: 'first_name' | 'last_name' | 'group_type' | 'area', v: string) =>
+  const set = (k: 'first_name' | 'last_name' | 'phone' | 'group_type' | 'area', v: string) =>
     setForm((f) => ({ ...f, [k]: v }))
 
   async function loadStatus() {
@@ -65,6 +65,10 @@ export default function HakpatzotPage() {
     setError('')
     if (!form.first_name.trim() || !form.last_name.trim()) {
       setError('חסרים שם פרטי ושם משפחה')
+      return
+    }
+    if (form.phone.replace(/\D/g, '').length < 9) {
+      setError('מספר טלפון לא תקין')
       return
     }
     if (!form.group_type) {
@@ -188,6 +192,7 @@ export default function HakpatzotPage() {
             <section className="space-y-5">
               <Field label="שם פרטי *" value={form.first_name} onChange={(v) => set('first_name', v)} />
               <Field label="שם משפחה *" value={form.last_name} onChange={(v) => set('last_name', v)} />
+              <Field label="טלפון *" type="tel" value={form.phone} onChange={(v) => set('phone', v)} />
 
               <div>
                 <label className="block text-sm text-stone-400 mb-1.5">קבוצה *</label>
@@ -277,15 +282,26 @@ export default function HakpatzotPage() {
   )
 }
 
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function Field({
+  label,
+  value,
+  onChange,
+  type = 'text',
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  type?: string
+}) {
   return (
     <div>
       <label className="block text-sm text-stone-400 mb-1.5">{label}</label>
       <input
-        type="text"
+        type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         maxLength={40}
+        dir={type === 'tel' ? 'ltr' : undefined}
         className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#D4288A]"
       />
     </div>
