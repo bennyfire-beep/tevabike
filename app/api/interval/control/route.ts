@@ -92,8 +92,18 @@ export async function POST(req: NextRequest) {
       if (current.status === 'running') {
         return NextResponse.json({ error: 'האימון כבר פעיל' }, { status: 409 })
       }
-      const phaseEndsAt = new Date(Date.now() + current.work_seconds * 1000)
+      // Accept the same optional overrides as 'configure' — the panel sends
+      // its current field values on every Start, so a coordinator who typed
+      // new numbers and hit "התחל" directly (without a separate Save step
+      // first) still gets the numbers they see, not whatever was last saved.
+      const workSeconds = body.work_seconds != null ? clampInt(body.work_seconds, 1, 3600, current.work_seconds) : current.work_seconds
+      const restSeconds = body.rest_seconds != null ? clampInt(body.rest_seconds, 0, 3600, current.rest_seconds) : current.rest_seconds
+      const roundsVal = body.rounds != null ? clampInt(body.rounds, 1, 200, current.rounds) : current.rounds
+      const phaseEndsAt = new Date(Date.now() + workSeconds * 1000)
       patch = {
+        work_seconds: workSeconds,
+        rest_seconds: restSeconds,
+        rounds: roundsVal,
         status: 'running',
         current_round: 1,
         current_phase: 'work',
@@ -102,7 +112,7 @@ export async function POST(req: NextRequest) {
       }
       push = {
         title: 'האימון מתחיל! 💪',
-        body: `עבודה — ${current.work_seconds} שניות · חזרה 1 מתוך ${current.rounds}`,
+        body: `עבודה — ${workSeconds} שניות · חזרה 1 מתוך ${roundsVal}`,
         vibrate: [300, 100, 300],
       }
       break
