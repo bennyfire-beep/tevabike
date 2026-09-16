@@ -24,7 +24,7 @@ type Reg = {
   whatsapp_optin_at: string | null
 }
 
-const BRANCH_LABEL: Record<string, string> = { misgav: 'משגב', biriya: 'ביריה', matzuva: 'מצובה' }
+const BRANCHES = ['משגב', 'ביריה', 'מטה אשר', 'פרוד-אמירים', 'צורית-גילון']
 const GROUP_LABEL: Record<string, string> = { beginners: 'גרביטי מתחילים', mini: 'מיני גרביטי', pro: 'גרביטי פרו' }
 
 const fmtDate = (iso: string) =>
@@ -71,10 +71,10 @@ export default function HashlamaAdminPage() {
   const byGroup = (group: string) => regs.filter(r => r.group_type === group).length
 
   const csv = () => {
-    const head = ['נרשם', 'שם פרטי', 'שם משפחה', 'טלפון', 'סניף', 'קבוצה']
+    const head = ['נרשם', 'שם פרטי', 'שם משפחה', 'טלפון', 'סניף/שלוחה', 'קבוצה']
     const rows = filtered.map(r => [
       fmtDate(r.created_at), r.first_name, r.last_name, r.phone,
-      BRANCH_LABEL[r.branch] ?? r.branch, GROUP_LABEL[r.group_type] ?? r.group_type,
+      r.branch, GROUP_LABEL[r.group_type] ?? r.group_type,
     ])
     downloadCsv('אימון-השלמה-הרשמות.csv', head, rows)
   }
@@ -113,10 +113,10 @@ export default function HashlamaAdminPage() {
           <button onClick={csv} style={btnStyle}>ייצוא לאקסל</button>
           <a href="/hashlama" target="_blank" rel="noopener noreferrer" style={btnStyle}>פתיחת הטופס הציבורי</a>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#7a8f7d', fontSize: 12 }}>
-            סניף
-            <select aria-label="סינון לפי סניף" value={branchFilter} onChange={e => setBranchFilter(e.target.value)} style={selStyle}>
+            סניפים ושלוחות
+            <select aria-label="סינון לפי סניף/שלוחה" value={branchFilter} onChange={e => setBranchFilter(e.target.value)} style={selStyle}>
               <option value="all">הכל</option>
-              {Object.entries(BRANCH_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              {BRANCHES.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           </label>
         </div>
@@ -125,9 +125,7 @@ export default function HashlamaAdminPage() {
       {/* כרטיסי סיכום */}
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', marginBottom: 24 }}>
         {card('סה"כ נרשמו', String(regs.length))}
-        {card('משגב', String(byBranch('misgav')))}
-        {card('ביריה', String(byBranch('biriya')))}
-        {card('מצובה', String(byBranch('matzuva')))}
+        {BRANCHES.map(b => card(b, String(byBranch(b))))}
         {card('מתחילים / מיני / פרו', `${byGroup('beginners')} / ${byGroup('mini')} / ${byGroup('pro')}`)}
       </div>
 
@@ -137,7 +135,7 @@ export default function HashlamaAdminPage() {
           <thead>
             <tr>
               <th style={th}>רוכב</th>
-              <th style={th}>סניף</th>
+              <th style={th}>סניף/שלוחה</th>
               <th style={th}>קבוצה</th>
               <th style={th}>וואטסאפ</th>
               <th style={th}>נרשם</th>
@@ -154,7 +152,7 @@ export default function HashlamaAdminPage() {
                     {r.phone}
                   </a>
                 </td>
-                <td style={{ ...td, color: '#7a8f7d' }}>{BRANCH_LABEL[r.branch] ?? r.branch}</td>
+                <td style={{ ...td, color: '#7a8f7d' }}>{r.branch}</td>
                 <td style={{ ...td, color: '#7a8f7d' }}>{GROUP_LABEL[r.group_type] ?? r.group_type}</td>
                 <td style={td}><WhatsappOptinBadge optedIn={r.whatsapp_optin} optedAt={r.whatsapp_optin_at} /></td>
                 <td style={{ ...td, color: '#7a8f7d', whiteSpace: 'nowrap' }}>{fmtDate(r.created_at)}</td>
