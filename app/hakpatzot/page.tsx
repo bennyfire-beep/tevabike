@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 
 // ============================================================
 // הרשמה ליום הקפצות — משגב-יעד, יום שישי
@@ -32,6 +33,7 @@ export default function HakpatzotPage() {
 
   const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', group_type: '', area: '' })
   const [consent, setConsent] = useState(false)
+  const [whatsappOptin, setWhatsappOptin] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState<{ first_name: string; last_name: string; phone: string; group_type: string; area: string } | null>(null)
@@ -89,7 +91,7 @@ export default function HakpatzotPage() {
       const res = await fetch('/api/hakpatzot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, consent: true }),
+        body: JSON.stringify({ ...form, consent: true, whatsapp_optin: whatsappOptin }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -228,6 +230,17 @@ export default function HakpatzotPage() {
                   אני מאשר/ת לבן/בת שלי להשתתף ביום ההקפצות, מצהיר/ה כי ידוע לי על הסיכונים הכרוכים בפעילות ונושא/ת
                   באחריות המלאה לכך.
                 </span>
+              </label>
+
+              <label className="flex items-start gap-2.5 cursor-pointer text-sm text-stone-300 select-none">
+                <input
+                  type="checkbox"
+                  checked={whatsappOptin}
+                  onChange={(e) => setWhatsappOptin(e.target.checked)}
+                  className="mt-0.5 w-[18px] h-[18px] cursor-pointer shrink-0"
+                  style={{ accentColor: PINK }}
+                />
+                <span>{WHATSAPP_OPTIN_LABEL}</span>
               </label>
 
               {error && (

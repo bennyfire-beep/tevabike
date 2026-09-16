@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 
 // ============================================================
 // הרשמה לאימון השלמה — יום שלישי 22.9, רקפת
@@ -26,6 +27,8 @@ export default function HashlamaPage() {
   const [count, setCount] = useState<number | null>(null)
 
   const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', branch: '', group_type: '' })
+  const [consent, setConsent] = useState(false)
+  const [whatsappOptin, setWhatsappOptin] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState<typeof form | null>(null)
@@ -59,13 +62,17 @@ export default function HashlamaPage() {
       setError('יש לבחור קבוצה')
       return
     }
+    if (!consent) {
+      setError('יש לאשר את סעיף האחריות והסיכונים')
+      return
+    }
 
     setSending(true)
     try {
       const res = await fetch('/api/hashlama', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, consent: true, whatsapp_optin: whatsappOptin }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -159,6 +166,31 @@ export default function HashlamaPage() {
                   ))}
                 </div>
               </div>
+
+              <label className="flex items-start gap-2.5 cursor-pointer text-sm text-stone-300 select-none bg-stone-900 rounded-xl p-4">
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(e) => setConsent(e.target.checked)}
+                  className="mt-0.5 w-[18px] h-[18px] cursor-pointer shrink-0"
+                  style={{ accentColor: PINK }}
+                />
+                <span>
+                  אני מאשר/ת לבן/בת שלי להשתתף באימון ההשלמה, מצהיר/ה כי ידוע לי על הסיכונים הכרוכים ברכיבת אופני
+                  הרים ונושא/ת באחריות המלאה לכך.
+                </span>
+              </label>
+
+              <label className="flex items-start gap-2.5 cursor-pointer text-sm text-stone-300 select-none">
+                <input
+                  type="checkbox"
+                  checked={whatsappOptin}
+                  onChange={(e) => setWhatsappOptin(e.target.checked)}
+                  className="mt-0.5 w-[18px] h-[18px] cursor-pointer shrink-0"
+                  style={{ accentColor: PINK }}
+                />
+                <span>{WHATSAPP_OPTIN_LABEL}</span>
+              </label>
 
               {error && (
                 <div className="bg-red-950 border border-red-800 text-red-200 rounded-lg p-3 text-sm">{error}</div>

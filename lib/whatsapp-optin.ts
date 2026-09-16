@@ -17,6 +17,8 @@ export const WHATSAPP_OPTIN_SOURCES = {
   camp_gravity: 'ימי שיא',
   camp_sukkot: 'מחנה סוכות',
   workshop_airbag: 'סדנת איר באג',
+  hakpatzot: 'הקפצות',
+  hashlama: 'אימון השלמה',
 } as const
 
 export type WhatsappOptinSource = keyof typeof WHATSAPP_OPTIN_SOURCES
