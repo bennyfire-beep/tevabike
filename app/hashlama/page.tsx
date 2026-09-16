@@ -10,17 +10,20 @@ import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 
 const PINK = '#D4288A'
 
+// אותם חמשת הסניפים/שלוחות כמו בשאר האתר (app/register/page.tsx, groups.branch ב-DB) —
+// לא רשימה מקוצרת משלנו.
 const BRANCHES = [
-  { value: 'misgav', label: 'משגב' },
-  { value: 'biriya', label: 'ביריה' },
-  { value: 'matzuva', label: 'מצובה' },
+  { value: 'משגב', label: 'משגב' },
+  { value: 'ביריה', label: 'ביריה' },
+  { value: 'מטה אשר', label: 'מטה אשר' },
+  { value: 'פרוד-אמירים', label: 'פרוד-אמירים' },
+  { value: 'צורית-גילון', label: 'צורית-גילון' },
 ]
 const GROUPS = [
   { value: 'beginners', label: 'גרביטי מתחילים' },
   { value: 'mini', label: 'מיני גרביטי' },
   { value: 'pro', label: 'גרביטי פרו' },
 ]
-const BRANCH_LABEL: Record<string, string> = { misgav: 'משגב', biriya: 'ביריה', matzuva: 'מצובה' }
 const GROUP_LABEL: Record<string, string> = { beginners: 'גרביטי מתחילים', mini: 'מיני גרביטי', pro: 'גרביטי פרו' }
 
 export default function HashlamaPage() {
@@ -55,7 +58,7 @@ export default function HashlamaPage() {
       return
     }
     if (!form.branch) {
-      setError('יש לבחור סניף')
+      setError('יש לבחור סניף/שלוחה')
       return
     }
     if (!form.group_type) {
@@ -121,6 +124,14 @@ export default function HashlamaPage() {
             <p className="text-sm font-semibold text-stone-400">{count} נרשמו עד כה</p>
           )}
 
+          {/* דגש: הגעה ופיזור עצמאיים */}
+          <div
+            className="rounded-xl p-4 text-center font-bold text-[15px]"
+            style={{ background: `${PINK}22`, color: PINK, border: `1px solid ${PINK}55` }}
+          >
+            🚗 שימו לב: ההגעה והפיזור באחריות עצמאית — אין הסעה מאורגנת ליום זה.
+          </div>
+
           {/* info */}
           <ul className="bg-stone-900 rounded-xl p-4 space-y-2 text-[14.5px] text-stone-300">
             <li>🌱 גרביטי מתחילים (גילאי 6–8) יעבדו בחלק מהזמן בנפרד, על מסלולים מותאמים ביער.</li>
@@ -135,7 +146,7 @@ export default function HashlamaPage() {
             <section className="text-center space-y-3 py-2">
               <h2 className="text-xl font-bold">נרשמתם בהצלחה! 🎉</h2>
               <p className="text-stone-300">
-                {done.first_name} {done.last_name} · {BRANCH_LABEL[done.branch]} · {GROUP_LABEL[done.group_type]}
+                {done.first_name} {done.last_name} · {done.branch} · {GROUP_LABEL[done.group_type]}
               </p>
               <p className="text-stone-400 text-sm">מחכים לכם ביום שלישי 22.9, 08:30 ברקפת 🚵‍♂️💜</p>
             </section>
@@ -146,8 +157,8 @@ export default function HashlamaPage() {
               <Field label="טלפון *" type="tel" value={form.phone} onChange={(v) => set('phone', v)} />
 
               <div>
-                <label className="block text-sm text-stone-400 mb-1.5">סניף *</label>
-                <div className="grid grid-cols-3 gap-2">
+                <label className="block text-sm text-stone-400 mb-1.5">סניפים ושלוחות *</label>
+                <div className="grid grid-cols-2 gap-2">
                   {BRANCHES.map((b) => (
                     <Pill key={b.value} active={form.branch === b.value} onClick={() => set('branch', b.value)}>
                       {b.label}

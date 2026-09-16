@@ -11,7 +11,9 @@ import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 
 export const dynamic = 'force-dynamic'
 
-const BRANCH_LABEL: Record<string, string> = { misgav: 'משגב', matzuva: 'מצובה', biriya: 'ביריה' }
+// אותם חמשת הסניפים/שלוחות כמו בשאר האתר (groups.branch ב-DB) — הערך
+// נשמר בעברית ישירות, אותו דבר בדיוק, כדי שיישאר ניתן להצלבה עם שאר המערכת.
+const BRANCHES = ['משגב', 'ביריה', 'מטה אשר', 'פרוד-אמירים', 'צורית-גילון']
 const GROUP_LABEL: Record<string, string> = { beginners: 'גרביטי מתחילים', mini: 'מיני גרביטי', pro: 'גרביטי פרו' }
 
 const admin = () =>
@@ -60,7 +62,7 @@ async function notifyBenny(r: {
           <table style="border-collapse:collapse;font-size:15px">
             <tr><td style="padding:6px 12px;font-weight:700">שם</td><td style="padding:6px 12px">${r.first_name} ${r.last_name}</td></tr>
             <tr><td style="padding:6px 12px;font-weight:700">טלפון</td><td style="padding:6px 12px">${r.phone}</td></tr>
-            <tr><td style="padding:6px 12px;font-weight:700">סניף</td><td style="padding:6px 12px">${BRANCH_LABEL[r.branch] ?? r.branch}</td></tr>
+            <tr><td style="padding:6px 12px;font-weight:700">סניף/שלוחה</td><td style="padding:6px 12px">${r.branch}</td></tr>
             <tr><td style="padding:6px 12px;font-weight:700">קבוצה</td><td style="padding:6px 12px">${GROUP_LABEL[r.group_type] ?? r.group_type}</td></tr>
             <tr><td style="padding:6px 12px;font-weight:700">נרשמו עד כה</td><td style="padding:6px 12px">${r.count}</td></tr>
           </table>
@@ -88,8 +90,8 @@ export async function POST(req: NextRequest) {
     if (!phone || phone.replace(/\D/g, '').length < 9) {
       return NextResponse.json({ error: 'מספר טלפון לא תקין' }, { status: 400 })
     }
-    if (!['misgav', 'matzuva', 'biriya'].includes(branch)) {
-      return NextResponse.json({ error: 'יש לבחור סניף' }, { status: 400 })
+    if (!BRANCHES.includes(branch)) {
+      return NextResponse.json({ error: 'יש לבחור סניף/שלוחה' }, { status: 400 })
     }
     if (!['beginners', 'mini', 'pro'].includes(group_type)) {
       return NextResponse.json({ error: 'יש לבחור קבוצה' }, { status: 400 })
