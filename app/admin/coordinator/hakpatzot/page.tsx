@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { downloadCsv } from '@/lib/csv-export'
+import WhatsappOptinBadge from '@/components/WhatsappOptinBadge'
 
 // ============================================================
 // יום הקפצות (משגב-יעד, יום שישי) — ניהול ההרשמות
@@ -20,6 +21,8 @@ type Reg = {
   area: string
   consent: boolean
   status: string
+  whatsapp_optin: boolean | null
+  whatsapp_optin_at: string | null
 }
 
 const CAPACITY = 15 // ← חייב להיות זהה למספר שב-app/api/hakpatzot/route.ts
@@ -145,6 +148,7 @@ export default function HakpatzotAdminPage() {
               <th style={th}>קבוצה</th>
               <th style={th}>אזור</th>
               <th style={th}>תשלום</th>
+              <th style={th}>וואטסאפ</th>
               <th style={th}>נרשם</th>
             </tr>
           </thead>
@@ -172,6 +176,7 @@ export default function HakpatzotAdminPage() {
                       {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k} style={{ background: '#0d0f0e', color: '#e8efe9' }}>{v}</option>)}
                     </select>
                   </td>
+                  <td style={td}><WhatsappOptinBadge optedIn={r.whatsapp_optin} optedAt={r.whatsapp_optin_at} /></td>
                   <td style={{ ...td, color: '#7a8f7d', whiteSpace: 'nowrap' }}>{fmtDate(r.created_at)}</td>
                 </tr>
               )

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { downloadCsv } from '@/lib/csv-export'
+import WhatsappOptinBadge from '@/components/WhatsappOptinBadge'
 
 // ============================================================
 // אימון השלמה (22.9, רקפת) — ניהול ההרשמות
@@ -18,6 +19,9 @@ type Reg = {
   phone: string
   branch: string
   group_type: string
+  consent: boolean
+  whatsapp_optin: boolean | null
+  whatsapp_optin_at: string | null
 }
 
 const BRANCH_LABEL: Record<string, string> = { misgav: 'משגב', biriya: 'ביריה', matzuva: 'מצובה' }
@@ -135,6 +139,7 @@ export default function HashlamaAdminPage() {
               <th style={th}>רוכב</th>
               <th style={th}>סניף</th>
               <th style={th}>קבוצה</th>
+              <th style={th}>וואטסאפ</th>
               <th style={th}>נרשם</th>
               <th style={th}></th>
             </tr>
@@ -151,6 +156,7 @@ export default function HashlamaAdminPage() {
                 </td>
                 <td style={{ ...td, color: '#7a8f7d' }}>{BRANCH_LABEL[r.branch] ?? r.branch}</td>
                 <td style={{ ...td, color: '#7a8f7d' }}>{GROUP_LABEL[r.group_type] ?? r.group_type}</td>
+                <td style={td}><WhatsappOptinBadge optedIn={r.whatsapp_optin} optedAt={r.whatsapp_optin_at} /></td>
                 <td style={{ ...td, color: '#7a8f7d', whiteSpace: 'nowrap' }}>{fmtDate(r.created_at)}</td>
                 <td style={td}>
                   <button onClick={() => remove(r)} style={{ background: 'none', border: 'none', color: '#f87171', fontSize: 12, cursor: 'pointer' }}>

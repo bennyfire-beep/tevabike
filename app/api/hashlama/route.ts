@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 
 // ============================================================
 // נתיב: app/api/hashlama/route.ts
@@ -52,7 +53,7 @@ async function notifyBenny(r: {
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: 'Teva Bike <leads@mail.tevabike.com>',
-        to: ['bennyfire@gmail.com'],
+        to: ['bennyfire@gmail.com', 'talmatoki@gmail.com'],
         subject: `הרשמה לאימון השלמה — ${r.first_name} ${r.last_name} (סה"כ ${r.count})`,
         html: `<div dir="rtl" style="font-family:Arial,sans-serif">
           <h2 style="margin:0 0 12px">🚵 הרשמה חדשה לאימון השלמה — 22.9</h2>
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest) {
     const phone = String(body.phone ?? '').trim().slice(0, 20)
     const branch = String(body.branch ?? '')
     const group_type = String(body.group_type ?? '')
+    const consent = body.consent === true
 
     if (!first_name || !last_name) {
       return NextResponse.json({ error: 'חסרים שם פרטי ושם משפחה' }, { status: 400 })
@@ -92,12 +94,23 @@ export async function POST(req: NextRequest) {
     if (!['beginners', 'mini', 'pro'].includes(group_type)) {
       return NextResponse.json({ error: 'יש לבחור קבוצה' }, { status: 400 })
     }
+    if (!consent) {
+      return NextResponse.json({ error: 'יש לאשר את סעיף האחריות והסיכונים' }, { status: 400 })
+    }
 
     const db = admin()
 
     const { error: insErr } = await db
       .from('hashlama_registrations')
-      .insert({ first_name, last_name, phone, branch, group_type })
+      .insert({
+        first_name,
+        last_name,
+        phone,
+        branch,
+        group_type,
+        consent,
+        ...whatsappOptinFields(body.whatsapp_optin === true, 'hashlama'),
+      })
 
     if (insErr) {
       console.error('[hashlama] insert failed:', insErr)

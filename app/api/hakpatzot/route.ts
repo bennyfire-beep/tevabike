@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 
 // ============================================================
 // נתיב: app/api/hakpatzot/route.ts
@@ -69,7 +70,7 @@ async function notifyBenny(r: {
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: 'Teva Bike <leads@mail.tevabike.com>',
-        to: ['bennyfire@gmail.com'],
+        to: ['bennyfire@gmail.com', 'talmatoki@gmail.com'],
         subject: `הרשמה להקפצות — ${r.first_name} ${r.last_name} (${r.count}/${CAPACITY})`,
         html: `<div dir="rtl" style="font-family:Arial,sans-serif">
           <h2 style="margin:0 0 12px">🚐 הרשמה חדשה ליום ההקפצות</h2>
@@ -129,7 +130,15 @@ export async function POST(req: NextRequest) {
 
     const { data: reg, error: insErr } = await db
       .from('hakpatzot_registrations')
-      .insert({ first_name, last_name, phone, group_type, area, consent })
+      .insert({
+        first_name,
+        last_name,
+        phone,
+        group_type,
+        area,
+        consent,
+        ...whatsappOptinFields(body.whatsapp_optin === true, 'hakpatzot'),
+      })
       .select('id, created_at')
       .single()
 
