@@ -380,30 +380,58 @@ export default function InstructorsCoursePage() {
           בטבע בייק מבוססת על שילוב בין מקצועיות, בטיחות, יחס אישי, אהבת השטח
           והבנה שכל רוכב מתקדם בקצב שלו.
         </p>
-        <div
-          className="rounded-xl p-4 border flex gap-4 items-start"
-          style={{ background: C.green, borderColor: C.greenMid }}
-        >
-          <img
-            src="/benny-lahat.jpg"
-            alt="בני להט — מנהל מקצועי ומוביל הקורס"
-            className="w-20 h-20 rounded-full object-cover flex-shrink-0"
-            style={{ border: `2px solid ${C.brand}` }}
-          />
-          <div>
-            <div className="font-bold mb-1" style={{ color: C.brand }}>
-              בני להט — מנהל מקצועי ומוביל הקורס
+        <p className="mb-3 font-bold" style={{ color: C.offWhite }}>
+          את הקורס יעבירו בני להט וטל ברקן:
+        </p>
+        <div className="space-y-3">
+          <div
+            className="rounded-xl p-4 border flex gap-4 items-start"
+            style={{ background: C.green, borderColor: C.greenMid }}
+          >
+            <img
+              src="/benny-lahat.jpg"
+              alt="בני להט — מנהל מקצועי ומוביל הקורס"
+              className="w-20 h-20 rounded-full object-cover flex-shrink-0"
+              style={{ border: `2px solid ${C.brand}` }}
+            />
+            <div>
+              <div className="font-bold mb-1" style={{ color: C.brand }}>
+                בני להט — מנהל מקצועי ומוביל הקורס
+              </div>
+              <p className="text-sm leading-relaxed" style={{ color: "#D8E2DC" }}>
+                בני להט הוא מייסד ומנהל מועדון טבע בייק ומדריך רכיבת אופני הרים
+                משנת 2008. במהלך השנים הדריך וליווה רוכבים רבים — ילדים, בני
+                נוער ומבוגרים — מרמת מתחילים ועד לרכיבה טכנית ותחרותית. בני עוסק
+                בבניית תוכניות הדרכה, הכשרת מדריכים, ניהול צוותים מקצועיים,
+                הפקת מחנות ואירועי רכיבה וליווי רוכבים בתהליכי התפתחות ארוכי
+                טווח. הגישה המקצועית שלו משלבת ידע טכני, ניסיון מעשי רב, קריאת
+                שטח, הבנת הרוכב ויכולת להפוך מיומנות מורכבת לתהליך לימוד פשוט,
+                ברור והדרגתי.
+              </p>
             </div>
-            <p className="text-sm leading-relaxed" style={{ color: "#D8E2DC" }}>
-              בני להט הוא מייסד ומנהל מועדון טבע בייק ומדריך רכיבת אופני הרים
-              משנת 2008. במהלך השנים הדריך וליווה רוכבים רבים — ילדים, בני
-              נוער ומבוגרים — מרמת מתחילים ועד לרכיבה טכנית ותחרותית. בני עוסק
-              בבניית תוכניות הדרכה, הכשרת מדריכים, ניהול צוותים מקצועיים,
-              הפקת מחנות ואירועי רכיבה וליווי רוכבים בתהליכי התפתחות ארוכי
-              טווח. הגישה המקצועית שלו משלבת ידע טכני, ניסיון מעשי רב, קריאת
-              שטח, הבנת הרוכב ויכולת להפוך מיומנות מורכבת לתהליך לימוד פשוט,
-              ברור והדרגתי.
-            </p>
+          </div>
+
+          <div
+            className="rounded-xl p-4 border flex gap-4 items-start"
+            style={{ background: C.green, borderColor: C.greenMid }}
+          >
+            <img
+              src="/tal-barkan.jpg"
+              alt="טל ברקן — רכז החוגים ומדריך בקורס"
+              className="w-20 h-20 rounded-full object-cover flex-shrink-0"
+              style={{ border: `2px solid ${C.brand}` }}
+            />
+            <div>
+              <div className="font-bold mb-1" style={{ color: C.brand }}>
+                טל ברקן — רכז החוגים ומדריך בקורס
+              </div>
+              <p className="text-sm leading-relaxed" style={{ color: "#D8E2DC" }}>
+                טל ברקן הוא רכז החוגים של טבע בייק, ואחראי על התיאום השוטף מול
+                המדריכים והרוכבים ועל הליווי המקצועי של הקבוצות בכל הסניפים.
+                בקורס הוא ישלים את בני בהיבטים הארגוניים והמעשיים של ניהול
+                קבוצה בשטח ותפעול שיעור.
+              </p>
+            </div>
           </div>
         </div>
       </Section>
