@@ -6,6 +6,7 @@
 // college sets them, and both the page and the confirmation email will pick
 // it up automatically.
 
-export const COURSE_DATES_LABEL = "יפורסמו בהמשך"
+export const COURSE_DATES_LABEL =
+  "16.10 (עיוני) · 23.10 (עיוני-מעשי) · 6.11 (עזרה ראשונה) — ייתכנו שינויים במערכת בהתאם לכמות הנרשמים"
 export const COLLEGE_REGISTRATION_LINK = "https://fill.tofsy.co.il/BvjFJw"
 export const COLLEGE_PHONE = "04-6749202"
