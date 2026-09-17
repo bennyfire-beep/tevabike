@@ -29,6 +29,12 @@ import { DEFAULT_RATE_PER_LESSON } from './attendance'
 
 export type LessonPayModel = 'flat' | 'by_attendance'
 
+// A manual override of which attendance tier a specific session's pay is
+// priced at — see session_pay_overrides (supabase/migrations/20260917_*).
+// Never a hardcoded number: rateForBand() always reads this instructor's
+// own configured low/mid/high, only the tier selection is overridden.
+export type PayBand = 'low' | 'mid' | 'high'
+
 export const LESSON_PAY_MODELS: LessonPayModel[] = ['flat', 'by_attendance']
 
 export const LESSON_PAY_LABEL: Record<LessonPayModel, string> = {
@@ -112,17 +118,42 @@ export function coTaughtPresent(
 }
 
 /**
+ * This instructor's own configured rate for one explicit tier — the same
+ * numbers lessonRateFor would pick between, just chosen directly instead of
+ * from attendance. 'mid' on a 2-tier config (no mid rate configured) falls
+ * back to low, same as lessonRateFor would if a session priced at cfg.mid
+ * were reachable at all under that model.
+ */
+export function rateForBand(
+  row: Partial<LessonPayFields> | undefined | null,
+  band: PayBand,
+): number {
+  const cfg = lessonPayConfigOf(row)
+  if (cfg.model === 'flat') return cfg.flat
+  if (band === 'low')  return cfg.low
+  if (band === 'high') return cfg.high
+  return cfg.mid ?? cfg.low
+}
+
+/**
  * What one ordinary lesson pays this instructor.
  *
  * `presentCount` — riders marked present in that lesson, already adjusted by
  *                  coTaughtPresent() if the lesson was co-taught. Null
  *                  (attendance was never saved) counts as none present, i.e.
  *                  the bottom band.
+ * `overrideBand` — when set (session_pay_overrides), skips the attendance
+ *                  lookup entirely and prices at this tier of the
+ *                  instructor's own rates instead. For a session whose
+ *                  recorded attendance is known to be wrong (a duplicate
+ *                  register, e.g.) rather than the real headcount.
  */
 export function lessonRateFor(
   row: Partial<LessonPayFields> | undefined | null,
   presentCount: number | null | undefined,
+  overrideBand?: PayBand | null,
 ): number {
+  if (overrideBand) return rateForBand(row, overrideBand)
   const cfg = lessonPayConfigOf(row)
   if (cfg.model === 'flat') return cfg.flat
   const present = Number(presentCount) || 0
