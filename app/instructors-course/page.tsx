@@ -389,7 +389,7 @@ export default function InstructorsCoursePage() {
             style={{ background: C.green, borderColor: C.greenMid }}
           >
             <img
-              src="/benny-lahat.jpg"
+              src="/benny-lahat.webp"
               alt="בני להט — מנהל מקצועי ומוביל הקורס"
               className="w-20 h-20 rounded-full object-cover flex-shrink-0"
               style={{ border: `2px solid ${C.brand}` }}
