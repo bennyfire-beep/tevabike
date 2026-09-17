@@ -43,6 +43,7 @@ export default function SiteNav() {
             <a href="/#classes" className="nav-link">חוגים</a>
             <a href="/camp-sukkot" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מחנה סוכות</a>
             <a href="/workshop-airbag" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>סדנת איר באג</a>
+            <a href="/instructors-course" className="nav-link" style={{ color: '#f0b90b', fontWeight: 700 }}>טבע בייק אקדמי</a>
             <a href="/#why" className="nav-link">למה אנחנו</a>
             <a href="/shop" className="nav-link">חנות</a>
             <a href="/register" className="btn-primary" style={{ padding: '8px 22px', fontSize: 14, borderRadius: 8 }}>

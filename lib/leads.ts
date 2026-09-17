@@ -7,6 +7,7 @@ export const LEAD_INTERESTS = [
   'סדנת רכיבה טכנית',
   'חוג טיולים',
   'אופניים ומרצ\'נדייז',
+  'קורס מדריכי רכיבה טכנית',
 ] as const
 
 export type LeadInterest = (typeof LEAD_INTERESTS)[number]
@@ -17,6 +18,7 @@ export const INTEREST_COLOR: Record<string, string> = {
   'סדנת רכיבה טכנית':            '#ec4899', // pink
   'חוג טיולים':                  '#4cdb7a', // green
   'אופניים ומרצ\'נדייז':          '#81d4fa', // blue
+  'קורס מדריכי רכיבה טכנית':      '#f0b90b', // gold
 }
 
 // Training centres the lead can pick from in the contact form.

@@ -489,6 +489,7 @@ export default function Home() {
               {[
                 { label: 'מחנה סוכות', href: '/camp-sukkot' },
                 { label: 'סדנת איר באג', href: '/workshop-airbag' },
+                { label: 'טבע בייק אקדמי', href: '/instructors-course' },
                 { label: 'חוגים',    href: '#classes'  },
                 { label: 'הרשמה',   href: '/register' },
                 { label: 'למה אנחנו', href: '#why'    },
