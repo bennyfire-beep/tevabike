@@ -259,7 +259,7 @@ export default function ShopPage() {
             <span style={{ color: C.brand }}>רוכבים איתו.</span>
           </h1>
           <p className="text-lg leading-relaxed" style={{ color: "#D8E2DC" }}>
-            ציוד שבחרנו ובדקנו בעצמנו, במחירים משתלמים. בחרו מה שאתם צריכים ושלמו על הכל בתשלום אחד.
+            כל מה שתמצאו כאן עבר אצלנו בשטח — על האופניים שלנו, בשבילים שלנו. בחרו מה שמתאים לכם, ואנחנו נדאג לכל השאר.
           </p>
         </div>
       </section>
