@@ -256,10 +256,10 @@ export default function ShopPage() {
           <h1 className="text-4xl sm:text-5xl font-black leading-tight">
             הציוד שאנחנו
             <br />
-            <span style={{ color: C.brand }}>רוכבים איתו בעצמנו.</span>
+            <span style={{ color: C.brand }}>רוכבים איתו.</span>
           </h1>
           <p className="text-lg leading-relaxed" style={{ color: "#D8E2DC" }}>
-            חלקים נבחרים במחירי הכי משתלמים — סמנו מה שאתם צריכים ותשלמו על הכל ביחד.
+            ציוד שבחרנו ובדקנו בעצמנו, במחירים משתלמים. בחרו מה שאתם צריכים ושלמו על הכל בתשלום אחד.
           </p>
         </div>
       </section>
