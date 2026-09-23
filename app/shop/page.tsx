@@ -254,12 +254,14 @@ export default function ShopPage() {
             טבע בייק · חנות
           </p>
           <h1 className="text-4xl sm:text-5xl font-black leading-tight">
-            הציוד שאנחנו
+            הציוד שאנחנו אוהבים.
             <br />
-            <span style={{ color: C.brand }}>רוכבים איתו.</span>
+            <span style={{ color: C.brand }}>המחירים שאתם תאהבו.</span>
           </h1>
           <p className="text-lg leading-relaxed" style={{ color: "#D8E2DC" }}>
-            כל מה שתמצאו כאן עבר אצלנו בשטח — על האופניים שלנו, בשבילים שלנו. בחרו מה שמתאים לכם, ואנחנו נדאג לכל השאר.
+            בחרנו עבורכם את הפריטים שאנחנו בעצמנו רוכבים איתם — איכותיים, שימושיים ובמחירים משתלמים.
+            <br />
+            בחרו מה שמתאים לכם, הוסיפו לסל וצאו לרכיבה.
           </p>
         </div>
       </section>
