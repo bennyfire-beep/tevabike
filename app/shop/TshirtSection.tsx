@@ -207,6 +207,18 @@ export default function TshirtSection() {
 
   return (
     <>
+      <section className="px-6 pb-5">
+        <div className="max-w-2xl mx-auto text-center space-y-2">
+          <h2 className="text-2xl sm:text-3xl font-black">
+            הקולקציה של טבע בייק <span style={{ color: C.brand }}>יוצאת לדרך!</span>
+          </h2>
+          <p className="leading-relaxed" style={{ color: "#D8E2DC" }}>
+            חולצות שעוצבו במיוחד בשביל הקהילה שלנו — נוחות על האופניים ונראות מעולה גם אחרי הרכיבה. הזמינו עכשיו
+            במחיר הזמנה מוקדמת ותהיו הראשונים לרכוב איתן.
+          </p>
+        </div>
+      </section>
+
       <section className="px-6 pb-4">
         <div
           className="max-w-4xl mx-auto rounded-2xl p-4 border text-center text-sm leading-relaxed"
