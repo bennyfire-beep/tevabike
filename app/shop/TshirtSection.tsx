@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { HIDDEN_TSHIRT_SLUGS } from "@/lib/tshirt-hidden";
 
 const C = {
   brand: "#D4288A",
@@ -75,6 +76,7 @@ export default function TshirtSection() {
           "slug, name, description, image_urls, sizes, requires_back_name, preorder_price, regular_price, preorder_active, preorder_deadline_label"
         )
         .eq("category", "clothing")
+        .not("slug", "in", `(${HIDDEN_TSHIRT_SLUGS.join(",")})`)
         .order("display_order", { ascending: true }),
       supabase.from("tshirt_shop_settings").select("is_active, coming_soon_message").eq("id", true).maybeSingle(),
     ]).then(([productsRes, settingsRes]) => {
@@ -205,6 +207,18 @@ export default function TshirtSection() {
 
   return (
     <>
+      <section className="px-6 pb-4">
+        <div
+          className="max-w-4xl mx-auto rounded-2xl p-4 border text-center text-sm leading-relaxed"
+          style={{ background: C.green, borderColor: `${C.brand}55`, color: "#D8E2DC" }}
+        >
+          <p className="font-black" style={{ color: C.brand }}>
+            הזמנה מוקדמת עד ה-20 באוקטובר
+          </p>
+          <p>אספקת החולצות תוך עד 60 יום מתאריך ה-20 באוקטובר</p>
+        </div>
+      </section>
+
       <section className="px-6 pb-8">
         <div className="max-w-4xl mx-auto grid sm:grid-cols-3 gap-5">
           {products.map((p) => {

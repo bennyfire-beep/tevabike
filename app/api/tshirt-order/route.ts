@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { tshirtOrderHtml, sendEmail, BENNY_EMAIL, type TshirtLine } from '@/lib/tshirt-order-email'
+import { HIDDEN_TSHIRT_SLUGS } from '@/lib/tshirt-hidden'
 
 export const dynamic = 'force-dynamic'
 
@@ -86,6 +87,9 @@ export async function POST(req: NextRequest) {
 
   if (productsError || !products) {
     return NextResponse.json({ error: 'products_lookup_failed' }, { status: 500 })
+  }
+  if (slugs.some((s) => HIDDEN_TSHIRT_SLUGS.includes(s))) {
+    return NextResponse.json({ error: 'unknown_product' }, { status: 400 })
   }
   const bySlug = new Map((products as (ProductRow & { sizes: string[] })[]).map((p) => [p.slug, p]))
   if (bySlug.size !== slugs.length) {
