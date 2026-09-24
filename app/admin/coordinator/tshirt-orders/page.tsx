@@ -337,6 +337,161 @@ function ProductSettingsCard({ product, onSaved }: { product: ProductRow; onSave
   )
 }
 
+const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL']
+const sizeRank = (s: string) => {
+  const i = SIZE_ORDER.indexOf(s)
+  return i === -1 ? SIZE_ORDER.length : i
+}
+
+// סיכום מידות לספק + טבלה שטוחה "מי הזמין מה" — ההזמנות עצמן מקובצות
+// למטה לפי לקוח, אבל להזמנה מהספק צריך לראות כמות לכל מוצר×מידה.
+// הזמנה נחשבת רק לאחר תשלום מלא — לספק מזמינים לפי "רק ששולמו".
+function SizeSummary({ orders }: { orders: OrderRow[] }) {
+  const [paidOnly, setPaidOnly] = useState(false)
+  const [open, setOpen] = useState(true)
+  const rows = orders.filter((r) => !paidOnly || r.payment_status === 'confirmed')
+
+  const byProduct = new Map<string, Map<string, number>>()
+  for (const r of rows) {
+    const sizes = byProduct.get(r.product_name) ?? new Map<string, number>()
+    sizes.set(r.size, (sizes.get(r.size) ?? 0) + r.quantity)
+    byProduct.set(r.product_name, sizes)
+  }
+  const totalQty = rows.reduce((sum, r) => sum + r.quantity, 0)
+  const sorted = [...rows].sort(
+    (a, b) =>
+      a.product_name.localeCompare(b.product_name, 'he') ||
+      sizeRank(a.size) - sizeRank(b.size) ||
+      a.customer_name.localeCompare(b.customer_name, 'he')
+  )
+
+  function downloadCsv() {
+    const header = ['מוצר', 'מידה', 'כמות', 'שם', 'טלפון', 'אימייל', 'סטטוס תשלום', 'תאריך']
+    const lines = sorted.map((r) => [
+      r.product_name, r.size, String(r.quantity), r.customer_name, r.customer_phone, r.customer_email ?? '',
+      r.payment_status === 'confirmed' ? 'שולם' : 'ממתין לתשלום', fmtDateTime(r.created_at),
+    ])
+    const csv = [header, ...lines]
+      .map((l) => l.map((v) => `"${v.replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `tshirt-orders${paidOnly ? '-paid' : ''}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const th: CSSProperties = { textAlign: 'right', padding: '6px 8px', color: '#7a8f7d', fontWeight: 700, borderBottom: '1px solid #252b27', whiteSpace: 'nowrap' }
+  const td: CSSProperties = { padding: '6px 8px', borderBottom: '1px solid #1c211e', whiteSpace: 'nowrap' }
+
+  return (
+    <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          style={{ background: 'transparent', border: 'none', color: '#e8efe9', fontSize: 16, fontWeight: 800, fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer', padding: 0 }}
+        >
+          📏 סיכום מידות · {totalQty} פריטים {open ? '▲' : '▼'}
+        </button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {([[false, 'כל ההזמנות'], [true, 'רק ששולמו']] as [boolean, string][]).map(([value, label]) => (
+            <button
+              key={label}
+              onClick={() => setPaidOnly(value)}
+              style={{
+                background: paidOnly === value ? '#b5e853' : 'transparent', color: paidOnly === value ? '#0d0f0e' : '#7a8f7d',
+                border: '1px solid #252b27', borderRadius: 8, padding: '6px 10px', fontSize: 12, fontWeight: 700,
+                fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {open && (
+        rows.length === 0 ? (
+          <p style={{ color: '#7a8f7d', fontSize: 13, margin: '12px 0 0' }}>
+            {paidOnly ? 'אין עדיין הזמנות ששולמו.' : 'אין עדיין הזמנות.'}
+          </p>
+        ) : (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+              {[...byProduct.entries()].map(([product, sizes]) => {
+                const productTotal = [...sizes.values()].reduce((a, b) => a + b, 0)
+                return (
+                  <div key={product}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: '#b5e853', marginBottom: 6 }}>
+                      {product} — {productTotal} יח׳
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {[...sizes.entries()]
+                        .sort((a, b) => sizeRank(a[0]) - sizeRank(b[0]))
+                        .map(([size, qty]) => (
+                          <div
+                            key={size}
+                            style={{ background: '#0d0f0e', border: '1px solid #252b27', borderRadius: 8, padding: '6px 10px', textAlign: 'center', minWidth: 52 }}
+                          >
+                            <div style={{ fontSize: 12, color: '#7a8f7d', fontWeight: 700 }}>{size}</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: '#e8efe9' }}>{qty}</div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '16px 0 6px' }}>
+              <span style={{ fontSize: 14, fontWeight: 800 }}>מי הזמין מה</span>
+              <button
+                onClick={downloadCsv}
+                style={{
+                  background: 'transparent', color: '#b5e853', border: '1px solid #b5e853', borderRadius: 8,
+                  padding: '6px 10px', fontSize: 12, fontWeight: 700, fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer',
+                }}
+              >
+                ⬇ הורדה לאקסל (CSV)
+              </button>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th style={th}>מוצר</th>
+                    <th style={th}>מידה</th>
+                    <th style={th}>כמות</th>
+                    <th style={th}>שם</th>
+                    <th style={th}>טלפון</th>
+                    <th style={th}>תשלום</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((r) => (
+                    <tr key={r.id}>
+                      <td style={td}>{r.product_name}</td>
+                      <td style={{ ...td, fontWeight: 800, color: '#b5e853' }}>{r.size}</td>
+                      <td style={td}>{r.quantity}</td>
+                      <td style={td}>{r.customer_name}</td>
+                      <td style={td}>{r.customer_phone}</td>
+                      <td style={{ ...td, color: r.payment_status === 'confirmed' ? '#7ee787' : '#e8c547' }}>
+                        {r.payment_status === 'confirmed' ? 'שולם' : 'ממתין'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )
+      )}
+    </div>
+  )
+}
+
 export default function TshirtOrdersPage() {
   const user = useCoordinator()
   const [products, setProducts] = useState<ProductRow[]>([])
@@ -432,6 +587,8 @@ export default function TshirtOrdersPage() {
           </div>
         )}
       </div>
+
+      {!loading && <SizeSummary orders={orders} />}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div>

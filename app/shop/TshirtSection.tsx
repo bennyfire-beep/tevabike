@@ -226,10 +226,14 @@ export default function TshirtSection() {
           className="max-w-4xl mx-auto rounded-2xl p-4 border text-center text-sm leading-relaxed"
           style={{ background: C.green, borderColor: `${C.brand}55`, color: "#D8E2DC" }}
         >
-          <p className="font-black" style={{ color: C.brand }}>
+          <p className="font-black text-base mb-2" style={{ color: C.brand }}>
             הזמנה מוקדמת עד ה-20 באוקטובר
           </p>
-          <p>אספקת החולצות תוך עד 60 יום מתאריך ה-20 באוקטובר</p>
+          <ul className="space-y-1">
+            <li>💳 ההזמנה נחשבת רק לאחר תשלום מלא</li>
+            <li>📦 אספקת החולצות תוך 70 יום מה-20 באוקטובר</li>
+            <li>✉️ נשלח לכם הודעה במייל כשהחולצות יגיעו</li>
+          </ul>
         </div>
       </section>
 
@@ -426,8 +430,11 @@ export default function TshirtSection() {
                     </div>
                   ))}
                 </div>
+                <p className="text-sm font-bold" style={{ color: C.brand }}>
+                  שימו לב: ההזמנה נחשבת רק לאחר תשלום מלא.
+                </p>
                 <p className="text-xs" style={{ color: "#7E948A" }}>
-                  איסוף עצמי מהמועדון — נעדכן אותך כשהפריטים יגיעו.
+                  אספקה תוך 70 יום מה-20 באוקטובר. איסוף עצמי מהמועדון — נשלח לך הודעה במייל כשהחולצות יגיעו.
                 </p>
               </div>
             ) : (
@@ -512,8 +519,9 @@ export default function TshirtSection() {
                 />
 
                 <p className="text-xs leading-relaxed" style={{ color: "#7E948A" }}>
-                  איסוף עצמי בלבד ממועדון טבע בייק — ניצור איתך קשר לתיאום כשהפריטים יגיעו. לאחר השליחה תופנה
-                  לתשלום.
+                  לאחר השליחה תופנה לתשלום — <b style={{ color: C.offWhite }}>ההזמנה נחשבת רק לאחר תשלום מלא</b>.
+                  אספקה תוך 70 יום מה-20 באוקטובר, איסוף עצמי ממועדון טבע בייק. נשלח לך הודעה במייל כשהחולצות
+                  יגיעו.
                 </p>
 
                 <button
