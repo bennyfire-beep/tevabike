@@ -45,7 +45,9 @@ export function tshirtOrderHtml(orderId: string, p: {
     : ''
   const title = p.forCustomer ? 'תודה על ההזמנה — חולצות טבע בייק' : 'הזמנת חולצה חדשה מטבע בייק'
   const pickupLine = p.forCustomer
-    ? `<p style="margin:0"><b style="color:#D4288A">איסוף:</b> עצמאי מהמועדון — ניצור איתך קשר לתיאום כשהחולצות יגיעו.</p>`
+    ? `<p style="margin:0 0 8px"><b style="color:#D4288A">חשוב:</b> ההזמנה נחשבת רק לאחר תשלום מלא.</p>
+      <p style="margin:0 0 8px"><b style="color:#D4288A">אספקה:</b> תוך 70 יום מה-20 באוקטובר.</p>
+      <p style="margin:0"><b style="color:#D4288A">איסוף:</b> עצמי מהמועדון — נשלח לך הודעה במייל כשהחולצות יגיעו.</p>`
     : `<p style="margin:0"><b style="color:#D4288A">איסוף:</b> עצמי מהמועדון — יש לתאם עם הלקוח.</p>`
   return `
   <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;background:#0C1814;color:#F5F2EE;padding:32px 24px;border-radius:16px;max-width:520px;margin:0 auto">
