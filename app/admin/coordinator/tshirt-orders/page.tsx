@@ -40,6 +40,7 @@ type OrderRow = {
   customer_phone: string
   customer_email: string | null
   payment_status: string
+  arrival_notified_at: string | null
 }
 
 type Group = {
@@ -492,6 +493,85 @@ function SizeSummary({ orders }: { orders: OrderRow[] }) {
   )
 }
 
+// כפתור "החולצות הגיעו" — שולח מייל לכל מי ששילם ועוד לא קיבל הודעה
+// (השרת מסמן arrival_notified_at, אז לחיצה חוזרת שולחת רק לחדשים).
+function ArrivalNotice({ orders, onSent }: { orders: OrderRow[]; onSent: () => void }) {
+  const user = useCoordinator()
+  const [note, setNote] = useState('')
+  const [state, setState] = useState<'' | 'testing' | 'sending'>('')
+  const [result, setResult] = useState('')
+
+  const paidGroups = groupOrders(orders).filter((g) => g.payment_status === 'confirmed')
+  const toNotify = paidGroups.filter((g) => g.customer_email && g.rows.some((r) => !r.arrival_notified_at))
+  const alreadyNotified = paidGroups.filter((g) => g.rows.every((r) => r.arrival_notified_at))
+  const noEmail = paidGroups.filter((g) => !g.customer_email)
+
+  async function send(test: boolean) {
+    setResult('')
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setResult('פג תוקף ההתחברות, התחבר מחדש'); return }
+    if (!test && !confirm(`לשלוח מייל "החולצות הגיעו" ל-${toNotify.length} לקוחות ששילמו? אי אפשר לבטל אחרי השליחה.`)) return
+    setState(test ? 'testing' : 'sending')
+    try {
+      const res = await fetch('/api/admin/tshirt-arrival', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ note, testTo: test ? (user?.email ?? '') : undefined }),
+      })
+      const d = await res.json()
+      if (!d.ok) setResult(d.error || 'השליחה נכשלה')
+      else if (test) setResult(`נשלח מייל בדיקה אליך (${user?.email ?? ''}). בדוק אותו לפני שליחה לכולם.`)
+      else {
+        setResult(`נשלח ל-${d.sent} מתוך ${d.total} לקוחות.` + (d.failed?.length ? ` נכשלו: ${d.failed.join(', ')}` : ''))
+        onSent()
+      }
+    } catch {
+      setResult('אין חיבור לשרת')
+    }
+    setState('')
+  }
+
+  const btn = (primary: boolean, disabled: boolean): CSSProperties => ({
+    flex: '1 1 auto', background: primary && !disabled ? '#b5e853' : 'transparent',
+    color: primary && !disabled ? '#0d0f0e' : '#b5e853', border: `1px solid ${disabled ? '#252b27' : '#b5e853'}`,
+    borderRadius: 8, padding: '10px 12px', fontSize: 13, fontWeight: 700, fontFamily: 'Heebo, Arial, sans-serif',
+    cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1,
+  })
+
+  return (
+    <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+      <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>📬 הודעה ללקוחות: החולצות הגיעו</div>
+      <p style={{ color: '#7a8f7d', fontSize: 12, margin: '0 0 10px', lineHeight: 1.6 }}>
+        נשלח רק למי שסומן &quot;שולם&quot;. כל לקוח מקבל את רשימת הפריטים והמידות שלו.
+        <br />
+        ממתינים להודעה: <b style={{ color: '#e8efe9' }}>{toNotify.length}</b> · כבר קיבלו: {alreadyNotified.length}
+        {noEmail.length > 0 && ` · שילמו בלי אימייל (צריך להודיע בטלפון): ${noEmail.map((g) => g.customer_name).join(', ')}`}
+      </p>
+      <label style={{ fontSize: 11, color: '#7a8f7d' }}>פרטי איסוף (יופיע במייל) — למשל ימים ושעות במועדון</label>
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        rows={3}
+        placeholder="אפשר לאסוף במועדון בימים א׳–ה׳ בין 17:00 ל-20:00."
+        style={{ ...inputStyle, resize: 'vertical', marginBottom: 10 }}
+      />
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button onClick={() => send(true)} disabled={state !== ''} style={btn(false, state !== '')}>
+          {state === 'testing' ? 'שולח...' : 'שלח לי מייל בדיקה'}
+        </button>
+        <button
+          onClick={() => send(false)}
+          disabled={state !== '' || toNotify.length === 0}
+          style={btn(true, state !== '' || toNotify.length === 0)}
+        >
+          {state === 'sending' ? 'שולח...' : `שלח "החולצות הגיעו" ל-${toNotify.length} לקוחות`}
+        </button>
+      </div>
+      {result && <p style={{ fontSize: 13, margin: '10px 0 0', color: '#e8efe9' }}>{result}</p>}
+    </div>
+  )
+}
+
 export default function TshirtOrdersPage() {
   const user = useCoordinator()
   const [products, setProducts] = useState<ProductRow[]>([])
@@ -512,7 +592,7 @@ export default function TshirtOrdersPage() {
         .order('display_order', { ascending: true }),
       supabase
         .from('tshirt_orders')
-        .select('id, created_at, order_group, product_name, size, back_name, quantity, unit_price, is_preorder, line_total, customer_name, customer_phone, customer_email, payment_status')
+        .select('id, created_at, order_group, product_name, size, back_name, quantity, unit_price, is_preorder, line_total, customer_name, customer_phone, customer_email, payment_status, arrival_notified_at')
         .order('created_at', { ascending: false }),
       supabase.from('tshirt_shop_settings').select('is_active, coming_soon_message').eq('id', true).maybeSingle(),
     ])
@@ -589,6 +669,7 @@ export default function TshirtOrdersPage() {
       </div>
 
       {!loading && <SizeSummary orders={orders} />}
+      {!loading && <ArrivalNotice orders={orders} onSent={load} />}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div>
@@ -685,6 +766,7 @@ export default function TshirtOrdersPage() {
                           {` — מידה ${r.size} × ${r.quantity}`}
                           {r.back_name ? ` — שם על הגב: "${r.back_name}"` : ''}
                           {r.is_preorder ? ' (הזמנה מוקדמת)' : ''}
+                          {r.arrival_notified_at ? ' · ✉️ קיבל הודעת הגעה' : ''}
                           {` — ${r.line_total} ₪`}
                         </div>
                       ))}
