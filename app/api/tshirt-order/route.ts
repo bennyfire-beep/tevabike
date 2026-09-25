@@ -217,6 +217,7 @@ export async function POST(req: NextRequest) {
       fulfillment,
       delivery_address,
       shipping_fee,
+      paymentLinks,
       internalNote: 'הזמנה חדשה — יש לתאם תשלום מול הלקוח ולעדכן סטטוס במסך "הזמנות חולצות".',
     })
   )
