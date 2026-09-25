@@ -42,6 +42,8 @@ export function tshirtOrderHtml(orderId: string, p: {
   fulfillment?: string
   delivery_address?: string | null
   shipping_fee?: number
+  /** קישורי תשלום — במייל ללקוח מוצגים ככפתורים, כדי שיהיו לו תמיד בהישג יד. */
+  paymentLinks?: { name: string; link: string | null }[]
 }) {
   const noteHtml = p.internalNote
     ? `<div style="background:#3a1a1a;border:1px solid #5a2a2a;border-radius:10px;padding:10px 14px;margin-bottom:16px;color:#ff8f6b;font-size:13px;font-weight:700">${p.internalNote}</div>`
@@ -60,6 +62,18 @@ export function tshirtOrderHtml(orderId: string, p: {
     : delivery
       ? `${fulfillmentLine}<p style="margin:0">יש לשלוח ללקוח לכתובת הזו.</p>`
       : `<p style="margin:0"><b style="color:#D4288A">איסוף:</b> עצמי מהמועדון — יש לתאם עם הלקוח.</p>`
+  const payHtml = p.forCustomer && p.paymentLinks?.length
+    ? `<div style="margin-top:18px">
+      <p style="margin:0 0 10px;font-weight:700">לתשלום (ההזמנה נחשבת רק לאחר תשלום מלא):</p>
+      ${p.paymentLinks
+        .map((l) =>
+          l.link
+            ? `<a href="${l.link}" style="display:block;background:#D4288A;color:#fff;text-decoration:none;text-align:center;font-weight:800;border-radius:10px;padding:12px;margin:0 0 8px">לתשלום עבור ${l.name}</a>`
+            : `<p style="margin:0 0 8px;color:#9FB3A8;font-size:13px">${l.name}: קישור התשלום עדיין לא זמין — ניצור איתך קשר לתיאום התשלום.</p>`
+        )
+        .join('')}
+    </div>`
+    : ''
   return `
   <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;background:#0C1814;color:#F5F2EE;padding:32px 24px;border-radius:16px;max-width:520px;margin:0 auto">
     ${noteHtml}
@@ -71,6 +85,7 @@ export function tshirtOrderHtml(orderId: string, p: {
       <p style="margin:0 0 8px"><b style="color:#D4288A">סה"כ לתשלום:</b> ${p.total} ₪</p>
       ${pickupLine}
     </div>
+    ${payHtml}
     <p style="font-size:12px;color:#7E948A;margin-top:20px">טבע בייק · tevabike.com</p>
   </div>`
 }

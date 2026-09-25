@@ -189,6 +189,21 @@ export async function POST(req: NextRequest) {
 
   const orderId = inserted[0].id as string
 
+  // קישור תשלום נפרד לכל סוג מוצר שהוזמן (לא ניתן לאחד לקישור אחד — הסכום
+  // משתנה לפי כמות/מידה חופשית, וב-Arbox אין תמיכה בסכום דינמי כרגע).
+  const paymentLinks = Array.from(bySlug.values()).map((p) => ({
+    slug: p.slug,
+    name: p.name,
+    link: p.preorder_active ? p.preorder_arbox_link : p.regular_arbox_link,
+  }))
+  if (fulfillment === 'delivery') {
+    paymentLinks.push({
+      slug: 'shipping',
+      name: `משלוח עד הבית (${shipping_fee} ₪)`,
+      link: (settings?.shipping_arbox_link as string | null) ?? null,
+    })
+  }
+
   // התראה פנימית לבני — תמיד.
   await sendEmail(
     BENNY_EMAIL,
@@ -214,24 +229,9 @@ export async function POST(req: NextRequest) {
       'אישור הזמנת חולצות — טבע בייק',
       tshirtOrderHtml(orderId, {
         lines: emailLines, customer_name, customer_phone, total, fulfillment, delivery_address, shipping_fee,
-        forCustomer: true,
+        paymentLinks, forCustomer: true,
       })
     )
-  }
-
-  // קישור תשלום נפרד לכל סוג מוצר שהוזמן (לא ניתן לאחד לקישור אחד — הסכום
-  // משתנה לפי כמות/מידה חופשית, וב-Arbox אין תמיכה בסכום דינמי כרגע).
-  const paymentLinks = Array.from(bySlug.values()).map((p) => ({
-    slug: p.slug,
-    name: p.name,
-    link: p.preorder_active ? p.preorder_arbox_link : p.regular_arbox_link,
-  }))
-  if (fulfillment === 'delivery') {
-    paymentLinks.push({
-      slug: 'shipping',
-      name: `משלוח עד הבית (${shipping_fee} ₪)`,
-      link: (settings?.shipping_arbox_link as string | null) ?? null,
-    })
   }
 
   return NextResponse.json({ ok: true, id: orderId, total, paymentLinks })
