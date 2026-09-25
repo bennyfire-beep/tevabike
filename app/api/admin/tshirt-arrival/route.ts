@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { adminDb, requireCoordinator, type AdminDb } from '@/lib/admin-api'
 import { sendEmail, BENNY_EMAIL } from '@/lib/tshirt-order-email'
 
 // מייל "החולצות הגיעו" לכל מי ששילם על הזמנת ביגוד.
@@ -12,9 +12,6 @@ import { sendEmail, BENNY_EMAIL } from '@/lib/tshirt-order-email'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-
-type Db = NonNullable<ReturnType<typeof admin>>
-
 type Row = {
   id: string
   order_group: string
@@ -26,36 +23,14 @@ type Row = {
   fulfillment: string
 }
 
-function admin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !serviceKey) return null
-  return createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } })
-}
-
-async function guard(req: NextRequest, db: Db) {
-  const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim()
-  if (!token) return NextResponse.json({ ok: false, error: 'לא מחובר' }, { status: 401 })
-
-  const { data: caller, error } = await db.auth.getUser(token)
-  if (error || !caller?.user)
-    return NextResponse.json({ ok: false, error: 'ההזדהות נכשלה, התחבר מחדש' }, { status: 401 })
-
-  const { data: roleRows } = await db.from('admin_roles').select('role').eq('user_id', caller.user.id)
-  const roles = ((roleRows ?? []) as Array<{ role?: string }>).map((r) => r.role)
-  if (!roles.some((r) => r === 'coordinator' || r === 'admin'))
-    return NextResponse.json({ ok: false, error: 'אין לך הרשאה לשלוח הודעות' }, { status: 403 })
-
-  return null
-}
-
 // הזמנות ששולמו, עם אימייל, שעוד לא קיבלו הודעת הגעה — מקובצות לפי הזמנה
-async function pendingGroups(db: Db) {
+async function pendingGroups(db: AdminDb) {
   const { data, error } = await db
     .from('tshirt_orders')
     .select('id, order_group, product_name, size, quantity, customer_name, customer_email, fulfillment')
     .eq('payment_status', 'confirmed')
     .is('arrival_notified_at', null)
+    .is('cancelled_at', null)
     .not('customer_email', 'is', null)
   if (error) return { error: error.message, groups: [] as Row[][] }
   const map = new Map<string, Row[]>()
@@ -101,9 +76,9 @@ function arrivalHtml(rows: Row[], note: string) {
 const SUBJECT = 'החולצות של טבע בייק הגיעו!'
 
 export async function POST(req: NextRequest) {
-  const db = admin()
+  const db = adminDb()
   if (!db) return NextResponse.json({ ok: false, error: 'server_misconfigured' }, { status: 500 })
-  const denied = await guard(req, db)
+  const denied = await requireCoordinator(req, db)
   if (denied) return denied
 
   const body = await req.json().catch(() => ({}))

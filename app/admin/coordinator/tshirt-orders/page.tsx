@@ -46,6 +46,7 @@ type OrderRow = {
   fulfillment: string
   delivery_address: string | null
   shipping_fee: number
+  cancelled_at: string | null
 }
 
 type Group = {
@@ -59,6 +60,7 @@ type Group = {
   fulfillment: string
   delivery_address: string | null
   shipping_fee: number
+  cancelled: boolean
   total: number
   rows: OrderRow[]
 }
@@ -86,6 +88,7 @@ function groupOrders(rows: OrderRow[]): Group[] {
         fulfillment: r.fulfillment,
         delivery_address: r.delivery_address,
         shipping_fee: Number(r.shipping_fee) || 0,
+        cancelled: !!r.cancelled_at,
         total: r.line_total,
         rows: [r],
       })
@@ -620,7 +623,7 @@ export default function TshirtOrdersPage() {
   const [orders, setOrders] = useState<OrderRow[]>([])
   const [loading, setLoading] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed'>('all')
+  const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all')
   const [busyKey, setBusyKey] = useState<string | null>(null)
   const [openKey, setOpenKey] = useState<string | null>(null)
 
@@ -633,7 +636,7 @@ export default function TshirtOrdersPage() {
         .order('display_order', { ascending: true }),
       supabase
         .from('tshirt_orders')
-        .select('id, created_at, order_group, product_name, size, back_name, quantity, unit_price, is_preorder, line_total, customer_name, customer_phone, customer_email, payment_status, arrival_notified_at, fulfillment, delivery_address, shipping_fee')
+        .select('id, created_at, order_group, product_name, size, back_name, quantity, unit_price, is_preorder, line_total, customer_name, customer_phone, customer_email, payment_status, arrival_notified_at, fulfillment, delivery_address, shipping_fee, cancelled_at')
         .order('created_at', { ascending: false }),
       supabase.from('tshirt_shop_settings').select('is_active, coming_soon_message, shipping_price, shipping_arbox_link').eq('id', true).maybeSingle(),
     ])
@@ -669,14 +672,49 @@ export default function TshirtOrdersPage() {
     setOpenKey(null)
   }
 
+  // ביטול (במקום מחיקה): ההזמנה נשארת ברשימה, יוצאת מסיכום המידות
+  // ומהודעת ההגעה, והלקוח מקבל מייל. "שחזור" מחזיר אותה לפעילה בלי מייל.
+  async function setCancelled(group: Group, cancel: boolean) {
+    if (cancel) {
+      const paid = group.payment_status === 'confirmed'
+      const msg =
+        `לבטל את ההזמנה של ${group.customer_name}?` +
+        (group.customer_email ? '\nהלקוח יקבל מייל שההזמנה בוטלה.' : '\nללקוח אין אימייל — צריך להודיע לו בטלפון.') +
+        (paid ? '\nההזמנה סומנה כשולמה — את ההחזר צריך לבצע ידנית ב-Arbox.' : '')
+      if (!confirm(msg)) return
+    }
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { alert('פג תוקף ההתחברות, התחבר מחדש'); return }
+    setBusyKey(group.key)
+    try {
+      const res = await fetch('/api/admin/tshirt-cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ order_group: group.order_group, undo: !cancel }),
+      })
+      const d = await res.json()
+      if (!d.ok) { alert(d.error || 'הפעולה נכשלה'); setBusyKey(null); return }
+      const ids = group.rows.map((r) => r.id)
+      setOrders((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, cancelled_at: d.cancelled_at } : r)))
+      if (cancel && group.customer_email && !d.emailed) alert('ההזמנה בוטלה, אבל שליחת המייל ללקוח נכשלה.')
+    } catch {
+      alert('אין חיבור לשרת')
+    }
+    setBusyKey(null)
+  }
+
   if (!user) return null
 
-  const groups = groupOrders(orders).filter((g) => {
+  const activeOrders = orders.filter((r) => !r.cancelled_at)
+  const allGroups = groupOrders(orders)
+  const groups = allGroups.filter((g) => {
     if (filter === 'all') return true
+    if (filter === 'cancelled') return g.cancelled
+    if (g.cancelled) return false
     if (filter === 'confirmed') return g.payment_status === 'confirmed'
     return g.payment_status !== 'confirmed'
   })
-  const pendingCount = groupOrders(orders).filter((g) => g.payment_status !== 'confirmed').length
+  const pendingCount = allGroups.filter((g) => !g.cancelled && g.payment_status !== 'confirmed').length
 
   return (
     <div style={{ padding: '16px 12px', maxWidth: 700, margin: '0 auto' }}>
@@ -709,8 +747,8 @@ export default function TshirtOrdersPage() {
         )}
       </div>
 
-      {!loading && <SizeSummary orders={orders} />}
-      {!loading && <ArrivalNotice orders={orders} onSent={load} />}
+      {!loading && <SizeSummary orders={activeOrders} />}
+      {!loading && <ArrivalNotice orders={activeOrders} onSent={load} />}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div>
@@ -725,6 +763,7 @@ export default function TshirtOrdersPage() {
               ['all', 'הכל'],
               ['pending', 'ממתינות'],
               ['confirmed', 'בוצעו'],
+              ['cancelled', 'בוטלו'],
             ] as [typeof filter, string][]
           ).map(([value, label]) => (
             <button
@@ -778,11 +817,12 @@ export default function TshirtOrdersPage() {
                   <span
                     style={{
                       alignSelf: 'flex-start',
-                      background: g.payment_status === 'confirmed' ? '#12331f' : '#2a2410',
-                      color: g.payment_status === 'confirmed' ? '#7ee787' : '#e8c547',
+                      background: g.cancelled ? '#3a1a1a' : g.payment_status === 'confirmed' ? '#12331f' : '#2a2410',
+                      color: g.cancelled ? '#ff8f6b' : g.payment_status === 'confirmed' ? '#7ee787' : '#e8c547',
                       borderRadius: 10, padding: '2px 8px', fontSize: 10, fontWeight: 700,
                     }}
                   >
+                    {g.cancelled ? '❌ בוטלה · ' : ''}
                     {g.payment_status === 'confirmed' ? 'שולם' : 'ממתין לתשלום'}
                     {g.fulfillment === 'delivery' ? ' · 🚚 משלוח' : ' · איסוף עצמי'}
                   </span>
@@ -833,6 +873,18 @@ export default function TshirtOrdersPage() {
                         }}
                       >
                         {busyKey === g.key ? '...' : g.payment_status === 'confirmed' ? 'החזר לממתין' : 'סמן ששולם'}
+                      </button>
+                      <button
+                        onClick={() => setCancelled(g, !g.cancelled)}
+                        disabled={busyKey === g.key}
+                        style={{
+                          background: 'transparent', border: `1px solid ${g.cancelled ? '#252b27' : '#5a2a2a'}`, borderRadius: 8,
+                          color: g.cancelled ? '#b5e853' : '#ff8f6b', padding: '10px 12px', fontSize: 13,
+                          fontFamily: 'Heebo, Arial, sans-serif', fontWeight: 700, cursor: 'pointer',
+                          opacity: busyKey === g.key ? 0.5 : 1,
+                        }}
+                      >
+                        {g.cancelled ? 'שחזור הזמנה' : 'ביטול הזמנה'}
                       </button>
                       <button
                         onClick={() => deleteGroup(g)}
