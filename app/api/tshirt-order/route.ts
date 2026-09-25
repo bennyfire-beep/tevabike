@@ -1,7 +1,8 @@
 // app/api/tshirt-order/route.ts — קליטת הזמנת חולצות מ-/shop (טאב "חולצות").
 //
 // שונה מ-/api/shop-order: אין דרופשיפינג/ספק, אז אין שלב "שלח לספק" — החולצות
-// מודפסות במרוכז ומחולקות באיסוף עצמי מהמועדון. גם אין קישור Arbox יחיד
+// מודפסות במרוכז ומחולקות באיסוף עצמי מהמועדון, או במשלוח עד הבית (דמי
+// משלוח קבועים פעם אחת להזמנה, בקישור Arbox נפרד מ-tshirt_shop_settings). גם אין קישור Arbox יחיד
 // לכל "צירוף" אפשרי (כמו באביזרים) כי כאן כל אחד יכול להזמין כמות חופשית
 // לפי מידות — אז מחזירים ללקוח קישור תשלום נפרד לכל סוג מוצר שהוזמן, לפי
 // מצב ה-preorder הנוכחי (נשלף מה-DB, לא מהלקוח).
@@ -19,6 +20,7 @@ const MAX_SHORT = 100
 const MAX_PHONE = 30
 const MAX_EMAIL = 200
 const MAX_BACK_NAME = 40
+const MAX_ADDRESS = 200
 
 function clean(v: unknown, max: number): string | null {
   if (typeof v !== 'string') return null
@@ -70,6 +72,11 @@ export async function POST(req: NextRequest) {
   if (!customer_name || !customer_phone || !customer_email) {
     return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
   }
+  const fulfillment = body.fulfillment === 'delivery' ? 'delivery' : 'pickup'
+  const delivery_address = fulfillment === 'delivery' ? clean(body.delivery_address, MAX_ADDRESS) : null
+  if (fulfillment === 'delivery' && !delivery_address) {
+    return NextResponse.json({ error: 'missing_address' }, { status: 400 })
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -96,6 +103,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'unknown_product' }, { status: 400 })
   }
 
+  // דמי המשלוח נשלפים מההגדרות, לא מהלקוח
+  const { data: settings } = await supabase
+    .from('tshirt_shop_settings')
+    .select('shipping_price, shipping_arbox_link')
+    .eq('id', true)
+    .maybeSingle()
+  const shipping_fee = fulfillment === 'delivery' ? Number(settings?.shipping_price ?? 25) : 0
+
   const orderRows: Array<{
     order_group: string
     product_slug: string
@@ -109,6 +124,9 @@ export async function POST(req: NextRequest) {
     customer_name: string
     customer_phone: string
     customer_email: string | null
+    fulfillment: string
+    delivery_address: string | null
+    shipping_fee: number
   }> = []
   const emailLines: TshirtLine[] = []
   let total = 0
@@ -139,6 +157,9 @@ export async function POST(req: NextRequest) {
       customer_name,
       customer_phone,
       customer_email,
+      fulfillment,
+      delivery_address,
+      shipping_fee,
     })
     emailLines.push({
       product_name: product.name,
@@ -150,6 +171,8 @@ export async function POST(req: NextRequest) {
       line_total,
     })
   }
+
+  total += shipping_fee
 
   const groupKey = `${customer_phone}-${Date.now()}`
   for (const row of orderRows) row.order_group = groupKey
@@ -176,6 +199,9 @@ export async function POST(req: NextRequest) {
       customer_name,
       customer_phone,
       total,
+      fulfillment,
+      delivery_address,
+      shipping_fee,
       internalNote: 'הזמנה חדשה — יש לתאם תשלום מול הלקוח ולעדכן סטטוס במסך "הזמנות חולצות".',
     })
   )
@@ -186,7 +212,10 @@ export async function POST(req: NextRequest) {
       customer_email,
       BENNY_EMAIL,
       'אישור הזמנת חולצות — טבע בייק',
-      tshirtOrderHtml(orderId, { lines: emailLines, customer_name, customer_phone, total, forCustomer: true })
+      tshirtOrderHtml(orderId, {
+        lines: emailLines, customer_name, customer_phone, total, fulfillment, delivery_address, shipping_fee,
+        forCustomer: true,
+      })
     )
   }
 
@@ -197,6 +226,13 @@ export async function POST(req: NextRequest) {
     name: p.name,
     link: p.preorder_active ? p.preorder_arbox_link : p.regular_arbox_link,
   }))
+  if (fulfillment === 'delivery') {
+    paymentLinks.push({
+      slug: 'shipping',
+      name: `משלוח עד הבית (${shipping_fee} ₪)`,
+      link: (settings?.shipping_arbox_link as string | null) ?? null,
+    })
+  }
 
   return NextResponse.json({ ok: true, id: orderId, total, paymentLinks })
 }

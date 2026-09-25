@@ -23,6 +23,7 @@ type Row = {
   quantity: number
   customer_name: string
   customer_email: string | null
+  fulfillment: string
 }
 
 function admin() {
@@ -52,7 +53,7 @@ async function guard(req: NextRequest, db: Db) {
 async function pendingGroups(db: Db) {
   const { data, error } = await db
     .from('tshirt_orders')
-    .select('id, order_group, product_name, size, quantity, customer_name, customer_email')
+    .select('id, order_group, product_name, size, quantity, customer_name, customer_email, fulfillment')
     .eq('payment_status', 'confirmed')
     .is('arrival_notified_at', null)
     .not('customer_email', 'is', null)
@@ -84,7 +85,9 @@ function arrivalHtml(rows: Row[], note: string) {
   <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;background:#0C1814;color:#F5F2EE;padding:32px 24px;border-radius:16px;max-width:520px;margin:0 auto">
     <h1 style="color:#D4288A;font-size:22px;margin:0 0 16px">החולצות הגיעו! 🎉</h1>
     <p style="margin:0 0 14px">היי ${escape(rows[0].customer_name)},</p>
-    <p style="line-height:1.8;margin:0 0 14px">הקולקציה של טבע בייק הגיעה, וההזמנה שלך מחכה לך לאיסוף במועדון.</p>
+    <p style="line-height:1.8;margin:0 0 14px">${rows[0].fulfillment === 'delivery'
+      ? 'הקולקציה של טבע בייק הגיעה! ההזמנה שלך יוצאת אליך במשלוח לכתובת שמסרת.'
+      : 'הקולקציה של טבע בייק הגיעה, וההזמנה שלך מחכה לך לאיסוף במועדון.'}</p>
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px;margin:0 0 16px">
       <p style="margin:0 0 10px;color:#7E948A;font-size:13px">מה הזמנת:</p>
       ${items}
@@ -95,7 +98,7 @@ function arrivalHtml(rows: Row[], note: string) {
   </div>`
 }
 
-const SUBJECT = 'החולצות של טבע בייק הגיעו — מחכות לך לאיסוף'
+const SUBJECT = 'החולצות של טבע בייק הגיעו!'
 
 export async function POST(req: NextRequest) {
   const db = admin()
@@ -112,7 +115,7 @@ export async function POST(req: NextRequest) {
 
   if (testTo) {
     const sample: Row[] = groups[0] ?? [
-      { id: '', order_group: '', product_name: 'חולצה קצרה', size: 'M', quantity: 1, customer_name: 'בדיקה', customer_email: testTo },
+      { id: '', order_group: '', product_name: 'חולצה קצרה', size: 'M', quantity: 1, customer_name: 'בדיקה', customer_email: testTo, fulfillment: 'pickup' },
     ]
     const ok = await sendEmail(testTo, undefined, `[בדיקה] ${SUBJECT}`, arrivalHtml(sample, note))
     return ok

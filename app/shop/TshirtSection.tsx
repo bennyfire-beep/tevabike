@@ -66,6 +66,10 @@ export default function TshirtSection() {
   const [status, setStatus] = useState<Status>("idle");
   const [paymentLinks, setPaymentLinks] = useState<PaymentLink[]>([]);
   const [form, setForm] = useState({ customer_name: "", customer_phone: "", customer_email: "" });
+  // איסוף עצמי חינם מהמועדון, או משלוח עד הבית בתוספת shipping_price (פעם אחת להזמנה)
+  const [fulfillment, setFulfillment] = useState<"pickup" | "delivery">("pickup");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [shippingPrice, setShippingPrice] = useState(25);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,12 +82,13 @@ export default function TshirtSection() {
         .eq("category", "clothing")
         .not("slug", "in", `(${HIDDEN_TSHIRT_SLUGS.join(",")})`)
         .order("display_order", { ascending: true }),
-      supabase.from("tshirt_shop_settings").select("is_active, coming_soon_message").eq("id", true).maybeSingle(),
+      supabase.from("tshirt_shop_settings").select("is_active, coming_soon_message, shipping_price").eq("id", true).maybeSingle(),
     ]).then(([productsRes, settingsRes]) => {
       if (cancelled) return;
       setProducts((productsRes.data ?? []) as Product[]);
       setShopActive(settingsRes.data?.is_active ?? true);
       setComingSoonMessage(settingsRes.data?.coming_soon_message ?? "");
+      if (settingsRes.data?.shipping_price != null) setShippingPrice(Number(settingsRes.data.shipping_price));
       setLoading(false);
     });
     return () => {
@@ -131,7 +136,9 @@ export default function TshirtSection() {
     setCart((c) => c.filter((l) => l.key !== key));
   }
 
-  const total = cart.reduce((sum, l) => sum + l.unit_price * l.quantity, 0);
+  const itemsTotal = cart.reduce((sum, l) => sum + l.unit_price * l.quantity, 0);
+  const shippingFee = fulfillment === "delivery" ? shippingPrice : 0;
+  const total = itemsTotal + shippingFee;
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -145,6 +152,10 @@ export default function TshirtSection() {
     }
     if (!form.customer_email.trim()) {
       alert("נא למלא אימייל לקבלת אישור ההזמנה");
+      return;
+    }
+    if (fulfillment === "delivery" && !deliveryAddress.trim()) {
+      alert("נא למלא כתובת למשלוח");
       return;
     }
     setStatus("sending");
@@ -162,6 +173,8 @@ export default function TshirtSection() {
           customer_name: form.customer_name,
           customer_phone: form.customer_phone,
           customer_email: form.customer_email,
+          fulfillment,
+          delivery_address: fulfillment === "delivery" ? deliveryAddress : null,
         }),
       });
       if (res.ok) {
@@ -232,6 +245,7 @@ export default function TshirtSection() {
           <ul className="space-y-1">
             <li>💳 ההזמנה נחשבת רק לאחר תשלום מלא</li>
             <li>📦 אספקת החולצות תוך 70 יום מה-20 באוקטובר</li>
+            <li>🏠 איסוף עצמי מהמועדון ללא עלות, או משלוח עד הבית ב-{shippingPrice} ₪</li>
             <li>✉️ נשלח לכם הודעה במייל כשהחולצות יגיעו</li>
           </ul>
         </div>
@@ -434,7 +448,9 @@ export default function TshirtSection() {
                   שימו לב: ההזמנה נחשבת רק לאחר תשלום מלא.
                 </p>
                 <p className="text-xs" style={{ color: "#7E948A" }}>
-                  אספקה תוך 70 יום מה-20 באוקטובר. איסוף עצמי מהמועדון — נשלח לך הודעה במייל כשהחולצות יגיעו.
+                  אספקה תוך 70 יום מה-20 באוקטובר
+                  {fulfillment === "delivery" ? ", במשלוח לכתובת שמסרת" : ", באיסוף עצמי מהמועדון"}. נשלח לך הודעה
+                  במייל כשהחולצות יגיעו.
                 </p>
               </div>
             ) : (
@@ -484,6 +500,12 @@ export default function TshirtSection() {
                       <span>{l.unit_price * l.quantity} ₪</span>
                     </div>
                   ))}
+                  {shippingFee > 0 && (
+                    <div className="flex justify-between" style={{ color: "#D8E2DC" }}>
+                      <span>משלוח עד הבית</span>
+                      <span>{shippingFee} ₪</span>
+                    </div>
+                  )}
                   <div
                     className="flex justify-between font-bold pt-2 mt-1"
                     style={{ borderTop: `1px solid ${C.greenMid}`, color: C.offWhite }}
@@ -518,10 +540,51 @@ export default function TshirtSection() {
                   onChange={(e) => set("customer_email", e.target.value)}
                 />
 
+                <div className="space-y-2">
+                  <p className="text-sm font-bold">איך לקבל את ההזמנה?</p>
+                  {(
+                    [
+                      ["pickup", "איסוף עצמי מהמועדון", "ללא עלות"],
+                      ["delivery", "משלוח עד הבית", `+${shippingPrice} ₪`],
+                    ] as const
+                  ).map(([value, label, price]) => (
+                    <label
+                      key={value}
+                      className="flex items-center justify-between gap-3 rounded-lg p-3 border cursor-pointer"
+                      style={{
+                        background: C.dark,
+                        borderColor: fulfillment === value ? C.brand : C.greenMid,
+                      }}
+                    >
+                      <span className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="fulfillment"
+                          checked={fulfillment === value}
+                          onChange={() => setFulfillment(value)}
+                          style={{ accentColor: C.brand }}
+                        />
+                        {label}
+                      </span>
+                      <span className="text-sm font-bold" style={{ color: value === "pickup" ? "#9FB3A8" : C.brand }}>
+                        {price}
+                      </span>
+                    </label>
+                  ))}
+                  {fulfillment === "delivery" && (
+                    <input
+                      className={input}
+                      style={inputStyle}
+                      placeholder="כתובת מלאה למשלוח (רחוב, מספר, עיר) *"
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                    />
+                  )}
+                </div>
+
                 <p className="text-xs leading-relaxed" style={{ color: "#7E948A" }}>
                   לאחר השליחה תופנה לתשלום — <b style={{ color: C.offWhite }}>ההזמנה נחשבת רק לאחר תשלום מלא</b>.
-                  אספקה תוך 70 יום מה-20 באוקטובר, איסוף עצמי ממועדון טבע בייק. נשלח לך הודעה במייל כשהחולצות
-                  יגיעו.
+                  אספקה תוך 70 יום מה-20 באוקטובר. נשלח לך הודעה במייל כשהחולצות יגיעו.
                 </p>
 
                 <button

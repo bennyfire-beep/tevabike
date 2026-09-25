@@ -39,16 +39,27 @@ export function tshirtOrderHtml(orderId: string, p: {
   internalNote?: string
   /** true כשזה המייל שיוצא ללקוח (מנוסח בגוף שני, בלי הערות פנימיות). */
   forCustomer?: boolean
+  fulfillment?: string
+  delivery_address?: string | null
+  shipping_fee?: number
 }) {
   const noteHtml = p.internalNote
     ? `<div style="background:#3a1a1a;border:1px solid #5a2a2a;border-radius:10px;padding:10px 14px;margin-bottom:16px;color:#ff8f6b;font-size:13px;font-weight:700">${p.internalNote}</div>`
     : ''
   const title = p.forCustomer ? 'תודה על ההזמנה — חולצות טבע בייק' : 'הזמנת חולצה חדשה מטבע בייק'
+  const delivery = p.fulfillment === 'delivery'
+  const address = (p.delivery_address ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const fulfillmentLine = delivery
+    ? `<p style="margin:0 0 8px"><b style="color:#D4288A">משלוח עד הבית:</b> ${p.shipping_fee ?? 0} ₪ — ${address}</p>`
+    : `<p style="margin:0 0 8px"><b style="color:#D4288A">איסוף:</b> עצמי מהמועדון, ללא עלות</p>`
   const pickupLine = p.forCustomer
-    ? `<p style="margin:0 0 8px"><b style="color:#D4288A">חשוב:</b> ההזמנה נחשבת רק לאחר תשלום מלא.</p>
+    ? `${fulfillmentLine}
+      <p style="margin:0 0 8px"><b style="color:#D4288A">חשוב:</b> ההזמנה נחשבת רק לאחר תשלום מלא.</p>
       <p style="margin:0 0 8px"><b style="color:#D4288A">אספקה:</b> תוך 70 יום מה-20 באוקטובר.</p>
-      <p style="margin:0"><b style="color:#D4288A">איסוף:</b> עצמי מהמועדון — נשלח לך הודעה במייל כשהחולצות יגיעו.</p>`
-    : `<p style="margin:0"><b style="color:#D4288A">איסוף:</b> עצמי מהמועדון — יש לתאם עם הלקוח.</p>`
+      <p style="margin:0">נשלח לך הודעה במייל כשהחולצות יגיעו.</p>`
+    : delivery
+      ? `${fulfillmentLine}<p style="margin:0">יש לשלוח ללקוח לכתובת הזו.</p>`
+      : `<p style="margin:0"><b style="color:#D4288A">איסוף:</b> עצמי מהמועדון — יש לתאם עם הלקוח.</p>`
   return `
   <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;background:#0C1814;color:#F5F2EE;padding:32px 24px;border-radius:16px;max-width:520px;margin:0 auto">
     ${noteHtml}

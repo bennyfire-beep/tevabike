@@ -11,6 +11,8 @@ import { useCoordinator } from '@/lib/coordinator-context'
 type ShopSettings = {
   is_active: boolean
   coming_soon_message: string
+  shipping_price: number
+  shipping_arbox_link: string | null
 }
 
 type ProductRow = {
@@ -41,6 +43,9 @@ type OrderRow = {
   customer_email: string | null
   payment_status: string
   arrival_notified_at: string | null
+  fulfillment: string
+  delivery_address: string | null
+  shipping_fee: number
 }
 
 type Group = {
@@ -51,6 +56,9 @@ type Group = {
   customer_phone: string
   customer_email: string | null
   payment_status: string
+  fulfillment: string
+  delivery_address: string | null
+  shipping_fee: number
   total: number
   rows: OrderRow[]
 }
@@ -75,6 +83,9 @@ function groupOrders(rows: OrderRow[]): Group[] {
         customer_phone: r.customer_phone,
         customer_email: r.customer_email,
         payment_status: r.payment_status,
+        fulfillment: r.fulfillment,
+        delivery_address: r.delivery_address,
+        shipping_fee: Number(r.shipping_fee) || 0,
         total: r.line_total,
         rows: [r],
       })
@@ -82,6 +93,8 @@ function groupOrders(rows: OrderRow[]): Group[] {
   }
   // אם יש שורה אחת שלא אושרה בתוך הקבוצה, הקבוצה כולה מוצגת כ"ממתינה"
   for (const g of map.values()) {
+    // דמי משלוח נשמרים על כל שורה בהזמנה אבל נגבים פעם אחת
+    g.total += g.shipping_fee
     g.payment_status = g.rows.every((r) => r.payment_status === 'confirmed') ? 'confirmed' : 'pending'
   }
   return Array.from(map.values())
@@ -101,7 +114,12 @@ function ShopActiveBanner({ settings, onSaved }: { settings: ShopSettings; onSav
     setSaving(true)
     const { error } = await supabase
       .from('tshirt_shop_settings')
-      .update({ is_active: draft.is_active, coming_soon_message: draft.coming_soon_message })
+      .update({
+        is_active: draft.is_active,
+        coming_soon_message: draft.coming_soon_message,
+        shipping_price: draft.shipping_price,
+        shipping_arbox_link: draft.shipping_arbox_link || null,
+      })
       .eq('id', true)
     setSaving(false)
     if (error) { alert(error.message); return }
@@ -138,6 +156,26 @@ function ShopActiveBanner({ settings, onSaved }: { settings: ShopSettings; onSav
           />
         </div>
       )}
+      <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: 8, marginBottom: 10 }}>
+        <div>
+          <label style={{ fontSize: 11, color: '#7a8f7d' }}>משלוח (₪)</label>
+          <input
+            type="number"
+            style={inputStyle}
+            value={draft.shipping_price}
+            onChange={(e) => setDraft((d) => ({ ...d, shipping_price: Number(e.target.value) }))}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: '#7a8f7d' }}>קישור Arbox לתשלום המשלוח (פעם אחת להזמנה)</label>
+          <input
+            style={inputStyle}
+            placeholder="https://arbox.link/..."
+            value={draft.shipping_arbox_link ?? ''}
+            onChange={(e) => setDraft((d) => ({ ...d, shipping_arbox_link: e.target.value }))}
+          />
+        </div>
+      </div>
       <button
         onClick={save}
         disabled={!dirty || saving}
@@ -367,10 +405,11 @@ function SizeSummary({ orders }: { orders: OrderRow[] }) {
   )
 
   function downloadCsv() {
-    const header = ['מוצר', 'מידה', 'כמות', 'שם', 'טלפון', 'אימייל', 'סטטוס תשלום', 'תאריך']
+    const header = ['מוצר', 'מידה', 'כמות', 'שם', 'טלפון', 'אימייל', 'סטטוס תשלום', 'משלוח/איסוף', 'כתובת', 'תאריך']
     const lines = sorted.map((r) => [
       r.product_name, r.size, String(r.quantity), r.customer_name, r.customer_phone, r.customer_email ?? '',
-      r.payment_status === 'confirmed' ? 'שולם' : 'ממתין לתשלום', fmtDateTime(r.created_at),
+      r.payment_status === 'confirmed' ? 'שולם' : 'ממתין לתשלום',
+      r.fulfillment === 'delivery' ? 'משלוח' : 'איסוף עצמי', r.delivery_address ?? '', fmtDateTime(r.created_at),
     ])
     const csv = [header, ...lines]
       .map((l) => l.map((v) => `"${v.replace(/"/g, '""')}"`).join(','))
@@ -468,6 +507,7 @@ function SizeSummary({ orders }: { orders: OrderRow[] }) {
                     <th style={th}>שם</th>
                     <th style={th}>טלפון</th>
                     <th style={th}>תשלום</th>
+                    <th style={th}>קבלה</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -481,6 +521,7 @@ function SizeSummary({ orders }: { orders: OrderRow[] }) {
                       <td style={{ ...td, color: r.payment_status === 'confirmed' ? '#7ee787' : '#e8c547' }}>
                         {r.payment_status === 'confirmed' ? 'שולם' : 'ממתין'}
                       </td>
+                      <td style={td}>{r.fulfillment === 'delivery' ? `🚚 ${r.delivery_address ?? ''}` : 'איסוף'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -592,13 +633,13 @@ export default function TshirtOrdersPage() {
         .order('display_order', { ascending: true }),
       supabase
         .from('tshirt_orders')
-        .select('id, created_at, order_group, product_name, size, back_name, quantity, unit_price, is_preorder, line_total, customer_name, customer_phone, customer_email, payment_status, arrival_notified_at')
+        .select('id, created_at, order_group, product_name, size, back_name, quantity, unit_price, is_preorder, line_total, customer_name, customer_phone, customer_email, payment_status, arrival_notified_at, fulfillment, delivery_address, shipping_fee')
         .order('created_at', { ascending: false }),
-      supabase.from('tshirt_shop_settings').select('is_active, coming_soon_message').eq('id', true).maybeSingle(),
+      supabase.from('tshirt_shop_settings').select('is_active, coming_soon_message, shipping_price, shipping_arbox_link').eq('id', true).maybeSingle(),
     ])
     setProducts((p ?? []) as ProductRow[])
     setOrders((o ?? []) as OrderRow[])
-    setShopSettings((s as ShopSettings | null) ?? { is_active: false, coming_soon_message: '' })
+    setShopSettings((s as ShopSettings | null) ?? { is_active: false, coming_soon_message: '', shipping_price: 25, shipping_arbox_link: null })
     setLoading(false)
   }, [])
 
@@ -743,6 +784,7 @@ export default function TshirtOrdersPage() {
                     }}
                   >
                     {g.payment_status === 'confirmed' ? 'שולם' : 'ממתין לתשלום'}
+                    {g.fulfillment === 'delivery' ? ' · 🚚 משלוח' : ' · איסוף עצמי'}
                   </span>
                 </button>
 
@@ -758,6 +800,12 @@ export default function TshirtOrdersPage() {
                           {g.customer_email}
                         </>
                       )}
+                    </div>
+                    <div style={{ fontSize: 13, margin: '0 0 8px' }}>
+                      <span style={{ color: '#7a8f7d', fontWeight: 700 }}>
+                        {g.fulfillment === 'delivery' ? `🚚 משלוח (${g.shipping_fee} ₪): ` : 'איסוף עצמי מהמועדון'}
+                      </span>
+                      {g.fulfillment === 'delivery' && (g.delivery_address || '—')}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 12 }}>
                       {g.rows.map((r) => (
