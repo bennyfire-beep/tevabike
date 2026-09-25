@@ -62,9 +62,9 @@ export function tshirtOrderHtml(orderId: string, p: {
     : delivery
       ? `${fulfillmentLine}<p style="margin:0">יש לשלוח ללקוח לכתובת הזו.</p>`
       : `<p style="margin:0"><b style="color:#D4288A">איסוף:</b> עצמי מהמועדון — יש לתאם עם הלקוח.</p>`
-  const payHtml = p.forCustomer && p.paymentLinks?.length
+  const payHtml = p.paymentLinks?.length
     ? `<div style="margin-top:18px">
-      <p style="margin:0 0 10px;font-weight:700">לתשלום (ההזמנה נחשבת רק לאחר תשלום מלא):</p>
+      <p style="margin:0 0 10px;font-weight:700">${p.forCustomer ? 'לתשלום (ההזמנה נחשבת רק לאחר תשלום מלא):' : 'קישורי התשלום שנשלחו ללקוח:'}</p>
       ${p.paymentLinks
         .map((l) =>
           l.link
@@ -82,7 +82,7 @@ export function tshirtOrderHtml(orderId: string, p: {
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px">
       ${linesHtml(p.lines)}
       <p style="margin:12px 0 8px"><b style="color:#D4288A">לקוח:</b> ${p.customer_name} · ${p.customer_phone}</p>
-      <p style="margin:0 0 8px"><b style="color:#D4288A">סה"כ לתשלום:</b> ${p.total} ₪</p>
+      <p style="margin:0 0 8px"><b style="color:#D4288A">סה"כ לתשלום:</b> ${p.total} ₪${delivery ? ` (כולל משלוח ${p.shipping_fee ?? 0} ₪)` : ''}</p>
       ${pickupLine}
     </div>
     ${payHtml}

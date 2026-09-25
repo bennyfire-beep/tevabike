@@ -226,7 +226,7 @@ export async function POST(req: NextRequest) {
     await sendEmail(
       customer_email,
       BENNY_EMAIL,
-      'אישור הזמנת חולצות — טבע בייק',
+      `אישור הזמנת חולצות #${orderId.slice(0, 8)} — טבע בייק`,
       tshirtOrderHtml(orderId, {
         lines: emailLines, customer_name, customer_phone, total, fulfillment, delivery_address, shipping_fee,
         paymentLinks, forCustomer: true,
