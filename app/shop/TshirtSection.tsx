@@ -70,6 +70,25 @@ export default function TshirtSection() {
   const [fulfillment, setFulfillment] = useState<"pickup" | "delivery">("pickup");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [shippingPrice, setShippingPrice] = useState(25);
+  // קוד הפניה (שגריר, למשל YINON) — בלי הנחה, רק לדעת מי הביא את ההזמנה.
+  // ממולא אוטומטית מקישור ?ref=YINON.
+  const [referralCode, setReferralCode] = useState(() => {
+    // הטאב הזה מרונדר רק בדפדפן (אחרי בחירת טאב), אז window זמין
+    if (typeof window === "undefined") return "";
+    return (new URLSearchParams(window.location.search).get("ref") ?? "").toUpperCase();
+  });
+  const [errorMsg, setErrorMsg] = useState("");
+  // מבצע כובע: X ההזמנות הראשונות ששולמו מעל סכום מסוים (בלי משלוח)
+  const [hatPromo, setHatPromo] = useState<{ active: boolean; minTotal: number; limit: number; remaining: number } | null>(
+    null
+  );
+
+  useEffect(() => {
+    fetch("/api/tshirt-promo")
+      .then((r) => r.json())
+      .then((d) => d?.active && setHatPromo(d))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,6 +177,7 @@ export default function TshirtSection() {
       alert("נא למלא כתובת למשלוח");
       return;
     }
+    setErrorMsg("");
     setStatus("sending");
     try {
       const res = await fetch("/api/tshirt-order", {
@@ -175,6 +195,7 @@ export default function TshirtSection() {
           customer_email: form.customer_email,
           fulfillment,
           delivery_address: fulfillment === "delivery" ? deliveryAddress : null,
+          referral_code: referralCode.trim() || null,
         }),
       });
       if (res.ok) {
@@ -182,6 +203,12 @@ export default function TshirtSection() {
         setPaymentLinks(data.paymentLinks || []);
         setStatus("done");
       } else {
+        const data = await res.json().catch(() => ({}));
+        setErrorMsg(
+          data?.error === "bad_referral"
+            ? "קוד ההפניה לא מוכר — בדקו את הקוד או השאירו את השדה ריק."
+            : ""
+        );
         setStatus("error");
       }
     } catch {
@@ -246,6 +273,12 @@ export default function TshirtSection() {
             <li>💳 ההזמנה נחשבת רק לאחר תשלום מלא</li>
             <li>📦 אספקת החולצות תוך 70 יום מה-20 באוקטובר</li>
             <li>🏠 איסוף עצמי מהמועדון ללא עלות, או משלוח עד הבית ב-{shippingPrice} ₪</li>
+            {hatPromo && (
+              <li>
+                🧢 {hatPromo.limit} ההזמנות הראשונות מעל {hatPromo.minTotal} ₪ (לא כולל משלוח) ששולמו — מקבלות כובע
+                טבע בייק במתנה! נשארו {hatPromo.remaining}
+              </li>
+            )}
             <li>✉️ נשלח לכם הודעה במייל כשהחולצות יגיעו</li>
           </ul>
         </div>
@@ -513,6 +546,16 @@ export default function TshirtSection() {
                     <span>סה״כ</span>
                     <span>{total} ₪</span>
                   </div>
+                  {hatPromo &&
+                    (itemsTotal >= hatPromo.minTotal ? (
+                      <p className="text-xs pt-1" style={{ color: "#7ee787" }}>
+                        🧢 ההזמנה זכאית לכובע במתנה — ל-{hatPromo.limit} הראשונים שמשלימים תשלום
+                      </p>
+                    ) : (
+                      <p className="text-xs pt-1" style={{ color: "#9FB3A8" }}>
+                        🧢 עוד {hatPromo.minTotal - itemsTotal} ₪ בביגוד וההזמנה זכאית לכובע במתנה
+                      </p>
+                    ))}
                 </div>
 
                 <input
@@ -582,6 +625,15 @@ export default function TshirtSection() {
                   )}
                 </div>
 
+                <input
+                  className={input}
+                  style={{ ...inputStyle, direction: "ltr", textAlign: "right" }}
+                  placeholder="קוד הטבה / מי הפנה אותך? (רשות)"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  autoCapitalize="characters"
+                />
+
                 <p className="text-xs leading-relaxed" style={{ color: "#7E948A" }}>
                   לאחר השליחה תופנה לתשלום — <b style={{ color: C.offWhite }}>ההזמנה נחשבת רק לאחר תשלום מלא</b>.
                   אספקה תוך 70 יום מה-20 באוקטובר. נשלח לך הודעה במייל כשהחולצות יגיעו.
@@ -598,7 +650,7 @@ export default function TshirtSection() {
 
                 {status === "error" && (
                   <p className="text-sm text-center" style={{ color: "#FF8FA3" }}>
-                    משהו השתבש. נסה שוב או כתוב לנו בוואטסאפ.
+                    {errorMsg || "משהו השתבש. נסה שוב או כתוב לנו בוואטסאפ."}
                   </p>
                 )}
               </>

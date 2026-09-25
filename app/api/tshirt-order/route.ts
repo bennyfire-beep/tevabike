@@ -77,6 +77,9 @@ export async function POST(req: NextRequest) {
   if (fulfillment === 'delivery' && !delivery_address) {
     return NextResponse.json({ error: 'missing_address' }, { status: 400 })
   }
+  // קוד הפניה (שגריר) — רשות, בלי הנחה. נבדק מול הטבלה אחרי יצירת הלקוח.
+  const rawReferral = clean(body.referral_code, 30)
+  const referral_code_input = rawReferral ? rawReferral.toUpperCase().replace(/\s+/g, '') : null
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -103,10 +106,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'unknown_product' }, { status: 400 })
   }
 
-  // דמי המשלוח נשלפים מההגדרות, לא מהלקוח
+  let referral_code: string | null = null
+  if (referral_code_input) {
+    const { data: ref } = await supabase
+      .from('tshirt_referral_codes')
+      .select('code')
+      .eq('code', referral_code_input)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (!ref) return NextResponse.json({ error: 'bad_referral' }, { status: 400 })
+    referral_code = ref.code as string
+  }
+
+  // דמי המשלוח ומבצע הכובע נשלפים מההגדרות, לא מהלקוח
   const { data: settings } = await supabase
     .from('tshirt_shop_settings')
-    .select('shipping_price, shipping_arbox_link')
+    .select('shipping_price, shipping_arbox_link, hat_promo_active, hat_promo_min_total, hat_promo_limit')
     .eq('id', true)
     .maybeSingle()
   const shipping_fee = fulfillment === 'delivery' ? Number(settings?.shipping_price ?? 25) : 0
@@ -127,6 +142,7 @@ export async function POST(req: NextRequest) {
     fulfillment: string
     delivery_address: string | null
     shipping_fee: number
+    referral_code: string | null
   }> = []
   const emailLines: TshirtLine[] = []
   let total = 0
@@ -160,6 +176,7 @@ export async function POST(req: NextRequest) {
       fulfillment,
       delivery_address,
       shipping_fee,
+      referral_code,
     })
     emailLines.push({
       product_name: product.name,
@@ -172,6 +189,12 @@ export async function POST(req: NextRequest) {
     })
   }
 
+  // זכאות לכובע: סכום הפריטים (בלי משלוח) מעל הסף. הכובע ניתן בפועל רק
+  // ל-X הראשונים ששילמו — זה נקבע בעמוד הניהול, כאן רק מודיעים ללקוח.
+  const itemsTotal = total
+  const hatEligible =
+    !!settings?.hat_promo_active && itemsTotal >= Number(settings?.hat_promo_min_total ?? 400)
+  const hatLimit = Number(settings?.hat_promo_limit ?? 30)
   total += shipping_fee
 
   const groupKey = `${customer_phone}-${Date.now()}`
@@ -218,6 +241,9 @@ export async function POST(req: NextRequest) {
       delivery_address,
       shipping_fee,
       paymentLinks,
+      referral_code,
+      hatEligible,
+      hatLimit,
       internalNote: 'הזמנה חדשה — יש לתאם תשלום מול הלקוח ולעדכן סטטוס במסך "הזמנות חולצות".',
     })
   )
@@ -230,10 +256,10 @@ export async function POST(req: NextRequest) {
       `אישור הזמנת חולצות #${orderId.slice(0, 8)} — טבע בייק`,
       tshirtOrderHtml(orderId, {
         lines: emailLines, customer_name, customer_phone, total, fulfillment, delivery_address, shipping_fee,
-        paymentLinks, forCustomer: true,
+        paymentLinks, referral_code, hatEligible, hatLimit, forCustomer: true,
       })
     )
   }
 
-  return NextResponse.json({ ok: true, id: orderId, total, paymentLinks })
+  return NextResponse.json({ ok: true, id: orderId, total, paymentLinks, hatEligible })
 }

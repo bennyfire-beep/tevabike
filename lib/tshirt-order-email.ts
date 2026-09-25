@@ -44,6 +44,10 @@ export function tshirtOrderHtml(orderId: string, p: {
   shipping_fee?: number
   /** קישורי תשלום — במייל ללקוח מוצגים ככפתורים, כדי שיהיו לו תמיד בהישג יד. */
   paymentLinks?: { name: string; link: string | null }[]
+  referral_code?: string | null
+  /** סכום הפריטים עבר את סף מבצע הכובע */
+  hatEligible?: boolean
+  hatLimit?: number
 }) {
   const noteHtml = p.internalNote
     ? `<div style="background:#3a1a1a;border:1px solid #5a2a2a;border-radius:10px;padding:10px 14px;margin-bottom:16px;color:#ff8f6b;font-size:13px;font-weight:700">${p.internalNote}</div>`
@@ -62,6 +66,14 @@ export function tshirtOrderHtml(orderId: string, p: {
     : delivery
       ? `${fulfillmentLine}<p style="margin:0">יש לשלוח ללקוח לכתובת הזו.</p>`
       : `<p style="margin:0"><b style="color:#D4288A">איסוף:</b> עצמי מהמועדון — יש לתאם עם הלקוח.</p>`
+  const hatHtml = p.hatEligible
+    ? p.forCustomer
+      ? `<p style="margin:12px 0 0;color:#7ee787">🧢 ההזמנה שלך זכאית לכובע טבע בייק במתנה — ל-${p.hatLimit ?? 30} ההזמנות הראשונות שמשלימות תשלום.</p>`
+      : `<p style="margin:12px 0 0;color:#7ee787">🧢 מעל סף מבצע הכובע — זכאית אם תהיה בין ${p.hatLimit ?? 30} הראשונות ששילמו.</p>`
+    : ''
+  const referralHtml = p.referral_code
+    ? `<p style="margin:0 0 8px"><b style="color:#D4288A">קוד הפניה:</b> ${p.referral_code}</p>`
+    : ''
   const payHtml = p.paymentLinks?.length
     ? `<div style="margin-top:18px">
       <p style="margin:0 0 10px;font-weight:700">${p.forCustomer ? 'לתשלום (ההזמנה נחשבת רק לאחר תשלום מלא):' : 'קישורי התשלום שנשלחו ללקוח:'}</p>
@@ -83,7 +95,9 @@ export function tshirtOrderHtml(orderId: string, p: {
       ${linesHtml(p.lines)}
       <p style="margin:12px 0 8px"><b style="color:#D4288A">לקוח:</b> ${p.customer_name} · ${p.customer_phone}</p>
       <p style="margin:0 0 8px"><b style="color:#D4288A">סה"כ לתשלום:</b> ${p.total} ₪${delivery ? ` (כולל משלוח ${p.shipping_fee ?? 0} ₪)` : ''}</p>
+      ${referralHtml}
       ${pickupLine}
+      ${hatHtml}
     </div>
     ${payHtml}
     <p style="font-size:12px;color:#7E948A;margin-top:20px">טבע בייק · tevabike.com</p>

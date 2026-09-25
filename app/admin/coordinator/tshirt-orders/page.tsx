@@ -7,12 +7,16 @@
 import { useState, useEffect, useCallback, type CSSProperties } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
+import { hatWinners } from '@/lib/tshirt-hat-promo'
 
 type ShopSettings = {
   is_active: boolean
   coming_soon_message: string
   shipping_price: number
   shipping_arbox_link: string | null
+  hat_promo_active: boolean
+  hat_promo_min_total: number
+  hat_promo_limit: number
 }
 
 type ProductRow = {
@@ -47,6 +51,8 @@ type OrderRow = {
   delivery_address: string | null
   shipping_fee: number
   cancelled_at: string | null
+  referral_code: string | null
+  paid_at: string | null
 }
 
 type Group = {
@@ -122,6 +128,9 @@ function ShopActiveBanner({ settings, onSaved }: { settings: ShopSettings; onSav
         coming_soon_message: draft.coming_soon_message,
         shipping_price: draft.shipping_price,
         shipping_arbox_link: draft.shipping_arbox_link || null,
+        hat_promo_active: draft.hat_promo_active,
+        hat_promo_min_total: draft.hat_promo_min_total,
+        hat_promo_limit: draft.hat_promo_limit,
       })
       .eq('id', true)
     setSaving(false)
@@ -176,6 +185,34 @@ function ShopActiveBanner({ settings, onSaved }: { settings: ShopSettings; onSav
             placeholder="https://arbox.link/..."
             value={draft.shipping_arbox_link ?? ''}
             onChange={(e) => setDraft((d) => ({ ...d, shipping_arbox_link: e.target.value }))}
+          />
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr', gap: 8, marginBottom: 10, alignItems: 'end' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#e8efe9', cursor: 'pointer', paddingBottom: 8 }}>
+          <input
+            type="checkbox"
+            checked={draft.hat_promo_active}
+            onChange={(e) => setDraft((d) => ({ ...d, hat_promo_active: e.target.checked }))}
+          />
+          🧢 מבצע כובע
+        </label>
+        <div>
+          <label style={{ fontSize: 11, color: '#7a8f7d' }}>מסכום (₪, בלי משלוח)</label>
+          <input
+            type="number"
+            style={inputStyle}
+            value={draft.hat_promo_min_total}
+            onChange={(e) => setDraft((d) => ({ ...d, hat_promo_min_total: Number(e.target.value) }))}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: '#7a8f7d' }}>כמות כובעים</label>
+          <input
+            type="number"
+            style={inputStyle}
+            value={draft.hat_promo_limit}
+            onChange={(e) => setDraft((d) => ({ ...d, hat_promo_limit: Number(e.target.value) }))}
           />
         </div>
       </div>
@@ -408,11 +445,11 @@ function SizeSummary({ orders }: { orders: OrderRow[] }) {
   )
 
   function downloadCsv() {
-    const header = ['מוצר', 'מידה', 'כמות', 'שם', 'טלפון', 'אימייל', 'סטטוס תשלום', 'משלוח/איסוף', 'כתובת', 'תאריך']
+    const header = ['מוצר', 'מידה', 'כמות', 'שם', 'טלפון', 'אימייל', 'סטטוס תשלום', 'משלוח/איסוף', 'כתובת', 'קוד הפניה', 'תאריך']
     const lines = sorted.map((r) => [
       r.product_name, r.size, String(r.quantity), r.customer_name, r.customer_phone, r.customer_email ?? '',
       r.payment_status === 'confirmed' ? 'שולם' : 'ממתין לתשלום',
-      r.fulfillment === 'delivery' ? 'משלוח' : 'איסוף עצמי', r.delivery_address ?? '', fmtDateTime(r.created_at),
+      r.fulfillment === 'delivery' ? 'משלוח' : 'איסוף עצמי', r.delivery_address ?? '', r.referral_code ?? '', fmtDateTime(r.created_at),
     ])
     const csv = [header, ...lines]
       .map((l) => l.map((v) => `"${v.replace(/"/g, '""')}"`).join(','))
@@ -616,6 +653,165 @@ function ArrivalNotice({ orders, onSent }: { orders: OrderRow[]; onSent: () => v
   )
 }
 
+// מבצע כובע: מי זכה (לפי סדר התשלום) וכמה נשארו
+function HatPromoPanel({ orders, settings, winners }: { orders: OrderRow[]; settings: ShopSettings; winners: string[] }) {
+  const [open, setOpen] = useState(false)
+  if (!settings.hat_promo_active) return null
+  const groups = groupOrders(orders)
+  const byKey = new Map(groups.map((g) => [g.order_group, g]))
+  const winnerGroups = winners.map((k) => byKey.get(k)).filter((g): g is Group => !!g)
+  const eligibleUnpaid = groups.filter(
+    (g) => g.payment_status !== 'confirmed' && g.total - g.shipping_fee >= settings.hat_promo_min_total
+  )
+  return (
+    <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{ background: 'transparent', border: 'none', color: '#e8efe9', fontSize: 16, fontWeight: 800, fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer', padding: 0, textAlign: 'right', width: '100%' }}
+      >
+        🧢 מבצע כובע · {winnerGroups.length}/{settings.hat_promo_limit} כובעים {open ? '▲' : '▼'}
+      </button>
+      <p style={{ color: '#7a8f7d', fontSize: 12, margin: '4px 0 0' }}>
+        הזמנות ששולמו מעל {settings.hat_promo_min_total} ₪ (בלי משלוח), לפי סדר התשלום
+        {eligibleUnpaid.length > 0 && ` · עוד ${eligibleUnpaid.length} הזמנות מעל הסף ממתינות לתשלום`}
+      </p>
+      {open && (
+        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {winnerGroups.length === 0 ? (
+            <span style={{ color: '#7a8f7d', fontSize: 13 }}>עדיין אין זוכים — הזמנה נכנסת כשהיא מסומנת &quot;שולם&quot;.</span>
+          ) : (
+            winnerGroups.map((g, i) => (
+              <div key={g.key} style={{ fontSize: 13 }}>
+                <b style={{ color: '#b5e853' }}>#{i + 1}</b> {g.customer_name} · {g.customer_phone} · {g.total - g.shipping_fee} ₪
+                {g.fulfillment === 'delivery' ? ' · 🚚 משלוח' : ' · איסוף'}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+type ReferralCode = { code: string; owner_name: string | null; commission_per_order: number; is_active: boolean }
+
+// קודי הפניה (שגרירים): ניהול קודים + מכירות לכל קוד. עמלה רק על הזמנות ששולמו.
+function ReferralPanel({ orders }: { orders: OrderRow[] }) {
+  const [codes, setCodes] = useState<ReferralCode[]>([])
+  const [open, setOpen] = useState(false)
+  const [openCode, setOpenCode] = useState<string | null>(null)
+  const [newCode, setNewCode] = useState('')
+  const [newOwner, setNewOwner] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    supabase
+      .from('tshirt_referral_codes')
+      .select('code, owner_name, commission_per_order, is_active')
+      .order('created_at', { ascending: true })
+      .then(({ data }) => setCodes((data ?? []) as ReferralCode[]))
+  }, [])
+
+  async function addCode() {
+    const code = newCode.trim().toUpperCase().replace(/\s+/g, '')
+    if (!/^[A-Z0-9_-]{2,30}$/.test(code)) { alert('קוד באנגלית/ספרות בלבד, 2–30 תווים'); return }
+    setBusy(true)
+    const { error } = await supabase.from('tshirt_referral_codes').insert({ code, owner_name: newOwner.trim() || null })
+    setBusy(false)
+    if (error) { alert(error.message); return }
+    setCodes((c) => [...c, { code, owner_name: newOwner.trim() || null, commission_per_order: 10, is_active: true }])
+    setNewCode('')
+    setNewOwner('')
+  }
+
+  async function toggle(c: ReferralCode) {
+    const { error } = await supabase.from('tshirt_referral_codes').update({ is_active: !c.is_active }).eq('code', c.code)
+    if (error) { alert(error.message); return }
+    setCodes((cs) => cs.map((x) => (x.code === c.code ? { ...x, is_active: !x.is_active } : x)))
+  }
+
+  const groups = groupOrders(orders)
+  const stats = codes.map((c) => {
+    const gs = groups.filter((g) => g.rows[0].referral_code === c.code)
+    const paid = gs.filter((g) => g.payment_status === 'confirmed')
+    return {
+      ...c,
+      groups: gs,
+      paidCount: paid.length,
+      paidTotal: paid.reduce((sum, g) => sum + g.total - g.shipping_fee, 0),
+      commission: paid.length * Number(c.commission_per_order),
+    }
+  })
+
+  return (
+    <div style={{ background: '#141716', border: '1px solid #252b27', borderRadius: 12, padding: 14, marginBottom: 14 }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{ background: 'transparent', border: 'none', color: '#e8efe9', fontSize: 16, fontWeight: 800, fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer', padding: 0, textAlign: 'right', width: '100%' }}
+      >
+        🤝 קודי הפניה · {codes.filter((c) => c.is_active).length} פעילים {open ? '▲' : '▼'}
+      </button>
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          {stats.map((c) => (
+            <div key={c.code} style={{ borderTop: '1px solid #252b27', padding: '8px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setOpenCode(openCode === c.code ? null : c.code)}
+                  style={{ background: 'transparent', border: 'none', color: '#e8efe9', fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer', padding: 0, textAlign: 'right' }}
+                >
+                  <b style={{ color: c.is_active ? '#b5e853' : '#7a8f7d', fontSize: 14 }}>{c.code}</b>
+                  {c.owner_name ? ` · ${c.owner_name}` : ''}
+                  <span style={{ color: '#7a8f7d', fontSize: 12 }}>
+                    {' '}· {c.groups.length} הזמנות · {c.paidCount} שולמו · {c.paidTotal} ₪ · עמלה {c.commission} ₪
+                  </span>
+                </button>
+                <button
+                  onClick={() => toggle(c)}
+                  style={{ background: 'transparent', border: '1px solid #252b27', borderRadius: 8, color: c.is_active ? '#ff8f6b' : '#b5e853', padding: '4px 8px', fontSize: 11, fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer' }}
+                >
+                  {c.is_active ? 'השבתה' : 'הפעלה'}
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: '#7a8f7d', marginTop: 2, direction: 'ltr', textAlign: 'right' }}>
+                tevabike.com/shop?ref={c.code}
+              </div>
+              {openCode === c.code && (
+                <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {c.groups.length === 0 ? (
+                    <span style={{ fontSize: 12, color: '#7a8f7d' }}>עדיין אין הזמנות עם הקוד הזה.</span>
+                  ) : (
+                    c.groups.map((g) => (
+                      <div key={g.key} style={{ fontSize: 12 }}>
+                        {g.customer_name} · {g.total - g.shipping_fee} ₪ ·{' '}
+                        <span style={{ color: g.payment_status === 'confirmed' ? '#7ee787' : '#e8c547' }}>
+                          {g.payment_status === 'confirmed' ? 'שולם' : 'ממתין'}
+                        </span>{' '}
+                        · {fmtDateTime(g.created_at)}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+            <input style={{ ...inputStyle, flex: '1 1 100px', direction: 'ltr' }} placeholder="קוד חדש (YINON)" value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} />
+            <input style={{ ...inputStyle, flex: '1 1 100px' }} placeholder="שם השגריר" value={newOwner} onChange={(e) => setNewOwner(e.target.value)} />
+            <button
+              onClick={addCode}
+              disabled={busy || !newCode.trim()}
+              style={{ background: '#b5e853', color: '#0d0f0e', border: 'none', borderRadius: 8, padding: '8px 12px', fontSize: 13, fontWeight: 700, fontFamily: 'Heebo, Arial, sans-serif', cursor: 'pointer', opacity: busy || !newCode.trim() ? 0.5 : 1 }}
+            >
+              הוספה
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function TshirtOrdersPage() {
   const user = useCoordinator()
   const [products, setProducts] = useState<ProductRow[]>([])
@@ -636,13 +832,13 @@ export default function TshirtOrdersPage() {
         .order('display_order', { ascending: true }),
       supabase
         .from('tshirt_orders')
-        .select('id, created_at, order_group, product_name, size, back_name, quantity, unit_price, is_preorder, line_total, customer_name, customer_phone, customer_email, payment_status, arrival_notified_at, fulfillment, delivery_address, shipping_fee, cancelled_at')
+        .select('id, created_at, order_group, product_name, size, back_name, quantity, unit_price, is_preorder, line_total, customer_name, customer_phone, customer_email, payment_status, arrival_notified_at, fulfillment, delivery_address, shipping_fee, cancelled_at, referral_code, paid_at')
         .order('created_at', { ascending: false }),
-      supabase.from('tshirt_shop_settings').select('is_active, coming_soon_message, shipping_price, shipping_arbox_link').eq('id', true).maybeSingle(),
+      supabase.from('tshirt_shop_settings').select('is_active, coming_soon_message, shipping_price, shipping_arbox_link, hat_promo_active, hat_promo_min_total, hat_promo_limit').eq('id', true).maybeSingle(),
     ])
     setProducts((p ?? []) as ProductRow[])
     setOrders((o ?? []) as OrderRow[])
-    setShopSettings((s as ShopSettings | null) ?? { is_active: false, coming_soon_message: '', shipping_price: 25, shipping_arbox_link: null })
+    setShopSettings((s as ShopSettings | null) ?? { is_active: false, coming_soon_message: '', shipping_price: 25, shipping_arbox_link: null, hat_promo_active: false, hat_promo_min_total: 400, hat_promo_limit: 30 })
     setLoading(false)
   }, [])
 
@@ -654,10 +850,12 @@ export default function TshirtOrdersPage() {
   async function setConfirmed(group: Group, confirmed: boolean) {
     setBusyKey(group.key)
     const payment_status = confirmed ? 'confirmed' : 'pending'
+    // paid_at קובע את הסדר ב"30 הראשונים ששילמו" של מבצע הכובע
+    const paid_at = confirmed ? new Date().toISOString() : null
     const ids = group.rows.map((r) => r.id)
-    const { error } = await supabase.from('tshirt_orders').update({ payment_status }).in('id', ids)
+    const { error } = await supabase.from('tshirt_orders').update({ payment_status, paid_at }).in('id', ids)
     if (error) { alert(error.message); setBusyKey(null); return }
-    setOrders((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, payment_status } : r)))
+    setOrders((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, payment_status, paid_at } : r)))
     setBusyKey(null)
   }
 
@@ -706,6 +904,13 @@ export default function TshirtOrdersPage() {
   if (!user) return null
 
   const activeOrders = orders.filter((r) => !r.cancelled_at)
+  const winners = shopSettings
+    ? hatWinners(orders, {
+        active: shopSettings.hat_promo_active,
+        minTotal: Number(shopSettings.hat_promo_min_total),
+        limit: Number(shopSettings.hat_promo_limit),
+      })
+    : []
   const allGroups = groupOrders(orders)
   const groups = allGroups.filter((g) => {
     if (filter === 'all') return true
@@ -749,6 +954,8 @@ export default function TshirtOrdersPage() {
 
       {!loading && <SizeSummary orders={activeOrders} />}
       {!loading && <ArrivalNotice orders={activeOrders} onSent={load} />}
+      {!loading && shopSettings && <HatPromoPanel orders={activeOrders} settings={shopSettings} winners={winners} />}
+      {!loading && <ReferralPanel orders={activeOrders} />}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div>
@@ -823,6 +1030,8 @@ export default function TshirtOrdersPage() {
                     }}
                   >
                     {g.cancelled ? '❌ בוטלה · ' : ''}
+                    {winners.includes(g.order_group) ? `🧢 כובע #${winners.indexOf(g.order_group) + 1} · ` : ''}
+                    {g.rows[0].referral_code ? `🤝 ${g.rows[0].referral_code} · ` : ''}
                     {g.payment_status === 'confirmed' ? 'שולם' : 'ממתין לתשלום'}
                     {g.fulfillment === 'delivery' ? ' · 🚚 משלוח' : ' · איסוף עצמי'}
                   </span>

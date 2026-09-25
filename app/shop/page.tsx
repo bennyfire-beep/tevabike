@@ -1,7 +1,7 @@
 // app/shop/page.tsx — דף חנות טבע בייק (גרסה 5 — בחירה מרובה + תשלום ישיר בארבוקס)
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import TshirtSection from "./TshirtSection";
 
 const C = {
@@ -139,7 +139,16 @@ const FREE_SHIPPING_THRESHOLD = 600;
 type Status = "idle" | "sending" | "done" | "error";
 
 export default function ShopPage() {
-  const [tab, setTab] = useState<"accessories" | "tshirts">("accessories");
+  // קישור שגריר (?ref=YINON) או ?tab=tshirts — פותח ישר את טאב הביגוד.
+  // בשרת אין URL (snapshot ריק), וב-hydration React עובר לערך מהדפדפן.
+  const search = useSyncExternalStore(
+    () => () => {},
+    () => window.location.search,
+    () => ""
+  );
+  const urlWantsTshirts = /[?&](ref=|tab=tshirts)/.test(search);
+  const [tabChoice, setTab] = useState<"accessories" | "tshirts" | null>(null);
+  const tab = tabChoice ?? (urlWantsTshirts ? "tshirts" : "accessories");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [variantBySlug, setVariantBySlug] = useState<Record<string, string>>({});
   const [panelOpen, setPanelOpen] = useState(false);
