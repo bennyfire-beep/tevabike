@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 // ============================================================
 // נתיב: app/morzine-2027/page.tsx
@@ -14,7 +14,6 @@ const TEXT = '#e8efe9'
 const MUTED = '#7a8f7d'
 const PINK = '#ec4899'
 
-const PRICE = 10900
 const DEPOSIT = 1800
 
 export default function MorzineYouthPage() {
@@ -31,6 +30,26 @@ export default function MorzineYouthPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
+
+  // מחיר עדכני (כולל מחיר השקה ל-8 הנרשמים הראשונים) — נטען מה-API
+  const [price, setPrice] = useState(13800)
+  const [regularPrice, setRegularPrice] = useState(13800)
+  const [earlyBirdPrice, setEarlyBirdPrice] = useState(13200)
+  const [earlyBirdSlotsLeft, setEarlyBirdSlotsLeft] = useState(0)
+
+  useEffect(() => {
+    fetch('/api/morzine-youth-register')
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) {
+          setPrice(d.price)
+          setRegularPrice(d.regularPrice)
+          setEarlyBirdPrice(d.earlyBirdPrice)
+          setEarlyBirdSlotsLeft(d.earlyBirdSlotsLeft)
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   function set(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -186,7 +205,15 @@ export default function MorzineYouthPage() {
         {/* עלויות ותנאי תשלום */}
         <h2 style={h2}>💳 עלויות ותנאי תשלום</h2>
         <div style={card}>
-          <p style={{ margin: '0 0 8px' }}><b>מחיר החופשה:</b> {PRICE.toLocaleString()} ש&quot;ח</p>
+          {earlyBirdSlotsLeft > 0 && (
+            <div style={{
+              background: 'rgba(236,72,153,0.12)', border: `1px solid ${PINK}`, borderRadius: 12,
+              padding: '12px 16px', marginBottom: 14, fontSize: 14, fontWeight: 700, textAlign: 'center',
+            }}>
+              🔥 מחיר השקה — עוד {earlyBirdSlotsLeft} מקומות ב-{earlyBirdPrice.toLocaleString()} ₪ במקום {regularPrice.toLocaleString()} ₪!
+            </div>
+          )}
+          <p style={{ margin: '0 0 8px' }}><b>מחיר החופשה:</b> {price.toLocaleString()} ש&quot;ח</p>
           <p style={{ margin: '0 0 8px' }}>
             <b>דמי רישום והבטחת מקום:</b> {DEPOSIT.toLocaleString()} ש&quot;ח — מקדמה זו אינה ניתנת להחזר.
           </p>
@@ -336,7 +363,7 @@ export default function MorzineYouthPage() {
       }}>
         <div style={{ minWidth: 150 }}>
           <div style={{ color: MUTED, fontSize: 12 }}>חופשת רכיבה במורזין 2027</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: PINK }}>{PRICE.toLocaleString()} ₪</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: PINK }}>{price.toLocaleString()} ₪</div>
         </div>
         <button
           onClick={submit}

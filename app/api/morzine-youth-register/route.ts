@@ -15,6 +15,12 @@ export const runtime = 'nodejs'
 export const maxDuration = 30
 
 const SLUG = 'morzine-2027-youth'
+
+// מחיר השקה: 8 הנרשמים הפעילים הראשונים (לא מבוטלים) משלמים 13,200 ₪.
+// ביטול משחרר מקום — הנרשם הבא בתור מקבל את מחיר ההשקה.
+const EARLY_BIRD_SLOTS = 8
+const EARLY_BIRD_PRICE = 13200
+const REGULAR_PRICE = 13800
 const ADMIN_EMAILS = ['bennyfire@gmail.com', 'talmatoki@gmail.com']
 const FROM = 'טבע בייק <info@mail.tevabike.com>'
 
@@ -43,6 +49,17 @@ async function sendEmail(to: string[], subject: string, text: string) {
   }
 }
 
+// סופר נרשמים פעילים (לא מבוטלים) לטיול
+async function countActiveRegistrations(supabase: NonNullable<ReturnType<typeof db>>, tripId: number) {
+  const { count, error } = await supabase
+    .from('trip_registrations')
+    .select('id', { count: 'exact', head: true })
+    .eq('trip_id', tripId)
+    .or('payment_status.is.null,payment_status.neq.cancelled')
+  if (error) console.error('[morzine-youth] count failed:', error.message)
+  return count ?? 0
+}
+
 // ---------- GET: פרטי הטיול (מחיר/מקדמה) לצורך תצוגה בדף ----------
 
 export async function GET() {
@@ -51,15 +68,22 @@ export async function GET() {
 
   const { data: trip } = await supabase
     .from('trips')
-    .select('price_small_group, deposit_ils, trip_start, trip_end, is_open')
+    .select('id, price_small_group, deposit_ils, trip_start, trip_end, is_open')
     .eq('slug', SLUG)
     .maybeSingle()
 
   if (!trip) return NextResponse.json({ ok: false }, { status: 404 })
 
+  const activeCount = await countActiveRegistrations(supabase, trip.id)
+  const currentPrice = activeCount < EARLY_BIRD_SLOTS ? EARLY_BIRD_PRICE : REGULAR_PRICE
+  const earlyBirdSlotsLeft = Math.max(0, EARLY_BIRD_SLOTS - activeCount)
+
   return NextResponse.json({
     ok: true,
-    price: Number(trip.price_small_group),
+    price: currentPrice,
+    regularPrice: REGULAR_PRICE,
+    earlyBirdPrice: EARLY_BIRD_PRICE,
+    earlyBirdSlotsLeft,
     deposit: Number(trip.deposit_ils),
     tripStart: trip.trip_start,
     tripEnd: trip.trip_end,
@@ -134,6 +158,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'יש להעלות צילום דרכון בתוקף' }, { status: 400 })
   }
 
+  // נועלים את המחיר לנרשם/ת לפי מספר הנרשמים הפעילים ברגע ההרשמה
+  const activeCount = await countActiveRegistrations(supabase, trip.id)
+  const packagePrice = activeCount < EARLY_BIRD_SLOTS ? EARLY_BIRD_PRICE : REGULAR_PRICE
+  const priceLine = `מחיר החבילה שנקבע: ${packagePrice.toLocaleString()} ש"ח${packagePrice === EARLY_BIRD_PRICE ? ' (מחיר השקה)' : ''}`
+
   const { error } = await supabase.from('trip_registrations').insert({
     trip_id: trip.id,
     name_he: riderNameHe,
@@ -150,6 +179,7 @@ export async function POST(req: NextRequest) {
     health_declared: healthDeclared,
     insurance_committed: insuranceCommitted,
     payment_status: 'pending',
+    package_price_ils: packagePrice,
   })
 
   if (error) {
@@ -169,6 +199,7 @@ export async function POST(req: NextRequest) {
       `ההרשמה של ${riderNameHe} ל${trip.title} התקבלה.`,
       ``,
       `--------------------------------------------`,
+      priceLine,
       `מקדמה: ${deposit.toLocaleString()} ש"ח (אינה ניתנת להחזר)`,
       `--------------------------------------------`,
       ``,
@@ -201,10 +232,11 @@ export async function POST(req: NextRequest) {
       `כתובת מגורים: ${address}`,
       `צילום דרכון: ${passportPath ? 'הועלה' : 'לא הועלה'}`,
       `הצהרות: תנאים כלליים ${termsAccepted ? '✔' : '✘'} · בריאות ${healthDeclared ? '✔' : '✘'} · התחייבות ביטוח ${insuranceCommitted ? '✔' : '✘'}`,
+      priceLine,
       ``,
       `לשלוח פרטי העברה למקדמה של ₪${deposit}`,
     ].join('\n'),
   )
 
-  return NextResponse.json({ ok: true, deposit })
+  return NextResponse.json({ ok: true, deposit, packagePrice })
 }
