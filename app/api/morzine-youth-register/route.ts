@@ -164,6 +164,8 @@ export async function POST(req: NextRequest) {
   // נועלים את המחיר לנרשם/ת לפי מספר הנרשמים הפעילים ברגע ההרשמה
   const activeCount = await countActiveRegistrations(supabase, trip.id)
   const packagePrice = activeCount < EARLY_BIRD_SLOTS ? EARLY_BIRD_PRICE : REGULAR_PRICE
+  // הנרשם/ת שתפס/ה את המקום האחרון במחיר השקה — מתריעים לבני וטל
+  const earlyBirdSoldOut = packagePrice === EARLY_BIRD_PRICE && activeCount + 1 >= EARLY_BIRD_SLOTS
   const priceLine = `מחיר החבילה שנקבע: ${packagePrice.toLocaleString()} ש"ח${packagePrice === EARLY_BIRD_PRICE ? ' (מחיר השקה)' : ''}`
 
   const { error } = await supabase.from('trip_registrations').insert({
@@ -248,10 +250,13 @@ export async function POST(req: NextRequest) {
   // התראה לבני וטל
   await sendEmail(
     ADMIN_EMAILS,
-    `הרשמה חדשה — ${trip.title}: ${riderNameHe}`,
+    `הרשמה חדשה — ${trip.title}: ${riderNameHe}${earlyBirdSoldOut ? ' · מחיר ההשקה נגמר' : ''}`,
     [
       trip.title,
       ``,
+      earlyBirdSoldOut
+        ? `🔔 זה היה המקום האחרון במחיר השקה (${EARLY_BIRD_SLOTS} מתוך ${EARLY_BIRD_SLOTS}). מהנרשם/ת הבא/ה המחיר ${REGULAR_PRICE.toLocaleString()} ש"ח, והמבצע ירד מהאתר אוטומטית.\n`
+        : '',
       `רוכב/ת: ${riderNameHe} (${riderNameEn})`,
       `תאריך לידה: ${birthDate} · ת"ז: ${idNumber}`,
       `נייד הרוכב/ת: ${riderPhone}`,
