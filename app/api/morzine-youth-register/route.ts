@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { buildICS } from '@/lib/ics'
 
 // ============================================================
 // נתיב: app/api/morzine-youth-register/route.ts
@@ -34,14 +35,16 @@ function db() {
   return createClient(url, serviceKey)
 }
 
-async function sendEmail(to: string[], subject: string, text: string) {
+type Attachment = { filename: string; content: string; content_type?: string }
+
+async function sendEmail(to: string[], subject: string, text: string, attachments?: Attachment[]) {
   const key = process.env.RESEND_API_KEY
   if (!key) { console.error('[morzine-youth] RESEND_API_KEY not set'); return }
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM, to, subject, text }),
+      body: JSON.stringify({ from: FROM, to, subject, text, attachments }),
     })
     if (!res.ok) console.error('[morzine-youth] resend failed:', res.status, await res.text())
   } catch (err) {
@@ -102,7 +105,7 @@ export async function POST(req: NextRequest) {
 
   const { data: trip } = await supabase
     .from('trips')
-    .select('id, title, deposit_ils, bank_details, payment_note, is_open')
+    .select('id, title, deposit_ils, bank_details, payment_note, is_open, workshop_date, workshop_start, workshop_end, workshop_location')
     .eq('slug', SLUG)
     .maybeSingle()
 
@@ -189,6 +192,30 @@ export async function POST(req: NextRequest) {
 
   const deposit = Number(trip.deposit_ils)
 
+  // מפגש ההכנה — מצורף ליומן כבר במייל ההרשמה
+  const hasMeeting = Boolean(trip.workshop_date && trip.workshop_start && trip.workshop_end)
+  const meetingDate = hasMeeting
+    ? new Date(trip.workshop_date + 'T00:00:00').toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : ''
+  const meetingLine = hasMeeting
+    ? `מפגש הכנה לחופשה: ${meetingDate} בשעה ${String(trip.workshop_start).slice(0, 5)}` +
+      (trip.workshop_location ? `, ${trip.workshop_location}` : '') +
+      `.\nבמפגש ניתן את כל הפרטים על החופשה ונכיר את הילדים. מצורף קובץ להוספה ליומן.`
+    : ''
+  const meetingIcs: Attachment[] | undefined = hasMeeting
+    ? [{
+        filename: 'mifgash-hachana.ics',
+        content_type: 'text/calendar',
+        content: Buffer.from(buildICS({
+          title: `מפגש הכנה — ${trip.title}`,
+          date: trip.workshop_date,
+          startTime: trip.workshop_start,
+          endTime: trip.workshop_end,
+          location: trip.workshop_location,
+        }), 'utf-8').toString('base64'),
+      }]
+    : undefined
+
   // מייל אישור לרוכב/הורה
   await sendEmail(
     [email],
@@ -209,12 +236,15 @@ export async function POST(req: NextRequest) {
       ``,
       `המקום נשמר סופית רק לאחר קבלת המקדמה.`,
       ``,
+      meetingLine,
+      ``,
       `שאלות — אני זמין.`,
       ``,
       `בני`,
       `טבע בייק`,
       `052-5708084`,
     ].filter(l => l !== '').join('\n'),
+    meetingIcs,
   )
 
   // התראה לבני וטל

@@ -13,9 +13,16 @@ import { buildICS } from '@/lib/ics'
 //   77 יום לפני  →  יתרת תשלום סופית
 //   30 יום לפני  →  בקשת פרטי טיסה (להזמנת הסעות)
 //   10 יום לפני  →  פרטים אחרונים והסעות
+//  (לוח הזמנים ניתן לשינוי פר טיול — ראו milestone_days למטה)
 //
 // workshop_reminder נשלח רק אם workshop_date מוגדר (ואז חוזר לצרף
 // את אותו .ics), ו-balance_final רק אם balance_final_note מוגדר.
+//
+// trip.milestone_days (jsonb) דורס את מספר הימים לטיול מסוים,
+// למשל {"equipment": 78, "flights": null} — null מבטל את המייל.
+// trip.equipment_workshop_note מוסיף למייל הציוד הזמנה למפגש + .ics.
+// בטיולים שמתומחרים בש"ח, מחיר הנרשם נלקח מ-package_price_ils
+// (מחיר השקה) אם נקבע בהרשמה.
 //
 // כל מייל נשלח פעם אחת בלבד לכל נרשם
 // (unique על registration_id + kind בטבלת trip_emails)
@@ -88,118 +95,145 @@ export async function GET(req: NextRequest) {
     const start = new Date(trip.trip_start + 'T00:00:00')
     const daysOut = Math.round((start.getTime() - today.getTime()) / 86_400_000)
 
-    const milestone = MILESTONES.find((m) => m.days === daysOut)
-    if (!milestone) continue
+    const due = milestonesFor(trip).filter((m) => m.days === daysOut)
 
-    // both new milestones depend on content that may not be filled in —
-    // skip the whole milestone for this trip if it isn't there
-    if (milestone.kind === 'workshop_reminder' && !trip.workshop_date) continue
-    if (milestone.kind === 'balance_final' && !trip.balance_final_note) continue
+    for (const milestone of due) {
+      // both new milestones depend on content that may not be filled in —
+      // skip the whole milestone for this trip if it isn't there
+      if (milestone.kind === 'workshop_reminder' && !trip.workshop_date) continue
+      if (milestone.kind === 'balance_final' && !trip.balance_final_note) continue
 
-    // live headcount → the price everyone actually pays
-    const { data: regs } = await db
-      .from('trip_registrations')
-      .select('id, name_he, email, payment_status')
-      .eq('trip_id', trip.id)
-      .neq('payment_status', 'cancelled')
+      // live headcount → the price everyone actually pays
+      const { data: regs } = await db
+        .from('trip_registrations')
+        .select('id, name_he, email, payment_status, package_price_ils')
+        .eq('trip_id', trip.id)
+        .neq('payment_status', 'cancelled')
 
-    const riders = regs ?? []
-    const headcount = riders.length
-    const price =
-      headcount > trip.size_small
-        ? Number(trip.price_large_group)
-        : Number(trip.price_small_group)
+      const riders = regs ?? []
+      const headcount = riders.length
+      const price =
+        headcount > trip.size_small
+          ? Number(trip.price_large_group)
+          : Number(trip.price_small_group)
 
-    // who already got this particular email
-    const { data: already } = await db
-      .from('trip_emails')
-      .select('registration_id')
-      .eq('trip_id', trip.id)
-      .eq('kind', milestone.kind)
-    const done = new Set((already ?? []).map((r) => r.registration_id))
+      // who already got this particular email
+      const { data: already } = await db
+        .from('trip_emails')
+        .select('registration_id')
+        .eq('trip_id', trip.id)
+        .eq('kind', milestone.kind)
+      const done = new Set((already ?? []).map((r) => r.registration_id))
 
-    let sent = 0
-    let failed = 0
-    let noEmail = 0
+      let sent = 0
+      let failed = 0
+      let noEmail = 0
 
-    for (const rider of riders) {
-      if (done.has(rider.id)) continue
-      if (!rider.email) {
-        noEmail++
-        continue
+      for (const rider of riders) {
+        if (done.has(rider.id)) continue
+        if (!rider.email) {
+          noEmail++
+          continue
+        }
+
+        const mail = buildEmail(milestone.kind, {
+          trip,
+          name: rider.name_he.split(' ')[0],
+          headcount,
+          price: riderPrice(trip, rider, price),
+          today,
+        })
+
+        try {
+          const res = await resend.emails.send({
+            from: 'Teva Bike <info@mail.tevabike.com>',
+            to: rider.email,
+            replyTo: 'bennyfire@gmail.com',
+            subject: mail.subject,
+            text: mail.body,
+            attachments: mail.attachments,
+          })
+          await db.from('trip_emails').insert({
+            trip_id: trip.id,
+            registration_id: rider.id,
+            kind: milestone.kind,
+            resend_id: res.data?.id ?? null,
+          })
+          sent++
+        } catch (e) {
+          await db.from('trip_emails').insert({
+            trip_id: trip.id,
+            registration_id: rider.id,
+            kind: milestone.kind,
+            error: e instanceof Error ? e.message : String(e),
+          })
+          failed++
+        }
       }
 
-      const mail = buildEmail(milestone.kind, {
-        trip,
-        name: rider.name_he.split(' ')[0],
-        headcount,
-        price,
-      })
+      totalSent += sent
+      totalFailed += failed
 
-      try {
-        const res = await resend.emails.send({
-          from: 'Teva Bike <info@mail.tevabike.com>',
-          to: rider.email,
-          replyTo: 'bennyfire@gmail.com',
-          subject: mail.subject,
-          text: mail.body,
-          attachments: mail.attachments,
-        })
-        await db.from('trip_emails').insert({
-          trip_id: trip.id,
-          registration_id: rider.id,
-          kind: milestone.kind,
-          resend_id: res.data?.id ?? null,
-        })
-        sent++
-      } catch (e) {
-        await db.from('trip_emails').insert({
-          trip_id: trip.id,
-          registration_id: rider.id,
-          kind: milestone.kind,
-          error: e instanceof Error ? e.message : String(e),
-        })
-        failed++
-      }
-    }
-
-    totalSent += sent
-    totalFailed += failed
-
-    // summary to Benny
-    if (sent || failed || noEmail) {
-      try {
-        await resend.emails.send({
-          from: 'Teva Bike <info@mail.tevabike.com>',
-          to: 'bennyfire@gmail.com',
-          subject: `תזכורות ${milestone.days} יום — ${trip.title} (${sent} נשלחו)`,
-          text: [
-            trip.title,
-            `אבן דרך: ${milestone.days} יום לפני היציאה — ${LABELS[milestone.kind]}`,
-            `נרשמים: ${headcount}`,
-            `מחיר בתוקף: ${currencySymbol(trip)}${price}`,
-            '',
-            `נשלחו: ${sent}`,
-            failed ? `נכשלו: ${failed}` : '',
-            noEmail ? `בלי אימייל: ${noEmail} — צריך לשלוח להם בוואטסאפ` : '',
-            '',
-            milestone.kind === 'flights'
-              ? 'התשובות עם כרטיסי הטיסה יגיעו לתיבה הזו. אחרי שיאספו — להזמין הסעות.'
-              : '',
-            milestone.kind === 'final' && !trip.final_details
-              ? 'שים לב: לא מילאת את שדה final_details, אז לא נשלחו פרטי הסעה.'
-              : '',
-          ]
-            .filter(Boolean)
-            .join('\n'),
-        })
-      } catch {
-        /* summary is best-effort */
+      // summary to Benny
+      if (sent || failed || noEmail) {
+        try {
+          await resend.emails.send({
+            from: 'Teva Bike <info@mail.tevabike.com>',
+            to: 'bennyfire@gmail.com',
+            subject: `תזכורות ${milestone.days} יום — ${trip.title} (${sent} נשלחו)`,
+            text: [
+              trip.title,
+              `אבן דרך: ${milestone.days} יום לפני היציאה — ${LABELS[milestone.kind]}`,
+              `נרשמים: ${headcount}`,
+              `מחיר בתוקף: ${currencySymbol(trip)}${price}`,
+              '',
+              `נשלחו: ${sent}`,
+              failed ? `נכשלו: ${failed}` : '',
+              noEmail ? `בלי אימייל: ${noEmail} — צריך לשלוח להם בוואטסאפ` : '',
+              '',
+              milestone.kind === 'flights'
+                ? 'התשובות עם כרטיסי הטיסה יגיעו לתיבה הזו. אחרי שיאספו — להזמין הסעות.'
+                : '',
+              milestone.kind === 'final' && !trip.final_details
+                ? 'שים לב: לא מילאת את שדה final_details, אז לא נשלחו פרטי הסעה.'
+                : '',
+            ]
+              .filter(Boolean)
+              .join('\n'),
+          })
+        } catch {
+          /* summary is best-effort */
+        }
       }
     }
   }
 
   return NextResponse.json({ ok: true, sent: totalSent, failed: totalFailed })
+}
+
+// per-trip schedule: trip.milestone_days overrides the default days,
+// and a null value there turns that email off for the trip
+function milestonesFor(trip: any): { days: number; kind: Kind }[] {
+  const over = (trip.milestone_days ?? {}) as Partial<Record<Kind, number | null>>
+  return MILESTONES.flatMap((m) => {
+    if (!(m.kind in over)) return [{ days: m.days, kind: m.kind }]
+    const d = over[m.kind]
+    return typeof d === 'number' ? [{ days: d, kind: m.kind }] : []
+  })
+}
+
+// ILS trips lock each registrant's price at sign-up (early bird)
+function riderPrice(trip: any, rider: any, groupPrice: number) {
+  if (trip.price_currency === 'ILS' && rider.package_price_ils != null)
+    return Number(rider.package_price_ils)
+  return groupPrice
+}
+
+function balanceDueDate(trip: any): Date {
+  if (trip.balance_due_date) return new Date(trip.balance_due_date + 'T00:00:00')
+  const d = new Date(trip.trip_start + 'T00:00:00')
+  d.setDate(d.getDate() - Number(trip.balance_days_before))
+  return d
 }
 
 // balance section shared by workshop_reminder and balance_final — see the
@@ -213,6 +247,15 @@ function balanceBlurb(trip: any, headcount: number, price: number) {
   const due = trip.balance_due_date
     ? heDate(trip.balance_due_date)
     : `${trip.balance_days_before} יום לפני היציאה`
+  if (trip.price_currency === 'ILS') {
+    const deposit = Number(trip.deposit_ils)
+    return (
+      `מחיר החבילה: ${price.toLocaleString()} ₪\n` +
+      `שולמה מקדמה: ${deposit.toLocaleString()} ₪\n` +
+      `יתרה לתשלום: ${(price - deposit).toLocaleString()} ₪\n` +
+      `יש להשלים את התשלום עד ${due}.\n`
+    )
+  }
   return (
     `מחיר סופי: ${currencySymbol(trip)}${price.toLocaleString()} (לפי ${headcount} נרשמים)\n` +
     `מהסכום הזה כבר שולמה מקדמה של ₪${trip.deposit_ils} בהרשמה.\n` +
@@ -239,9 +282,9 @@ function workshopIcs(trip: any): string | null {
 // ------------------------------------------------------------
 function buildEmail(
   kind: Kind,
-  ctx: { trip: any; name: string; headcount: number; price: number }
+  ctx: { trip: any; name: string; headcount: number; price: number; today: Date }
 ): { subject: string; body: string; attachments?: Attachment[] } {
-  const { trip, name, headcount, price } = ctx
+  const { trip, name, headcount, price, today } = ctx
   const sign = '\n\nבני\nטבע בייק\n054-570-8084'
 
   if (kind === 'balance_final')
@@ -261,9 +304,22 @@ function buildEmail(
         sign,
     }
 
-  if (kind === 'equipment')
+  if (kind === 'equipment') {
+    const invite = trip.equipment_workshop_note && trip.workshop_date
+    const ics = invite ? workshopIcs(trip) : null
     return {
-      subject: `${trip.title} — נספח ציוד ואריזת אופניים`,
+      subject: invite
+        ? `${trip.title} — נספח ציוד והזמנה למפגש הכנה`
+        : `${trip.title} — נספח ציוד ואריזת אופניים`,
+      attachments: ics
+        ? [
+            {
+              filename: 'mifgash-hachana.ics',
+              content: Buffer.from(ics, 'utf-8'),
+              contentType: 'text/calendar',
+            },
+          ]
+        : undefined,
       body:
         `היי ${name},\n\n` +
         `מצרף את נספח הציוד לחופשה. כדאי לקרוא אותו עכשיו ולא שבוע לפני — ` +
@@ -279,16 +335,29 @@ function buildEmail(
           ? `אם אתה שוכר אופניים ב${trip.rental_shop_name} — הקסדה, חליפת ` +
             `הלחץ ומגיני הברכיים כלולים בהשכרה, אז אין צורך להביא אותם.\n\n`
           : '') +
+        (invite
+          ? `--------------------------------------------\n` +
+            `מפגש הכנה\n` +
+            `--------------------------------------------\n` +
+            `${trip.equipment_workshop_note}\n\n` +
+            `תאריך: ${heDate(trip.workshop_date)}` +
+            (trip.workshop_start ? `, בשעה ${String(trip.workshop_start).slice(0, 5)}` : '') +
+            `\n` +
+            (trip.workshop_location ? `מקום: ${trip.workshop_location}\n` : '') +
+            (ics ? `מצורף קובץ ליומן (.ics).\n` : '') +
+            `\n`
+          : '') +
         `שאלות על ציוד — תכתוב לי, אני שמח לעזור.` +
         sign,
     }
+  }
 
   if (kind === 'insurance')
     return {
       subject: `${trip.title} — ביטוח נסיעות, חובה`,
       body:
         `היי ${name},\n\n` +
-        `נשארו ${trip.balance_days_before} יום לחופשה, וזה הזמן לסדר ביטוח.\n\n` +
+        `נשארו ${Math.round((new Date(trip.trip_start + 'T00:00:00').getTime() - today.getTime()) / 86_400_000)} יום לחופשה, וזה הזמן לסדר ביטוח.\n\n` +
         `ביטוח הוא חובה בטיול הזה. רכיבת הרים במורזין דורשת פוליסה ` +
         `לספורט אתגרי שכוללת חילוץ אווירי, הטסה רפואית, אשפוז וניתוחים. ` +
         `ביטוח נסיעות רגיל לא יכסה אותך אם תיפול על סינגל.\n\n` +
@@ -301,16 +370,28 @@ function buildEmail(
 
   if (kind === 'workshop_reminder') {
     const ics = workshopIcs(trip)
+    const daysToWorkshop = Math.round(
+      (new Date(trip.workshop_date + 'T00:00:00').getTime() - today.getTime()) / 86_400_000
+    )
+    const when =
+      daysToWorkshop === 1 ? 'מחר'
+        : daysToWorkshop === 2 ? 'בעוד יומיים'
+        : daysToWorkshop % 7 === 0 && daysToWorkshop >= 14 ? `בעוד ${daysToWorkshop / 7} שבועות`
+        : `בעוד ${daysToWorkshop} ימים`
+    // once the balance deadline has passed, don't repeat it here
+    const showBalance = today.getTime() <= balanceDueDate(trip).getTime()
     return {
-      subject: `${trip.title} — תזכורת: מפגש היכרות בעוד 10 ימים`,
+      subject: `${trip.title} — תזכורת: מפגש היכרות ${when}`,
       body:
         `היי ${name},\n\n` +
         `${trip.workshop_reminder_note}\n\n` +
         (ics ? `מצורף שוב ליומן (קובץ .ics).\n\n` : '') +
-        `--------------------------------------------\n` +
-        `יתרת התשלום\n` +
-        `--------------------------------------------\n` +
-        balanceBlurb(trip, headcount, price) +
+        (showBalance
+          ? `--------------------------------------------\n` +
+            `יתרת התשלום\n` +
+            `--------------------------------------------\n` +
+            balanceBlurb(trip, headcount, price)
+          : '') +
         sign,
       attachments: ics
         ? [
@@ -342,11 +423,13 @@ function buildEmail(
     }
 
   // final
+  const daysLeft = Math.round((new Date(trip.trip_start + 'T00:00:00').getTime() - today.getTime()) / 86_400_000)
+  const opener = daysLeft === 7 ? 'שבוע' : daysLeft === 10 ? 'עשרה ימים' : `${daysLeft} ימים`
   return {
     subject: `${trip.title} — פרטים אחרונים לפני היציאה`,
     body:
       `היי ${name},\n\n` +
-      `עשרה ימים. הנה כל מה שצריך לדעת:\n\n` +
+      `${opener}. הנה כל מה שצריך לדעת:\n\n` +
       (trip.final_details
         ? `${trip.final_details}\n\n`
         : `פרטי ההסעה יישלחו בהודעה נפרדת.\n\n`) +
