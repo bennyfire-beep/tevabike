@@ -13,6 +13,7 @@ import { buildICS } from '@/lib/ics'
 //   77 יום לפני  →  יתרת תשלום סופית
 //   30 יום לפני  →  בקשת פרטי טיסה (להזמנת הסעות)
 //   10 יום לפני  →  פרטים אחרונים והסעות
+//  (לוח הזמנים ניתן לשינוי פר טיול — ראו milestone_days למטה)
 //
 // workshop_reminder נשלח רק אם workshop_date מוגדר (ואז חוזר לצרף
 // את אותו .ics), ו-balance_final רק אם balance_final_note מוגדר.
@@ -373,7 +374,10 @@ function buildEmail(
       (new Date(trip.workshop_date + 'T00:00:00').getTime() - today.getTime()) / 86_400_000
     )
     const when =
-      daysToWorkshop === 1 ? 'מחר' : daysToWorkshop === 2 ? 'בעוד יומיים' : `בעוד ${daysToWorkshop} ימים`
+      daysToWorkshop === 1 ? 'מחר'
+        : daysToWorkshop === 2 ? 'בעוד יומיים'
+        : daysToWorkshop % 7 === 0 && daysToWorkshop >= 14 ? `בעוד ${daysToWorkshop / 7} שבועות`
+        : `בעוד ${daysToWorkshop} ימים`
     // once the balance deadline has passed, don't repeat it here
     const showBalance = today.getTime() <= balanceDueDate(trip).getTime()
     return {
@@ -419,11 +423,13 @@ function buildEmail(
     }
 
   // final
+  const daysLeft = Math.round((new Date(trip.trip_start + 'T00:00:00').getTime() - today.getTime()) / 86_400_000)
+  const opener = daysLeft === 7 ? 'שבוע' : daysLeft === 10 ? 'עשרה ימים' : `${daysLeft} ימים`
   return {
     subject: `${trip.title} — פרטים אחרונים לפני היציאה`,
     body:
       `היי ${name},\n\n` +
-      `עשרה ימים. הנה כל מה שצריך לדעת:\n\n` +
+      `${opener}. הנה כל מה שצריך לדעת:\n\n` +
       (trip.final_details
         ? `${trip.final_details}\n\n`
         : `פרטי ההסעה יישלחו בהודעה נפרדת.\n\n`) +
