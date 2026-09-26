@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 const PINK      = '#D4288A'
@@ -187,6 +187,9 @@ export default function Home() {
           <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: '0.1em' }}>SCROLL</span>
         </div>
       </section>
+
+      {/* ════════════════════════════ MORZINE YOUTH 2027 ════════════════════════════ */}
+      <MorzineYouthPromo />
 
       {/* ════════════════════════════ STATS STRIP ════════════════════════════ */}
       <section style={{ background: DARK }}>
@@ -602,5 +605,64 @@ export default function Home() {
       </a>
 
     </main>
+  )
+}
+
+// ─── Morzine youth 2027 promo (home page) ────────────────────────────────────
+// מספר המקומות במחיר השקה נטען חי מה-API של דף מורזין
+function MorzineYouthPromo() {
+  const [slotsLeft, setSlotsLeft] = useState<number | null>(null)
+  const [earlyBirdPrice, setEarlyBirdPrice] = useState(13200)
+  const [regularPrice, setRegularPrice] = useState(13800)
+
+  useEffect(() => {
+    fetch('/api/morzine-youth-register')
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) {
+          setSlotsLeft(d.earlyBirdSlotsLeft)
+          setEarlyBirdPrice(d.earlyBirdPrice)
+          setRegularPrice(d.regularPrice)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  return (
+    <section style={{ background: DARK, padding: '48px 20px' }}>
+      <a
+        href="/morzine-2027"
+        style={{
+          display: 'block', maxWidth: 960, margin: '0 auto', textDecoration: 'none', color: '#fff',
+          borderRadius: 18, overflow: 'hidden', border: `1px solid ${PINK}`,
+          background: GREEN, boxShadow: `0 0 32px ${PINK}33`,
+        }}
+      >
+        <img
+          src="/morzine-youth-banner.png"
+          alt="חופשת רכיבה לנוער במורזין 2027"
+          style={{ width: '100%', aspectRatio: '4 / 1', objectFit: 'cover', display: 'block' }}
+        />
+        <div style={{ padding: '24px 22px 28px', textAlign: 'center' }}>
+          <div style={{ color: PINK, fontSize: 13, fontWeight: 800, letterSpacing: '0.08em', marginBottom: 6 }}>
+            🇫🇷 חדש · קיץ 2027
+          </div>
+          <h2 style={{ margin: '0 0 8px', fontSize: 'clamp(1.6rem,4vw,2.3rem)', fontWeight: 900 }}>
+            מורזין נוער 2027
+          </h2>
+          <p style={{ margin: '0 0 16px', color: 'rgba(255,255,255,0.7)', fontSize: 15 }}>
+            חופשת רכיבה לנוער בהרי האלפים · <span dir="ltr" style={{ whiteSpace: 'nowrap' }}>25.06–09.07.2027</span> · כולל טיסה
+          </p>
+          {slotsLeft !== null && slotsLeft > 0 && (
+            <p style={{ margin: '0 0 18px', fontSize: 16, fontWeight: 800 }}>
+              🔥 רק 8 הנרשמים הראשונים: {earlyBirdPrice.toLocaleString()} ₪ במקום {regularPrice.toLocaleString()} ₪
+              <br />
+              <span style={{ color: PINK }}>נשארו עוד {slotsLeft} מקומות במחיר השקה</span>
+            </p>
+          )}
+          <span className="btn-primary" style={{ display: 'inline-block' }}>לפרטים והרשמה ←</span>
+        </div>
+      </a>
+    </section>
   )
 }
