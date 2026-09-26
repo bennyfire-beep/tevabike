@@ -191,10 +191,14 @@ export default function MorzineYouthPage() {
         <h2 style={h2}>✈️ טיסות, ביטוח וציוד (דגשים חשובים)</h2>
         <div style={card}>
           <p style={{ margin: '0 0 8px' }}>
-            <b>טיסות:</b> הטיסות <b>כלולות במחיר החבילה</b> — אנחנו מזמינים את הטיסות לכל הקבוצה:
-            טיסת הלוך לנמל התעופה במילאנו, וטיסת חזור מנמל התעופה בז&apos;נבה (טיסת open-jaw).
-            פרטי הטיסות יימסרו במפגש ההכנה.
+            <b>טיסות:</b> <b>המחיר כולל טיסות</b> — אנחנו מזמינים את הטיסות לכל הקבוצה (אל על):
           </p>
+          <div style={{ background: BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '12px 16px', margin: '0 0 12px', fontSize: 14, lineHeight: 1.7 }}>
+            <div><b style={{ color: PINK }}>✈️ הלוך — שישי 25.06.2027</b></div>
+            <div>LY381 · תל אביב (נתב&quot;ג) <span dir="ltr">06:55</span> ← נחיתה במילאנו מלפנזה <span dir="ltr">10:05</span></div>
+            <div style={{ marginTop: 8 }}><b style={{ color: PINK }}>✈️ חזור — שישי 09.07.2027</b></div>
+            <div>LY346 · ז&apos;נבה <span dir="ltr">11:00</span> ← נחיתה בתל אביב (נתב&quot;ג) <span dir="ltr">15:55</span></div>
+          </div>
           <p style={{ margin: '0 0 8px' }}>
             <b>ביטוח נסיעות:</b> מחיר החופשה אינו כולל ביטוח נסיעות. <b>יש להסדיר את הביטוח עד 90 יום לפני מועד היציאה.</b>
           </p>
@@ -220,7 +224,7 @@ export default function MorzineYouthPage() {
               </div>
             </div>
           )}
-          <p style={{ margin: '0 0 8px' }}><b>מחיר החופשה:</b> {price.toLocaleString()} ש&quot;ח</p>
+          <p style={{ margin: '0 0 8px' }}><b>מחיר החופשה:</b> {price.toLocaleString()} ש&quot;ח — <b>כולל טיסות</b></p>
           <p style={{ margin: '0 0 8px' }}>
             <b>דמי רישום והבטחת מקום:</b> {DEPOSIT.toLocaleString()} ש&quot;ח — מקדמה זו אינה ניתנת להחזר.
           </p>
@@ -369,7 +373,7 @@ export default function MorzineYouthPage() {
         display: 'flex', alignItems: 'center', gap: 16, justifyContent: 'center', flexWrap: 'wrap',
       }}>
         <div style={{ minWidth: 150 }}>
-          <div style={{ color: MUTED, fontSize: 12 }}>חופשת רכיבה במורזין 2027</div>
+          <div style={{ color: MUTED, fontSize: 12 }}>מורזין 2027 · כולל טיסות</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: PINK }}>{price.toLocaleString()} ₪</div>
         </div>
         <button
