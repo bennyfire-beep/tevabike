@@ -487,6 +487,7 @@ export default function Home() {
             <div>
               <h4 style={{ color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 18px', letterSpacing: '0.05em' }}>ניווט מהיר</h4>
               {[
+                { label: 'מורזין נוער 2027', href: '/morzine-2027' },
                 { label: 'מחנה סוכות', href: '/camp-sukkot' },
                 { label: 'סדנת איר באג', href: '/workshop-airbag' },
                 { label: 'טבע בייק אקדמי', href: '/instructors-course' },

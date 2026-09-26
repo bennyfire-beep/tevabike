@@ -41,6 +41,7 @@ export default function SiteNav() {
               from any page (they navigate home, then jump to the section) */}
           <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
             <a href="/#classes" className="nav-link">חוגים</a>
+            <a href="/morzine-2027" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מורזין נוער 2027</a>
             <a href="/camp-sukkot" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מחנה סוכות</a>
             <a href="/workshop-airbag" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>סדנת איר באג</a>
             <a href="/instructors-course" className="nav-link" style={{ color: '#f0b90b', fontWeight: 700 }}>טבע בייק אקדמי</a>
