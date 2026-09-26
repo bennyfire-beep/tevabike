@@ -211,6 +211,9 @@ export default function MorzineYouthPage() {
               padding: '12px 16px', marginBottom: 14, fontSize: 14, fontWeight: 700, textAlign: 'center',
             }}>
               🔥 מחיר השקה — עוד {earlyBirdSlotsLeft} מקומות ב-{earlyBirdPrice.toLocaleString()} ₪ במקום {regularPrice.toLocaleString()} ₪!
+              <div style={{ fontSize: 13, fontWeight: 400, color: MUTED, marginTop: 4 }}>
+                מקדמה {DEPOSIT.toLocaleString()} ₪ לשריון מקום — בהעברה בנקאית
+              </div>
             </div>
           )}
           <p style={{ margin: '0 0 8px' }}><b>מחיר החופשה:</b> {price.toLocaleString()} ש&quot;ח</p>
