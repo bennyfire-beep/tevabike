@@ -210,7 +210,10 @@ export default function MorzineYouthPage() {
               background: 'rgba(236,72,153,0.12)', border: `1px solid ${PINK}`, borderRadius: 12,
               padding: '12px 16px', marginBottom: 14, fontSize: 14, fontWeight: 700, textAlign: 'center',
             }}>
-              🔥 מחיר השקה — עוד {earlyBirdSlotsLeft} מקומות ב-{earlyBirdPrice.toLocaleString()} ₪ במקום {regularPrice.toLocaleString()} ₪!
+              🔥 רק 8 הנרשמים הראשונים נהנים ממחיר השקה: {earlyBirdPrice.toLocaleString()} ₪ במקום {regularPrice.toLocaleString()} ₪!
+              <div style={{ fontSize: 15, fontWeight: 800, color: PINK, marginTop: 6 }}>
+                נשארו עוד {earlyBirdSlotsLeft} מקומות בלבד — הירשמו עכשיו לפני שהמחיר עולה
+              </div>
               <div style={{ fontSize: 13, fontWeight: 400, color: MUTED, marginTop: 4 }}>
                 מקדמה {DEPOSIT.toLocaleString()} ₪ לשריון מקום — בהעברה בנקאית
               </div>
