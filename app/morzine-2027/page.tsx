@@ -169,6 +169,9 @@ export default function MorzineYouthPage() {
         <div style={card}>
           <p style={{ margin: '0 0 8px' }}><b>יעד:</b> מורזין (Morzine), צרפת</p>
           <p style={{ margin: '0 0 8px' }}><b>תאריכים:</b> 25.06–09.07.2027</p>
+          <p style={{ margin: '0 0 8px' }}>
+            <b>מפגש הכנה:</b> יום שישי, 14.05.2027, בשעה 09:00–11:00, במועדון טבע בייק — ניתן את כל הפרטים על החופשה ונכיר את הילדים.
+          </p>
           <p style={{ margin: 0 }}>
             <b>תכנית רכיבה:</b> החופשה כוללת 13 ימי רכיבה מלאים.{' '}
             <span style={{ color: MUTED, fontSize: 13 }}>
