@@ -130,7 +130,7 @@ export default function HakpatzotPage() {
           style={{ background: 'linear-gradient(160deg,#1B1220 0%, #241A28 55%, #2E1224 100%)' }}
         >
           <p className="text-xs font-bold tracking-[.14em] mb-2" style={{ color: PINK }}>
-            הקפצות לתחרות · ימי שישי
+            הקפצות לתחרות · יער שוויץ · ימי שישי
           </p>
           <h1 className="text-3xl font-extrabold mb-3">הרשמה להקפצות</h1>
           <p className="text-stone-300 text-[15px] leading-relaxed mb-5">
@@ -140,7 +140,7 @@ export default function HakpatzotPage() {
             {DATES.map((d) => (
               <li key={d.value} className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">📅 {d.label}</li>
             ))}
-            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">🕗 {HOURS} · משגב</li>
+            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">🕗 {HOURS} · יער שוויץ</li>
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">💳 {PRICE} ₪ לרוכב ליום</li>
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">🎟️ {CAPACITY} מקומות בכל יום</li>
           </ul>
@@ -178,7 +178,7 @@ export default function HakpatzotPage() {
           {/* info */}
           <ul className="bg-stone-900 rounded-xl p-4 space-y-2 text-[14.5px] text-stone-300">
             <li>📅 {DATES.map((d) => d.long).join(' ו־')} · {HOURS}.</li>
-            <li>🚐 מפגש במשגב בשעה 8:00, יציאה להקפצות כ־10 דקות אחרי. סיום בשעה 13:00.</li>
+            <li>🚐 מפגש ביער שוויץ בשעה 8:00, יציאה להקפצות כ־10 דקות אחרי. סיום בשעה 13:00.</li>
             <li>🎟️ כל יום מוגבל ל־{CAPACITY} רוכבים בלבד — לפי סדר ההרשמה. אפשר להירשם ליום אחד או לשניהם.</li>
             <li>💳 {PRICE} ₪ לרוכב לכל יום · נרשמים לשני הימים? בעמוד התשלום מסמנים כמות 2.</li>
             <li>💳 מקום נשמר אך ורק לאחר ביצוע תשלום בפועל.</li>
