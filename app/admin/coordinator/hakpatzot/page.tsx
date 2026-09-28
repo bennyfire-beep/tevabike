@@ -4,9 +4,10 @@ import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { downloadCsv } from '@/lib/csv-export'
 import WhatsappOptinBadge from '@/components/WhatsappOptinBadge'
+import { CAPACITY, DATES, DATE_VALUES, DATE_LABEL, GROUP_LABEL, AREA_LABEL } from '@/lib/hakpatzot'
 
 // ============================================================
-// יום הקפצות (משגב-יעד, יום שישי) — ניהול ההרשמות
+// ימי הקפצות — ניהול ההרשמות, לפי תאריך (lib/hakpatzot.ts)
 // נתיב: app/admin/coordinator/hakpatzot/page.tsx
 // טופס ציבורי: app/hakpatzot/page.tsx · API: app/api/hakpatzot/route.ts
 // ============================================================
@@ -21,14 +22,15 @@ type Reg = {
   area: string
   consent: boolean
   status: string
+  event_date: string | null
   whatsapp_optin: boolean | null
   whatsapp_optin_at: string | null
 }
 
-const CAPACITY = 15 // ← חייב להיות זהה למספר שב-app/api/hakpatzot/route.ts
-
-const GROUP_LABEL: Record<string, string> = { mini: 'מיני גרביטי', full: 'גרביטי' }
-const AREA_LABEL: Record<string, string> = { misgav: 'משגב', mata_asher: 'מטה אשר', biriya: 'ביריה' }
+// Rows from earlier rounds (dates no longer in lib/hakpatzot.ts, or null for
+// the original Misgav-Yaad day) are grouped under one "past" filter.
+const PAST = 'past'
+const dateKey = (r: Reg) => (r.event_date && DATE_VALUES.includes(r.event_date) ? r.event_date : PAST)
 const STATUS_LABEL: Record<string, string> = { pending: 'ממתין לתשלום', paid: 'שולם', cancelled: 'בוטל' }
 const STATUS_COLOR: Record<string, { bg: string; fg: string }> = {
   pending: { bg: '#3a2f14', fg: '#fbbf24' },
@@ -49,6 +51,7 @@ export default function HakpatzotAdminPage() {
   const [regs, setRegs] = useState<Reg[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('all')
+  const [dateFilter, setDateFilter] = useState<string>(DATES[0].value)
   const [savingId, setSavingId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -73,16 +76,19 @@ export default function HakpatzotAdminPage() {
 
   if (!user) return null
 
-  const active = regs.filter(r => r.status !== 'cancelled')
+  const inDate = regs.filter(r => dateKey(r) === dateFilter)
+  const active = inDate.filter(r => r.status !== 'cancelled')
   const paid = active.filter(r => r.status === 'paid')
   const full = active.length >= CAPACITY
+  const isPast = dateFilter === PAST
 
-  const filtered = regs.filter(r => statusFilter === 'all' || r.status === statusFilter)
+  const filtered = inDate.filter(r => statusFilter === 'all' || r.status === statusFilter)
+  const activeCount = (key: string) => regs.filter(r => dateKey(r) === key && r.status !== 'cancelled').length
 
   const csv = () => {
-    const head = ['נרשם', 'שם פרטי', 'שם משפחה', 'טלפון', 'קבוצה', 'אזור', 'תשלום']
+    const head = ['נרשם', 'תאריך', 'שם פרטי', 'שם משפחה', 'טלפון', 'קבוצה', 'אזור', 'תשלום']
     const rows = filtered.map(r => [
-      fmtDate(r.created_at), r.first_name, r.last_name, r.phone,
+      fmtDate(r.created_at), r.event_date ? (DATE_LABEL[r.event_date] ?? r.event_date) : 'משגב-יעד (קודם)', r.first_name, r.last_name, r.phone,
       GROUP_LABEL[r.group_type] ?? r.group_type, AREA_LABEL[r.area] ?? r.area,
       STATUS_LABEL[r.status] ?? r.status,
     ])
@@ -114,14 +120,21 @@ export default function HakpatzotAdminPage() {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <div>
-          <h2 style={{ margin: '0 0 3px', fontSize: 20, fontWeight: 800 }}>יום הקפצות · משגב-יעד</h2>
+          <h2 style={{ margin: '0 0 3px', fontSize: 20, fontWeight: 800 }}>ימי הקפצות</h2>
           <p style={{ color: '#7a8f7d', fontSize: 13, margin: 0 }}>
-            יום שישי · {loading ? 'טוען...' : `${filtered.length} הרשמות`}
+            {isPast ? 'ימים קודמים' : DATE_LABEL[dateFilter]} · {loading ? 'טוען...' : `${filtered.length} הרשמות`}
           </p>
         </div>
         <div style={{ marginRight: 'auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={csv} style={btnStyle}>ייצוא לאקסל</button>
           <a href="/hakpatzot" target="_blank" rel="noopener noreferrer" style={btnStyle}>פתיחת הטופס הציבורי</a>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#7a8f7d', fontSize: 12 }}>
+            תאריך
+            <select aria-label="סינון לפי תאריך" value={dateFilter} onChange={e => setDateFilter(e.target.value)} style={selStyle}>
+              {DATES.map(d => <option key={d.value} value={d.value}>{d.label} ({activeCount(d.value)}/{CAPACITY})</option>)}
+              <option value={PAST}>ימים קודמים ({activeCount(PAST)})</option>
+            </select>
+          </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#7a8f7d', fontSize: 12 }}>
             תשלום
             <select aria-label="סינון לפי סטטוס תשלום" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={selStyle}>
@@ -134,7 +147,9 @@ export default function HakpatzotAdminPage() {
 
       {/* כרטיסי סיכום */}
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', marginBottom: 24 }}>
-        {card('נרשמים', `${active.length} / ${CAPACITY}`, full ? 'מלא' : `נותרו ${CAPACITY - active.length}`, full ? '#f87171' : '#e8efe9', full ? '#7f2d2d' : '#252b27')}
+        {isPast
+          ? card('נרשמים', String(active.length))
+          : card('נרשמים', `${active.length} / ${CAPACITY}`, full ? 'מלא' : `נותרו ${CAPACITY - active.length}`, full ? '#f87171' : '#e8efe9', full ? '#7f2d2d' : '#252b27')}
         {card('שילמו', String(paid.length), `מתוך ${active.length}`, '#b5e853')}
         {card('ממתינים לתשלום', String(active.length - paid.length), undefined, '#fbbf24')}
       </div>
@@ -159,7 +174,7 @@ export default function HakpatzotAdminPage() {
                 <tr key={r.id} style={{ opacity: savingId === r.id ? 0.5 : 1 }}>
                   <td style={td}>
                     <div style={{ fontWeight: 700 }}>{r.first_name} {r.last_name}</div>
-                    <a href={waLink(r.phone, `היי ${r.first_name}, זה בני מטבע בייק לגבי יום ההקפצות`)}
+                    <a href={waLink(r.phone, `היי ${r.first_name}, זה בני מטבע בייק לגבי ההקפצות${r.event_date && DATE_LABEL[r.event_date] ? ` ב${DATE_LABEL[r.event_date]}` : ''}`)}
                       target="_blank" rel="noopener noreferrer" style={{ color: '#b5e853', fontSize: 12, textDecoration: 'none' }}>
                       {r.phone}
                     </a>
@@ -186,7 +201,7 @@ export default function HakpatzotAdminPage() {
 
         {!loading && filtered.length === 0 && (
           <div style={{ padding: 40, textAlign: 'center', color: '#7a8f7d', fontSize: 14 }}>
-            עדיין אין הרשמות ליום ההקפצות.
+            עדיין אין הרשמות לתאריך הזה.
           </div>
         )}
       </div>
