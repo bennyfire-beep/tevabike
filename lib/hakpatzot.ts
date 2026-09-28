@@ -13,9 +13,10 @@ export const CAPACITY = 15
 
 export const PRICE = 180
 
-// Arbox payment link for the current round. null → the confirmation screen
-// says the link will be sent on WhatsApp instead of showing a pay button.
-export const PAY_URL: string | null = null
+// Arbox payment link for the current round — one link priced per day; riders
+// who registered for both days are told to set the quantity to 2 there.
+// null → the confirmation screen says the link will be sent on WhatsApp.
+export const PAY_URL: string | null = 'https://arbox.link/NqkgOCKC'
 
 export const DATES = [
   { value: '2026-10-09', label: 'שישי 9.10', long: 'יום שישי 9 באוקטובר' },

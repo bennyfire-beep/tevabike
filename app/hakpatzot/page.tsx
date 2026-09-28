@@ -140,7 +140,7 @@ export default function HakpatzotPage() {
             {DATES.map((d) => (
               <li key={d.value} className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">📅 {d.label}</li>
             ))}
-            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">🕗 {HOURS}</li>
+            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">🕗 {HOURS} · משגב</li>
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">💳 {PRICE} ₪ לרוכב ליום</li>
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">🎟️ {CAPACITY} מקומות בכל יום</li>
           </ul>
@@ -178,9 +178,9 @@ export default function HakpatzotPage() {
           {/* info */}
           <ul className="bg-stone-900 rounded-xl p-4 space-y-2 text-[14.5px] text-stone-300">
             <li>📅 {DATES.map((d) => d.long).join(' ו־')} · {HOURS}.</li>
-            <li>🚐 מפגש בשעה 8:00, יציאה להקפצות כ־10 דקות אחרי. סיום בשעה 13:00.</li>
+            <li>🚐 מפגש במשגב בשעה 8:00, יציאה להקפצות כ־10 דקות אחרי. סיום בשעה 13:00.</li>
             <li>🎟️ כל יום מוגבל ל־{CAPACITY} רוכבים בלבד — לפי סדר ההרשמה. אפשר להירשם ליום אחד או לשניהם.</li>
-            <li>💳 {PRICE} ₪ לרוכב לכל יום.</li>
+            <li>💳 {PRICE} ₪ לרוכב לכל יום · נרשמים לשני הימים? בעמוד התשלום מסמנים כמות 2.</li>
             <li>💳 מקום נשמר אך ורק לאחר ביצוע תשלום בפועל.</li>
           </ul>
 
@@ -195,6 +195,11 @@ export default function HakpatzotPage() {
               <p className="text-stone-400 text-sm">
                 יש מקום שמור עבורכם. כדי לשריין אותו סופית יש להשלים תשלום בהקדם.
               </p>
+              {PAY_URL && done.dates.length > 1 && (
+                <p className="bg-stone-900 rounded-xl p-3 font-bold text-[15px]" style={{ color: PINK }}>
+                  נרשמתם לשני הימים — בעמוד התשלום סמנו כמות 2 ({PRICE * done.dates.length} ₪)
+                </p>
+              )}
               {PAY_URL ? (
                 <a
                   href={PAY_URL}
