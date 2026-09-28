@@ -122,7 +122,7 @@ export default function HakpatzotPage() {
     <div dir="rtl" className="min-h-screen bg-stone-950 text-stone-100">
       <div className="max-w-lg mx-auto">
         {/* poster */}
-        <img src="/hakpatzot-poster.jpg" alt="הרשמה ליום הקפצות — טבע בייק" className="w-full h-auto block" />
+        <img src="/hakpatzot-poster-shveitz.jpg" alt="הרשמה להקפצות יער שוויץ — טבע בייק" className="w-full h-auto block" />
 
         {/* hero */}
         <header
