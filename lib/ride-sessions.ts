@@ -96,7 +96,7 @@ export const SESSIONS: RideSession[] = [
       'זה טיול, לא אימון: רוכבים בקצב נעים, עוצרים בתצפיות, מספרים על המקום ועושים הפסקת קפה באמצע. מיכאל איזנשטין מוביל את הקבוצה לאורך כל הדרך ודואג שכולם נהנים בקצב שלהם.',
     ],
     capacity: 20,
-    image: null,
+    image: '/trip-rosh-hanikra-hanita.jpg',
     payUrl: { member: null, guest: null },
   },
 ]
