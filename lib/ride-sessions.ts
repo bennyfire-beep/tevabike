@@ -23,6 +23,11 @@ export const RIDER_TYPE_LABEL: Record<RiderType, string> = {
   guest: 'אורח/ת',
 }
 
+// Bike rental, paid on top of the trip price. null = price not set yet — the
+// form still lets riders ask for a bike and says the price will follow.
+// TODO(בני): לעדכן כשהמחיר ידוע (למשל 150).
+export const RENTAL_PRICE: number | null = null
+
 export const priceFor = (t: RiderType) => (t === 'member' ? MEMBER_PRICE : GUEST_PRICE)
 
 export const LEVELS = [

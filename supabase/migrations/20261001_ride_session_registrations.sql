@@ -24,6 +24,12 @@ create table if not exists ride_session_registrations (
   rider_type text not null check (rider_type in ('member', 'guest')),
   price_ils numeric not null,
   notes text,
+  -- Bike rental request. rental_height_cm is for picking a frame size;
+  -- rental_price_ils is the rental price at registration time (null while
+  -- RENTAL_PRICE in lib/ride-sessions.ts is not set yet).
+  wants_rental boolean not null default false,
+  rental_height_cm int,
+  rental_price_ils numeric,
   consent boolean not null default false,
   -- Registering only holds a spot informally — the reservation is confirmed
   -- once payment goes through in Arbox, tracked here manually.

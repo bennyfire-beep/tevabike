@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
-import { LEVELS, type RiderType } from '@/lib/ride-sessions'
+import { LEVELS, RENTAL_PRICE, type RiderType } from '@/lib/ride-sessions'
 
 // ============================================================
 // טופס הרשמה לטיול רכיבה — בחירת "רוכב/ת טבע בייק" או "אורח/ת".
@@ -20,12 +20,14 @@ type Props = {
   guestPrice: number
 }
 
-type Done = { first_name: string; rider_type: RiderType; price: number; payUrl: string | null }
+type Done = { first_name: string; rider_type: RiderType; price: number; wantsRental: boolean; payUrl: string | null }
 
 export default function RideRegistration({ slug, title, dateLabel, capacity, memberPrice, guestPrice }: Props) {
   const [status, setStatus] = useState<{ count: number; closed: boolean } | null>(null)
   const [riderType, setRiderType] = useState<RiderType>('member')
   const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', email: '', level: '', notes: '' })
+  const [wantsRental, setWantsRental] = useState(false)
+  const [rentalHeight, setRentalHeight] = useState('')
   const [consent, setConsent] = useState(false)
   const [whatsappOptin, setWhatsappOptin] = useState(false)
   const [sending, setSending] = useState(false)
@@ -60,6 +62,10 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mem
     if (!form.first_name.trim() || !form.last_name.trim()) return setError('חסרים שם פרטי ושם משפחה')
     if (form.phone.replace(/\D/g, '').length < 9) return setError('מספר טלפון לא תקין')
     if (!form.level) return setError('יש לבחור רמת רכיבה')
+    if (wantsRental) {
+      const h = Number(rentalHeight)
+      if (!(h >= 100 && h <= 220)) return setError('לשכירת אופניים צריך גובה בס״מ (100–220)')
+    }
     if (!consent) return setError('יש לאשר את הצהרת הבריאות והאחריות')
 
     setSending(true)
@@ -67,7 +73,10 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mem
       const res = await fetch('/api/rides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug, ...form, rider_type: riderType, consent: true, whatsapp_optin: whatsappOptin }),
+        body: JSON.stringify({
+          slug, ...form, rider_type: riderType, consent: true, whatsapp_optin: whatsappOptin,
+          wants_rental: wantsRental, rental_height_cm: wantsRental ? Number(rentalHeight) : null,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -76,7 +85,7 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mem
         if (data?.closed) await loadStatus()
         return
       }
-      setDone({ first_name: form.first_name, rider_type: data.rider_type, price: data.price, payUrl: data.payUrl ?? null })
+      setDone({ first_name: form.first_name, rider_type: data.rider_type, price: data.price, wantsRental: Boolean(data.wants_rental), payUrl: data.payUrl ?? null })
       await loadStatus()
     } catch {
       setError('לא הצלחנו לשלוח. בדקו את החיבור ונסו שוב.')
@@ -146,6 +155,12 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mem
               לתשלום: {done.price} ₪ · קישור לתשלום יישלח אליך בוואטסאפ
             </p>
           )}
+          {done.wantsRental && (
+            <p className="bg-stone-800 rounded-xl p-3 text-sm text-stone-300">
+              🚲 ביקשת אופניים בהשכרה —{' '}
+              {RENTAL_PRICE != null ? `${RENTAL_PRICE} ₪, בתשלום נפרד.` : 'נעדכן אותך במחיר ובפרטים בוואטסאפ.'}
+            </p>
+          )}
           <p className="text-xs text-stone-500">המקום נשמר אך ורק לאחר ביצוע תשלום בפועל.</p>
         </section>
       ) : closed ? (
@@ -176,6 +191,27 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mem
                 </Pill>
               ))}
             </div>
+          </div>
+
+          <div className="bg-stone-950 rounded-xl p-3.5 space-y-3">
+            <label className="flex items-start gap-2.5 cursor-pointer text-sm text-stone-300 select-none">
+              <input
+                type="checkbox"
+                checked={wantsRental}
+                onChange={(e) => setWantsRental(e.target.checked)}
+                className="mt-0.5 w-[18px] h-[18px] cursor-pointer shrink-0"
+                style={{ accentColor: PINK }}
+              />
+              <span>
+                <b className="text-stone-100">🚲 צריך/ה אופניים בהשכרה</b>
+                <span className="block text-stone-400 text-xs mt-0.5">
+                  {RENTAL_PRICE != null ? `${RENTAL_PRICE} ₪ לטיול, בנוסף למחיר הטיול` : 'המחיר יעודכן בקרוב — נחזור אליך עם הפרטים'}
+                </span>
+              </span>
+            </label>
+            {wantsRental && (
+              <Field label="גובה הרוכב/ת בס״מ * (להתאמת מידת האופניים)" type="number" value={rentalHeight} onChange={setRentalHeight} />
+            )}
           </div>
 
           <div>
@@ -273,7 +309,8 @@ function Field({ label, value, onChange, type = 'text' }: {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         maxLength={type === 'email' ? 120 : 40}
-        dir={type === 'tel' || type === 'email' ? 'ltr' : undefined}
+        dir={type === 'tel' || type === 'email' || type === 'number' ? 'ltr' : undefined}
+        inputMode={type === 'number' ? 'numeric' : undefined}
         className="w-full bg-stone-950 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 focus:outline-none focus:border-[#D4288A]"
       />
     </div>

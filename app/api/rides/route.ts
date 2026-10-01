@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 import {
-  SESSIONS, SESSION_SLUGS, sessionBySlug, isPast, priceFor, phoneKey,
+  SESSIONS, SESSION_SLUGS, sessionBySlug, isPast, priceFor, phoneKey, RENTAL_PRICE,
   LEVEL_VALUES, LEVEL_LABEL, RIDER_TYPE_LABEL, type RiderType, type RideSession,
 } from '@/lib/ride-sessions'
 
@@ -70,6 +70,8 @@ async function notifyBenny(session: RideSession, r: {
   rider_type: RiderType
   price: number
   notes: string | null
+  wants_rental: boolean
+  rental_height_cm: number | null
   count: number
 }) {
   const key = process.env.RESEND_API_KEY
@@ -83,6 +85,7 @@ async function notifyBenny(session: RideSession, r: {
     ['אימייל', r.email ?? '—'],
     ['רמה', LEVEL_LABEL[r.level] ?? r.level],
     ['סוג', `${RIDER_TYPE_LABEL[r.rider_type]} · ₪${r.price}`],
+    ['השכרת אופניים', r.wants_rental ? `כן — גובה ${r.rental_height_cm} ס״מ${RENTAL_PRICE != null ? ` · ₪${RENTAL_PRICE}` : ''}` : 'לא'],
     ['הערות', r.notes ?? '—'],
     ['נרשמו עד כה', `${r.count} / ${session.capacity}`],
   ]
@@ -118,6 +121,8 @@ export async function POST(req: NextRequest) {
     const email = String(body.email ?? '').trim().slice(0, 120) || null
     const level = String(body.level ?? '')
     const notes = String(body.notes ?? '').trim().slice(0, 500) || null
+    const wants_rental = body.wants_rental === true
+    const rental_height_cm = wants_rental ? Math.round(Number(body.rental_height_cm)) : null
     const claimsMember = body.rider_type === 'member'
     const consent = body.consent === true
 
@@ -139,6 +144,9 @@ export async function POST(req: NextRequest) {
     }
     if (!LEVEL_VALUES.includes(level)) {
       return NextResponse.json({ error: 'יש לבחור רמת רכיבה' }, { status: 400 })
+    }
+    if (wants_rental && !(rental_height_cm && rental_height_cm >= 100 && rental_height_cm <= 220)) {
+      return NextResponse.json({ error: 'לשכירת אופניים צריך גובה בס״מ (100–220)' }, { status: 400 })
     }
     if (!consent) {
       return NextResponse.json({ error: 'יש לאשר את הצהרת הבריאות והאחריות' }, { status: 400 })
@@ -179,6 +187,7 @@ export async function POST(req: NextRequest) {
       .insert({
         session_slug: slug, first_name, last_name, phone, email, level,
         rider_type, price_ils: price, notes, consent, ...optin,
+        wants_rental, rental_height_cm, rental_price_ils: wants_rental ? RENTAL_PRICE : null,
       })
       .select('id, created_at')
       .single()
@@ -203,9 +212,9 @@ export async function POST(req: NextRequest) {
     }
 
     const count = rank ?? 0
-    void notifyBenny(session, { first_name, last_name, phone, email, level, rider_type, price, notes, count })
+    void notifyBenny(session, { first_name, last_name, phone, email, level, rider_type, price, notes, wants_rental, rental_height_cm, count })
 
-    return NextResponse.json({ ok: true, rider_type, price, payUrl: session.payUrl[rider_type], count })
+    return NextResponse.json({ ok: true, rider_type, price, wants_rental, payUrl: session.payUrl[rider_type], count })
   } catch (e) {
     console.error('[rides] POST error:', e)
     return NextResponse.json({ error: 'שגיאת שרת' }, { status: 500 })

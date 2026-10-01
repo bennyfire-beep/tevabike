@@ -24,6 +24,8 @@ type Reg = {
   rider_type: RiderType
   price_ils: number
   notes: string | null
+  wants_rental: boolean | null
+  rental_height_cm: number | null
   status: string
   whatsapp_optin: boolean | null
   whatsapp_optin_at: string | null
@@ -84,6 +86,7 @@ export default function RidesAdminPage() {
   const active = inSession.filter(r => r.status !== 'cancelled')
   const paid = active.filter(r => r.status === 'paid')
   const members = active.filter(r => r.rider_type === 'member')
+  const rentals = active.filter(r => r.wants_rental)
   const expected = active.reduce((sum, r) => sum + Number(r.price_ils || 0), 0)
   const collected = paid.reduce((sum, r) => sum + Number(r.price_ils || 0), 0)
   const full = !!session && active.length >= capacity
@@ -92,11 +95,11 @@ export default function RidesAdminPage() {
   const activeCount = (key: string) => regs.filter(r => sessionKey(r) === key && r.status !== 'cancelled').length
 
   const csv = () => {
-    const head = ['נרשם', 'טיול', 'שם פרטי', 'שם משפחה', 'טלפון', 'אימייל', 'רמה', 'סוג', 'מחיר', 'תשלום', 'הערות']
+    const head = ['נרשם', 'טיול', 'שם פרטי', 'שם משפחה', 'טלפון', 'אימייל', 'רמה', 'סוג', 'מחיר', 'השכרת אופניים', 'תשלום', 'הערות']
     const rows = filtered.map(r => [
       fmtDate(r.created_at), sessionBySlug(r.session_slug)?.title ?? r.session_slug, r.first_name, r.last_name, r.phone,
       r.email ?? '', LEVEL_LABEL[r.level] ?? r.level, RIDER_TYPE_LABEL[r.rider_type] ?? r.rider_type,
-      String(r.price_ils), STATUS_LABEL[r.status] ?? r.status, r.notes ?? '',
+      String(r.price_ils), r.wants_rental ? `כן — ${r.rental_height_cm ?? '?'} ס״מ` : '', STATUS_LABEL[r.status] ?? r.status, r.notes ?? '',
     ])
     downloadCsv('טיולי-רכיבה-הרשמות.csv', head, rows)
   }
@@ -157,6 +160,7 @@ export default function RidesAdminPage() {
           ? card('נרשמים', `${active.length} / ${capacity}`, full ? 'מלא' : `נותרו ${capacity - active.length}`, full ? '#f87171' : '#e8efe9', full ? '#7f2d2d' : '#252b27')
           : card('נרשמים', String(active.length))}
         {card('רוכבי טבע בייק / אורחים', `${members.length} / ${active.length - members.length}`)}
+        {card('השכרת אופניים', String(rentals.length), rentals.length ? 'לבדוק מידות לפי גובה' : undefined)}
         {card('שילמו', String(paid.length), `מתוך ${active.length}`, '#b5e853')}
         {card('נגבה / צפוי', `₪${collected.toLocaleString('he-IL')}`, `מתוך ₪${expected.toLocaleString('he-IL')}`, '#fbbf24')}
       </div>
@@ -197,6 +201,11 @@ export default function RidesAdminPage() {
                     }}>
                       {RIDER_TYPE_LABEL[r.rider_type] ?? r.rider_type} · ₪{r.price_ils}
                     </span>
+                    {r.wants_rental && (
+                      <div style={{ color: '#fbbf24', fontSize: 12, marginTop: 6, whiteSpace: 'nowrap' }}>
+                        🚲 השכרה · {r.rental_height_cm ?? '?'} ס״מ
+                      </div>
+                    )}
                   </td>
                   <td style={{ ...td, color: '#7a8f7d' }}>{LEVEL_LABEL[r.level] ?? r.level}</td>
                   <td style={td}>
