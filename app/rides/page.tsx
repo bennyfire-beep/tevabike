@@ -23,27 +23,86 @@ export default function RidesPage() {
 
   return (
     <div dir="rtl" className="min-h-screen bg-stone-950 text-stone-100">
+      {/* intro — who we are and what the rides are, before the list */}
       <header
-        className="px-6 pt-12 pb-10"
+        className="px-6 pt-12 pb-12"
         style={{ background: 'linear-gradient(160deg,#1B1220 0%, #241A28 55%, #2E1224 100%)' }}
       >
         <div className="max-w-4xl mx-auto">
           <p className="text-xs font-bold tracking-[.14em] mb-2" style={{ color: PINK }}>
-            רכיבות מודרכות · פתוח לכולם
+            רכיבת שטח חברתית · פתוח לכולם
           </p>
-          <h1 className="text-3xl md:text-4xl font-extrabold mb-3">סשני רכיבה</h1>
-          <p className="text-stone-300 text-[15px] md:text-base leading-relaxed max-w-2xl">
-            מעבר לחוגים הקבועים, טבע בייק מפיקה רכיבות שטח מודרכות במסלולים היפים בארץ. הרכיבות פתוחות לרוכבי
-            המועדון וגם לאורחים — הביאו חברים!
+          <h1 className="text-3xl md:text-4xl font-extrabold mb-4">
+            נעים להכיר, <span style={{ color: PINK }}>טבע בייק</span>
+          </h1>
+          <p className="text-stone-300 text-[15px] md:text-lg leading-relaxed max-w-2xl">
+            טבע בייק היא קהילה של רוכבי אופני שטח בגליל — ילדים, נוער ומבוגרים שאוהבים טבע, אתגר ואנשים טובים. אנחנו
+            בית חם לרוכבים בכל הגילים והרמות, עם חוגים קבועים בארבעה סניפים: משגב, ביריה, מטה אשר ופרוד־אמירים.
           </p>
-          <div className="mt-6 flex flex-wrap gap-3">
+        </div>
+      </header>
+
+      <section className="max-w-4xl mx-auto px-5 pt-12 space-y-10">
+        <div className="grid gap-8 md:grid-cols-2">
+          <div className="space-y-3">
+            <h2 className="text-2xl font-extrabold">מה זה סשן רכיבה?</h2>
+            <p className="text-stone-300 leading-relaxed">
+              מעבר לאימונים השבועיים, אנחנו יוצאים לרכיבות מודרכות במסלולים היפים בארץ — סינגלים זורמים, שבילי יער,
+              תצפיות ונופים שלא רואים מהכביש. כל רכיבה היא בוקר שלם בשטח: מתכנסים, מתדרכים, רוכבים יחד ועוצרים לקפה
+              באמצע.
+            </p>
+            <p className="text-stone-300 leading-relaxed">
+              הרכיבות פתוחות לרוכבי טבע בייק וגם לאורחים. זו ההזדמנות להביא חבר, בן זוג או שכנה, להכיר את המדריכים שלנו
+              ולגלות מה כולם מדברים עליו.
+            </p>
+          </div>
+          <div className="space-y-3">
+            <h2 className="text-2xl font-extrabold">למה לרכוב איתנו?</h2>
+            <p className="text-stone-300 leading-relaxed">
+              המדריכים שלנו מלמדים טכניקת רכיבה כל השבוע — אז ברכיבה לא רק עוברים מסלול, אלא גם משתפרים. עוצרים
+              במקומות המאתגרים, מסבירים איך לעבור אותם, ואף אחד לא נשאר מאחור.
+            </p>
+            <p className="text-stone-300 leading-relaxed">
+              לכל רכיבה מפורטים מראש אורך המסלול, הטיפוס, הרמה הטכנית ודרגת הכושר — כך שתדעו בדיוק למה להתכונן.
+            </p>
+          </div>
+        </div>
+
+        <ul className="grid gap-4 grid-cols-2 md:grid-cols-4">
+          {[
+            { icon: '🏆', title: 'מדריכים מוסמכים', body: 'מוסמכים בטכניקת גרביטי, עם ניסיון רב בשטח' },
+            { icon: '🛡️', title: 'בטיחות קודמת לכל', body: 'מסלולים מותאמים לרמה, מדריך מלווה לאורך כל הדרך' },
+            { icon: '🗺️', title: 'מסלולים שווים', body: 'סינגלים, יערות ונופים שלא רואים מהכביש' },
+            { icon: '☕', title: 'קהילה', body: 'רוכבים יחד, עוצרים לקפה ומכירים חברים חדשים' },
+          ].map((f) => (
+            <li key={f.title} className="bg-stone-900 border border-stone-800 rounded-2xl p-5">
+              <div
+                className="w-11 h-11 rounded-xl flex items-center justify-center text-xl mb-3"
+                style={{ background: `${PINK}28` }}
+              >
+                {f.icon}
+              </div>
+              <h3 className="font-extrabold mb-1">{f.title}</h3>
+              <p className="text-stone-400 text-sm leading-relaxed">{f.body}</p>
+            </li>
+          ))}
+        </ul>
+
+        <div className="bg-stone-900 border border-stone-800 rounded-2xl p-6 md:flex md:items-center md:justify-between gap-6 space-y-4 md:space-y-0">
+          <div>
+            <h2 className="text-xl font-extrabold mb-1">כמה זה עולה?</h2>
+            <p className="text-stone-400 text-sm">מחיר לטיול אחד. רוכבי המועדון מזוהים אוטומטית לפי מספר הטלפון.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
             <PriceTag label="רוכבי טבע בייק" price={MEMBER_PRICE} highlight />
             <PriceTag label="אורחים" price={GUEST_PRICE} />
           </div>
         </div>
-      </header>
 
-      <main className="max-w-4xl mx-auto px-5 py-10">
+        <h2 className="text-2xl font-extrabold pt-2">הרכיבות הקרובות</h2>
+      </section>
+
+      <main className="max-w-4xl mx-auto px-5 pt-5 pb-14">
         {upcoming.length === 0 ? (
           <div className="text-center bg-stone-900 rounded-2xl p-8 space-y-2">
             <h2 className="text-lg font-bold">אין כרגע רכיבות פתוחות להרשמה</h2>
