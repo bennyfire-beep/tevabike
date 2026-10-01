@@ -73,7 +73,7 @@ export const SESSIONS: RideSession[] = [
     location: 'משגב, הגליל התחתון',
     meetingPoint: 'מועדון טבע בייק, רקפת',
     navUrl: null,
-    guide: 'בני להט',
+    guide: 'מיכאל איזנשטין',
     distanceKm: 22,
     climbM: 450,
     routeCharacter: 'סינגלים ושבילים רחבים',
