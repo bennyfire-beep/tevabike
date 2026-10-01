@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SESSIONS, MEMBER_PRICE, GUEST_PRICE, isPast } from '@/lib/ride-sessions'
 import TripCover from './TripCover'
+import HeroVideo from './HeroVideo'
 
 // ============================================================
 // טיולי רכיבה בארץ — פתיח + רשימת הטיולים הקרובים (lib/ride-sessions.ts)
@@ -26,10 +27,18 @@ export default function RidesPage() {
     <div dir="rtl" className="min-h-screen bg-stone-950 text-stone-100">
       {/* intro — what the trips are, before the list */}
       <header
-        className="px-6 pt-12 pb-12"
-        style={{ background: 'linear-gradient(160deg,#1B1220 0%, #241A28 55%, #2E1224 100%)' }}
+        className="relative overflow-hidden px-6 pt-16 pb-16 md:pt-24 md:pb-24 bg-stone-950 bg-cover bg-center"
+        style={{ backgroundImage: 'url(/rides-hero-poster.jpg)' }}
       >
-        <div className="max-w-4xl mx-auto">
+        <HeroVideo mp4="/rides-hero.mp4" webm="/rides-hero.webm" poster="/rides-hero-poster.jpg" />
+        {/* darker on the right, where the RTL text sits, and fading into the page below */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(to left, rgba(12,10,9,.9) 0%, rgba(27,18,32,.72) 45%, rgba(46,18,36,.45) 100%)' }}
+        />
+        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-stone-950 to-transparent" />
+        <div className="relative max-w-4xl mx-auto">
           <p className="text-xs font-bold tracking-[.14em] mb-2" style={{ color: PINK }}>
             טבע בייק · פעמיים בחודש · פתוח לכולם
           </p>
