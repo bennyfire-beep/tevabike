@@ -8,9 +8,9 @@ import {
 
 // ============================================================
 // נתיב: app/api/rides/route.ts
-// סשני רכיבה — רוכבי טבע בייק ₪90, אורחים ₪250 (lib/ride-sessions.ts).
-// GET  — מצב נוכחי לכל רכיבה (כמה נרשמו, האם סגורה)
-// POST — הרשמה לרכיבה. המחיר נקבע כאן לפי הטלפון מול טבלת riders.
+// טיולי רכיבה בארץ — רוכבי טבע בייק ₪90, אורחים ₪250 (lib/ride-sessions.ts).
+// GET  — מצב נוכחי לכל טיול (כמה נרשמו, האם סגורה)
+// POST — הרשמה לטיול. המחיר נקבע כאן לפי הטלפון מול טבלת riders.
 // ============================================================
 
 export const dynamic = 'force-dynamic'
@@ -77,7 +77,7 @@ async function notifyBenny(session: RideSession, r: {
 
   const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
   const rows: [string, string][] = [
-    ['רכיבה', `${session.title} · ${session.dateLabel}`],
+    ['טיול', `${session.title} · ${session.dateLabel}`],
     ['שם', `${r.first_name} ${r.last_name}`],
     ['טלפון', r.phone],
     ['אימייל', r.email ?? '—'],
@@ -94,9 +94,9 @@ async function notifyBenny(session: RideSession, r: {
       body: JSON.stringify({
         from: 'Teva Bike <leads@mail.tevabike.com>',
         to: ['bennyfire@gmail.com'],
-        subject: `הרשמה לסשן רכיבה — ${r.first_name} ${r.last_name} · ${RIDER_TYPE_LABEL[r.rider_type]} (${r.count}/${session.capacity})`,
+        subject: `הרשמה לטיול רכיבה — ${r.first_name} ${r.last_name} · ${RIDER_TYPE_LABEL[r.rider_type]} (${r.count}/${session.capacity})`,
         html: `<div dir="rtl" style="font-family:Arial,sans-serif">
-          <h2 style="margin:0 0 12px">🚵 הרשמה חדשה לסשן רכיבה</h2>
+          <h2 style="margin:0 0 12px">🚵 הרשמה חדשה לטיול רכיבה</h2>
           <table style="border-collapse:collapse;font-size:15px">
             ${rows.map(([k, v]) => `<tr><td style="padding:6px 12px;font-weight:700">${k}</td><td style="padding:6px 12px">${esc(v)}</td></tr>`).join('')}
           </table>
@@ -123,10 +123,10 @@ export async function POST(req: NextRequest) {
 
     const session = sessionBySlug(slug)
     if (!session) {
-      return NextResponse.json({ error: 'הרכיבה לא נמצאה' }, { status: 404 })
+      return NextResponse.json({ error: 'הטיול לא נמצא' }, { status: 404 })
     }
     if (isPast(session)) {
-      return NextResponse.json({ error: 'ההרשמה לרכיבה הזו נסגרה', closed: true }, { status: 409 })
+      return NextResponse.json({ error: 'ההרשמה לטיול הזה נסגרה', closed: true }, { status: 409 })
     }
     if (!first_name || !last_name) {
       return NextResponse.json({ error: 'חסרים שם פרטי ושם משפחה' }, { status: 400 })
@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
       .neq('status', 'cancelled')
 
     if ((before ?? 0) >= session.capacity) {
-      return NextResponse.json({ error: 'כל המקומות ברכיבה נתפסו', closed: true }, { status: 409 })
+      return NextResponse.json({ error: 'כל המקומות בטיול נתפסו', closed: true }, { status: 409 })
     }
 
     const optin = whatsappOptinFields(body.whatsapp_optin === true, 'ride_sessions')

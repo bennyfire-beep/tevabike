@@ -7,7 +7,7 @@ import WhatsappOptinBadge from '@/components/WhatsappOptinBadge'
 import { SESSIONS, SESSION_SLUGS, sessionBySlug, LEVEL_LABEL, RIDER_TYPE_LABEL, type RiderType } from '@/lib/ride-sessions'
 
 // ============================================================
-// סשני רכיבה — ניהול ההרשמות, לפי רכיבה (lib/ride-sessions.ts)
+// טיולי רכיבה — ניהול ההרשמות, לפי טיול (lib/ride-sessions.ts)
 // נתיב: app/admin/coordinator/rides/page.tsx
 // עמוד ציבורי: app/rides · API: app/api/rides/route.ts
 // ============================================================
@@ -92,13 +92,13 @@ export default function RidesAdminPage() {
   const activeCount = (key: string) => regs.filter(r => sessionKey(r) === key && r.status !== 'cancelled').length
 
   const csv = () => {
-    const head = ['נרשם', 'רכיבה', 'שם פרטי', 'שם משפחה', 'טלפון', 'אימייל', 'רמה', 'סוג', 'מחיר', 'תשלום', 'הערות']
+    const head = ['נרשם', 'טיול', 'שם פרטי', 'שם משפחה', 'טלפון', 'אימייל', 'רמה', 'סוג', 'מחיר', 'תשלום', 'הערות']
     const rows = filtered.map(r => [
       fmtDate(r.created_at), sessionBySlug(r.session_slug)?.title ?? r.session_slug, r.first_name, r.last_name, r.phone,
       r.email ?? '', LEVEL_LABEL[r.level] ?? r.level, RIDER_TYPE_LABEL[r.rider_type] ?? r.rider_type,
       String(r.price_ils), STATUS_LABEL[r.status] ?? r.status, r.notes ?? '',
     ])
-    downloadCsv('סשני-רכיבה-הרשמות.csv', head, rows)
+    downloadCsv('טיולי-רכיבה-הרשמות.csv', head, rows)
   }
 
   const selStyle: React.CSSProperties = {
@@ -126,19 +126,19 @@ export default function RidesAdminPage() {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <div>
-          <h2 style={{ margin: '0 0 3px', fontSize: 20, fontWeight: 800 }}>סשני רכיבה</h2>
+          <h2 style={{ margin: '0 0 3px', fontSize: 20, fontWeight: 800 }}>טיולי רכיבה</h2>
           <p style={{ color: '#7a8f7d', fontSize: 13, margin: 0 }}>
-            {session ? `${session.title} · ${session.dateLabel}` : 'רכיבות קודמות'} · {loading ? 'טוען...' : `${filtered.length} הרשמות`}
+            {session ? `${session.title} · ${session.dateLabel}` : 'טיולים קודמים'} · {loading ? 'טוען...' : `${filtered.length} הרשמות`}
           </p>
         </div>
         <div style={{ marginRight: 'auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <button onClick={csv} style={btnStyle}>ייצוא לאקסל</button>
           <a href={session ? `/rides/${session.slug}` : '/rides'} target="_blank" rel="noopener noreferrer" style={btnStyle}>פתיחת העמוד הציבורי</a>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#7a8f7d', fontSize: 12 }}>
-            רכיבה
-            <select aria-label="סינון לפי רכיבה" value={sessionFilter} onChange={e => setSessionFilter(e.target.value)} style={selStyle}>
+            טיול
+            <select aria-label="סינון לפי טיול" value={sessionFilter} onChange={e => setSessionFilter(e.target.value)} style={selStyle}>
               {SESSIONS.map(s => <option key={s.slug} value={s.slug}>{s.dateLabel} · {s.title} ({activeCount(s.slug)}/{s.capacity})</option>)}
-              <option value={PAST}>רכיבות קודמות ({activeCount(PAST)})</option>
+              <option value={PAST}>טיולים קודמים ({activeCount(PAST)})</option>
             </select>
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#7a8f7d', fontSize: 12 }}>
@@ -183,7 +183,7 @@ export default function RidesAdminPage() {
                 <tr key={r.id} style={{ opacity: savingId === r.id ? 0.5 : 1 }}>
                   <td style={td}>
                     <div style={{ fontWeight: 700 }}>{r.first_name} {r.last_name}</div>
-                    <a href={waLink(r.phone, `היי ${r.first_name}, זה בני מטבע בייק לגבי ${title ? `הרכיבה "${title}"` : 'סשן הרכיבה'}`)}
+                    <a href={waLink(r.phone, `היי ${r.first_name}, זה בני מטבע בייק לגבי ${title ? `הטיול "${title}"` : 'טיול הרכיבה'}`)}
                       target="_blank" rel="noopener noreferrer" style={{ color: '#b5e853', fontSize: 12, textDecoration: 'none' }}>
                       {r.phone}
                     </a>
@@ -220,7 +220,7 @@ export default function RidesAdminPage() {
 
         {!loading && filtered.length === 0 && (
           <div style={{ padding: 40, textAlign: 'center', color: '#7a8f7d', fontSize: 14 }}>
-            עדיין אין הרשמות לרכיבה הזו.
+            עדיין אין הרשמות לטיול הזה.
           </div>
         )}
       </div>

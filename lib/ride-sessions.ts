@@ -1,12 +1,12 @@
-// Shared config for guided ride sessions ("סשן רכיבה") — one-off day rides in
-// the spirit of outdoor-cafe.com's "רכיבה בארץ" events: open to Teva Bike
-// riders and to guests, at two prices. Used by the public pages (app/rides),
+// Shared config for guided riding trips around Israel ("טיולי רכיבה בארץ") —
+// two day trips a month, in the spirit of outdoor-cafe.com's "רכיבה בארץ"
+// events: open to Teva Bike riders and to guests, at two prices. Used by the public pages (app/rides),
 // the API (app/api/rides) and the coordinator screen
 // (app/admin/coordinator/rides), so prices, caps and dates can never drift
 // between them.
 //
-// Adding a ride = adding an entry to SESSIONS. Registrations are stored per
-// slug (ride_session_registrations.session_slug), so a past ride's rows stay
+// Adding a trip = adding an entry to SESSIONS. Registrations are stored per
+// slug (ride_session_registrations.session_slug), so a past trip's rows stay
 // as history once its entry is removed or its date has passed.
 
 // A Teva Bike rider pays MEMBER_PRICE, anyone else GUEST_PRICE. The server
@@ -56,38 +56,42 @@ export type RideSession = {
   summary: string
   description: string[]
   capacity: number
-  image: string
+  /** Cover photo under /public. null → a designed placeholder is shown. */
+  image: string | null
   /** Arbox payment links per price. null → the link is sent on WhatsApp. */
   payUrl: { member: string | null; guest: string | null }
 }
 
-// TODO(בני): פרטי הרכיבה הראשונה הם דוגמה — לעדכן תאריך, מקום, מסלול,
-// מדריך וקישורי תשלום לפני שמפרסמים את הקישור.
+// Two trips a month around Israel. Each trip is one entry here — copy the
+// first one, give it a new slug and fill it in.
+//
+// TODO(בני): התאריך, השעות, נקודת המפגש ונתוני המסלול של ראש הנקרה–חניתה
+// הם הערכה — לאשר/לתקן, ולהוסיף קישורי תשלום ותמונה לפני שמפרסמים.
 export const SESSIONS: RideSession[] = [
   {
-    slug: 'misgav-autumn-ride',
-    title: 'סינגלים של משגב | רכיבת סתיו',
+    slug: 'rosh-hanikra-hanita',
+    title: 'ראש הנקרה – חניתה',
     date: '2026-10-23',
     dateLabel: 'שישי 23.10',
-    hours: '8:00–11:30',
-    location: 'משגב, הגליל התחתון',
-    meetingPoint: 'מועדון טבע בייק, רקפת',
+    hours: '8:00–12:00',
+    location: 'הגליל המערבי',
+    meetingPoint: 'קיבוץ חניתה',
     navUrl: null,
     guide: 'מיכאל איזנשטין',
-    distanceKm: 22,
-    climbM: 450,
-    routeCharacter: 'סינגלים ושבילים רחבים',
+    distanceKm: 25,
+    climbM: 500,
+    routeCharacter: 'שבילי יער וסינגלים',
     routeType: 'מעגלי',
     technicalLevel: 'בינונית',
     fitnessLevel: 'בינונית',
     terrain: 'סלע גלילי ואדמה',
-    summary: 'בוקר של סינגלים זורמים ביערות משגב, עם עצירת קפה ונוף לעמקים.',
+    summary: 'טיול רכיבה ביער חניתה ועל רכס ראש הנקרה, עם תצפיות לים התיכון ולצוקים הלבנים.',
     description: [
-      'מצטרפים אלינו לבוקר של רכיבה מודרכת בסינגלים הכי יפים של משגב — שבילים זורמים בין עצי אלון ואורן, תצפיות לבקעת בית הכרם ועצירת קפה באמצע.',
-      'הרכיבה פתוחה לרוכבי טבע בייק ולאורחים. המדריכים שלנו ילוו את הקבוצה לאורך כל המסלול, יעצרו לטיפים טכניים במקומות המאתגרים וידאגו שכולם נהנים בקצב שלהם.',
+      'הטיול הראשון בסדרת טיולי הרכיבה שלנו בארץ יוצא לפינה הצפון־מערבית של ישראל. נרכב בשבילי יער חניתה, בין עצי אורן ואלון, ונעלה אל רכס ראש הנקרה — עם תצפיות פתוחות לים התיכון, לחוף הגליל המערבי ולצוקי הגיר הלבנים.',
+      'זה טיול, לא אימון: רוכבים בקצב נעים, עוצרים בתצפיות, מספרים על המקום ועושים הפסקת קפה באמצע. מיכאל איזנשטין מוביל את הקבוצה לאורך כל הדרך ודואג שכולם נהנים בקצב שלהם.',
     ],
     capacity: 20,
-    image: '/misgav.jpg',
+    image: null,
     payUrl: { member: null, guest: null },
   },
 ]

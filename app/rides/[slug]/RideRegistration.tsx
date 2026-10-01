@@ -5,7 +5,7 @@ import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 import { LEVELS, type RiderType } from '@/lib/ride-sessions'
 
 // ============================================================
-// טופס הרשמה לסשן רכיבה — בחירת "רוכב/ת טבע בייק" או "אורח/ת".
+// טופס הרשמה לטיול רכיבה — בחירת "רוכב/ת טבע בייק" או "אורח/ת".
 // המחיר הסופי נקבע בשרת (app/api/rides/route.ts) לפי הטלפון.
 // ============================================================
 
@@ -151,7 +151,7 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mem
       ) : closed ? (
         <section className="text-center bg-stone-800 rounded-xl p-5 space-y-1.5">
           <h2 className="text-lg font-bold">ההרשמה סגורה</h2>
-          <p className="text-stone-400 text-sm">אם יתפנה מקום נעדכן כאן. רכיבות נוספות בעמוד סשני הרכיבה.</p>
+          <p className="text-stone-400 text-sm">אם יתפנה מקום נעדכן כאן. טיולים נוספים בעמוד טיולי הרכיבה.</p>
         </section>
       ) : (
         <section className="space-y-4">

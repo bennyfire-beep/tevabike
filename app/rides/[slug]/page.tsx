@@ -3,9 +3,10 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { SESSIONS, sessionBySlug, MEMBER_PRICE, GUEST_PRICE } from '@/lib/ride-sessions'
 import RideRegistration from './RideRegistration'
+import TripCover from '../TripCover'
 
 // ============================================================
-// סשן רכיבה — עמוד רכיבה אחת: פרטי מסלול, מחירים והרשמה
+// טיול רכיבה — עמוד טיול אחד: פרטי מסלול, מחירים והרשמה
 // נתיב: app/rides/[slug]/page.tsx · API: app/api/rides/route.ts
 // ============================================================
 
@@ -18,11 +19,11 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   const s = sessionBySlug(slug)
-  if (!s) return { title: 'רכיבה לא נמצאה — טבע בייק' }
+  if (!s) return { title: 'הטיול לא נמצא — טבע בייק' }
   return {
     title: `${s.title} — טבע בייק`,
     description: `${s.dateLabel} · ${s.location} · ${s.summary} רוכבי טבע בייק ${MEMBER_PRICE} ₪, אורחים ${GUEST_PRICE} ₪.`,
-    openGraph: { images: [s.image] },
+    ...(s.image ? { openGraph: { images: [s.image] } } : {}),
   }
 }
 
@@ -43,12 +44,13 @@ export default async function RidePage({ params }: { params: Promise<{ slug: str
     <div dir="rtl" className="min-h-screen bg-stone-950 text-stone-100">
       {/* hero */}
       <header className="relative">
-        <img src={s.image} alt={s.title} className="w-full h-[260px] md:h-[380px] object-cover block" />
+        <div className="h-[260px] md:h-[380px]"><TripCover image={s.image} title={s.title} /></div>
         <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/60 to-transparent" />
         <div className="absolute inset-x-0 bottom-0">
           <div className="max-w-4xl mx-auto px-5 pb-6">
-            <Link href="/rides" className="text-sm text-stone-300 hover:text-white">→ כל סשני הרכיבה</Link>
-            <h1 className="text-3xl md:text-4xl font-extrabold mt-2">{s.title}</h1>
+            <Link href="/rides" className="text-sm text-stone-300 hover:text-white">→ כל טיולי הרכיבה</Link>
+            <p className="text-xs font-bold tracking-[.14em] mt-3" style={{ color: '#F9A8D4' }}>טיול רכיבה בארץ · {s.location}</p>
+            <h1 className="text-3xl md:text-4xl font-extrabold mt-1">{s.title}</h1>
           </div>
         </div>
       </header>
@@ -103,9 +105,9 @@ export default async function RidePage({ params }: { params: Promise<{ slug: str
 
           <section className="bg-stone-900 rounded-xl p-5 space-y-2 text-sm text-stone-300 leading-relaxed">
             <h2 className="text-base font-bold text-stone-100">בטיחות וציוד</h2>
-            <p>הרכיבה מיועדת לרוכבים עם ניסיון ברכיבת שטח ברמה המתאימה למסלול. לא בטוחים? כתבו לנו ונעזור לבחור.</p>
+            <p>הטיול מיועד לרוכבים עם ניסיון ברכיבת שטח ברמה המתאימה למסלול. לא בטוחים? כתבו לנו ונעזור לבחור.</p>
             <p>חובה קסדה ואופניים תקינים. יש להצטייד במים (לפחות 1.5 ליטר), חטיף/ארוחת בוקר קלה ופנימית רזרבית.</p>
-            <p>מומלץ ביטוח בריאות הכולל ספורט אתגרי. אין אחריות על נזקי ציוד, גניבה או צד ג׳ במהלך הרכיבה.</p>
+            <p>מומלץ ביטוח בריאות הכולל ספורט אתגרי. אין אחריות על נזקי ציוד, גניבה או צד ג׳ במהלך הטיול.</p>
             <p>מספר המקומות מוגבל ל־{s.capacity} רוכבים. המקום נשמר רק לאחר תשלום.</p>
           </section>
         </main>

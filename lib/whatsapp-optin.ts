@@ -20,7 +20,7 @@ export const WHATSAPP_OPTIN_SOURCES = {
   hakpatzot: 'הקפצות',
   hashlama: 'אימון השלמה',
   instructors_course: 'קורס מדריכים',
-  ride_sessions: 'סשן רכיבה',
+  ride_sessions: 'טיולי רכיבה',
 } as const
 
 export type WhatsappOptinSource = keyof typeof WHATSAPP_OPTIN_SOURCES
