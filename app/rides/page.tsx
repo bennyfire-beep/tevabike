@@ -33,13 +33,19 @@ export default function RidesPage() {
           <p className="text-xs font-bold tracking-[.14em] mb-2" style={{ color: PINK }}>
             טבע בייק · פעמיים בחודש · פתוח לכולם
           </p>
-          <h1 className="text-3xl md:text-4xl font-extrabold mb-4">
-            טיולי רכיבה <span style={{ color: PINK }}>בארץ</span>
+          <h1 className="text-3xl md:text-5xl font-extrabold mb-5 leading-tight">
+            יוצאים לרכוב. <span style={{ color: PINK }}>יוצאים לטייל.</span>
           </h1>
-          <p className="text-stone-300 text-[15px] md:text-lg leading-relaxed max-w-2xl">
-            פעמיים בחודש אנחנו יוצאים לטייל על אופני שטח במקומות היפים בארץ — יערות, רכסים, נחלים ונופים שלא רואים
-            מהחלון של האוטו. בוקר שלם בשטח, בקבוצה טובה, עם מדריך שמכיר כל שביל.
-          </p>
+          <div className="space-y-4 text-stone-300 text-[15px] md:text-lg leading-relaxed max-w-2xl">
+            <p className="text-stone-100 font-semibold">
+              פעמיים בחודש אנחנו עוזבים את השגרה ויוצאים לגלות את הארץ על שני גלגלים.
+            </p>
+            <p>
+              יערות, רכסים, נחלים ושבילים שמובילים לנופים ששווה לעצור בשבילם. כמה שעות של רכיבה בטבע, בקבוצה טובה ועם
+              מדריך שמכיר את השטח ויודע לקחת אותנו למקומות שלא תמיד מגיעים אליהם לבד.
+            </p>
+            <p>לא צריך להיות חלק מקבוצה קבועה — פשוט לבחור טיול שמתאים לכם ולהצטרף.</p>
+          </div>
         </div>
       </header>
 
