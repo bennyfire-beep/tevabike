@@ -44,7 +44,7 @@ export default async function RidePage({ params }: { params: Promise<{ slug: str
     <div dir="rtl" className="min-h-screen bg-stone-950 text-stone-100">
       {/* hero */}
       <header className="relative">
-        <div className="h-[260px] md:h-[380px]"><TripCover image={s.image} title={s.title} className="object-[center_70%]" /></div>
+        <div className="h-[260px] md:h-[380px]"><TripCover image={s.image} title={s.title} className="object-[center_30%]" /></div>
         <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/30 to-transparent" />
         <div className="absolute inset-x-0 bottom-0">
           <div className="max-w-4xl mx-auto px-5 pb-6">

@@ -124,7 +124,7 @@ export default function RidesPage() {
                   className="group block bg-stone-900 rounded-2xl overflow-hidden border border-stone-800 hover:border-[#D4288A] transition h-full"
                 >
                   <div className="aspect-[16/9] overflow-hidden bg-stone-800">
-                    <TripCover image={s.image} title={s.title} className="group-hover:scale-105 transition duration-500" />
+                    <TripCover image={s.image} title={s.title} className="object-[center_35%] group-hover:scale-105 transition duration-500" />
                   </div>
                   <div className="p-5 space-y-2">
                     <p className="text-sm font-bold" style={{ color: PINK }}>📅 {s.dateLabel} · {s.hours}</p>
