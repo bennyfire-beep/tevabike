@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 import {
-  SESSIONS, SESSION_SLUGS, sessionBySlug, isPast, priceFor, phoneKey, RENTAL_PRICE,
+  SESSIONS, SESSION_SLUGS, sessionBySlug, isPast, priceFor, phoneKey, RENTAL_PRICE, RIDER_TYPES,
+  monthOf, monthLabel, TRIPS_PER_MONTH,
   LEVEL_VALUES, LEVEL_LABEL, RIDER_TYPE_LABEL, type RiderType, type RideSession,
 } from '@/lib/ride-sessions'
 
 // ============================================================
 // נתיב: app/api/rides/route.ts
-// טיולי רכיבה בארץ — רוכבי טבע בייק ₪90, אורחים ₪250 (lib/ride-sessions.ts).
+// טיולי רכיבה בארץ — מנוי חודשי ₪200 (שני טיולים), או טיול בודד: רוכבי
+// טבע בייק ₪90, אורחים ₪250 (lib/ride-sessions.ts).
 // GET  — מצב נוכחי לכל טיול (כמה נרשמו, האם סגורה)
 // POST — הרשמה לטיול. המחיר נקבע כאן לפי הטלפון מול טבלת riders.
 // ============================================================
@@ -69,6 +71,7 @@ async function notifyBenny(session: RideSession, r: {
   level: string
   rider_type: RiderType
   price: number
+  included: boolean
   notes: string | null
   wants_rental: boolean
   rental_height_cm: number | null
@@ -84,7 +87,7 @@ async function notifyBenny(session: RideSession, r: {
     ['טלפון', r.phone],
     ['אימייל', r.email ?? '—'],
     ['רמה', LEVEL_LABEL[r.level] ?? r.level],
-    ['סוג', `${RIDER_TYPE_LABEL[r.rider_type]} · ₪${r.price}`],
+    ['סוג', `${RIDER_TYPE_LABEL[r.rider_type]} · ${r.included ? `כלול במנוי של ${monthLabel(monthOf(session.date))}` : `₪${r.price}`}`],
     ['השכרת אופניים', r.wants_rental ? `כן — גובה ${r.rental_height_cm} ס״מ${RENTAL_PRICE != null ? ` · ₪${RENTAL_PRICE}` : ''}` : 'לא'],
     ['הערות', r.notes ?? '—'],
     ['נרשמו עד כה', `${r.count} / ${session.capacity}`],
@@ -123,7 +126,7 @@ export async function POST(req: NextRequest) {
     const notes = String(body.notes ?? '').trim().slice(0, 500) || null
     const wants_rental = body.wants_rental === true
     const rental_height_cm = wants_rental ? Math.round(Number(body.rental_height_cm)) : null
-    const claimsMember = body.rider_type === 'member'
+    const rider_type: RiderType = RIDER_TYPES.includes(body.rider_type) ? body.rider_type : 'guest'
     const consent = body.consent === true
 
     const session = sessionBySlug(slug)
@@ -156,8 +159,7 @@ export async function POST(req: NextRequest) {
 
     // The member price is never taken on trust: it applies only when the phone
     // is one we already know from `riders`.
-    let rider_type: RiderType = 'guest'
-    if (claimsMember) {
+    if (rider_type === 'member') {
       if (!(await isTevaBikeRider(db, phone))) {
         return NextResponse.json(
           {
@@ -167,9 +169,37 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         )
       }
-      rider_type = 'member'
     }
-    const price = priceFor(rider_type)
+
+    // A subscription covers TRIPS_PER_MONTH trips in the month. If this phone
+    // already holds a (non-cancelled) subscription registration for another
+    // trip this month, this one is included and costs nothing more — up to
+    // the monthly allowance; beyond it they join as a single trip.
+    const subscription_month = rider_type === 'subscriber' ? monthOf(session.date) : null
+    let included = false
+    if (subscription_month) {
+      const sameMonth = SESSIONS.filter((s) => monthOf(s.date) === subscription_month).map((s) => s.slug)
+      const { data: subs } = await db
+        .from('ride_session_registrations')
+        .select('phone, session_slug')
+        .eq('rider_type', 'subscriber')
+        .eq('subscription_month', subscription_month)
+        .in('session_slug', sameMonth)
+        .neq('status', 'cancelled')
+      const key = phoneKey(phone)
+      const mine = (subs ?? []).filter((r) => phoneKey(r.phone) === key)
+      if (mine.some((r) => r.session_slug === slug)) {
+        return NextResponse.json({ error: 'מספר הטלפון הזה כבר רשום לטיול הזה' }, { status: 409 })
+      }
+      if (mine.length >= TRIPS_PER_MONTH) {
+        return NextResponse.json(
+          { error: `המנוי כולל ${TRIPS_PER_MONTH} טיולים בחודש וכבר נרשמת לכולם. לטיול נוסף אפשר להירשם כטיול בודד.` },
+          { status: 409 }
+        )
+      }
+      included = mine.length > 0
+    }
+    const price = included ? 0 : priceFor(rider_type)
 
     const { count: before } = await db
       .from('ride_session_registrations')
@@ -186,7 +216,7 @@ export async function POST(req: NextRequest) {
       .from('ride_session_registrations')
       .insert({
         session_slug: slug, first_name, last_name, phone, email, level,
-        rider_type, price_ils: price, notes, consent, ...optin,
+        rider_type, price_ils: price, subscription_month, notes, consent, ...optin,
         wants_rental, rental_height_cm, rental_price_ils: wants_rental ? RENTAL_PRICE : null,
       })
       .select('id, created_at')
@@ -212,9 +242,13 @@ export async function POST(req: NextRequest) {
     }
 
     const count = rank ?? 0
-    void notifyBenny(session, { first_name, last_name, phone, email, level, rider_type, price, notes, wants_rental, rental_height_cm, count })
+    void notifyBenny(session, { first_name, last_name, phone, email, level, rider_type, price, included, notes, wants_rental, rental_height_cm, count })
 
-    return NextResponse.json({ ok: true, rider_type, price, wants_rental, payUrl: session.payUrl[rider_type], count })
+    return NextResponse.json({
+      ok: true, rider_type, price, included, wants_rental, count,
+      month: subscription_month ? monthLabel(subscription_month) : null,
+      payUrl: included ? null : session.payUrl[rider_type],
+    })
   } catch (e) {
     console.error('[rides] POST error:', e)
     return NextResponse.json({ error: 'שגיאת שרת' }, { status: 500 })

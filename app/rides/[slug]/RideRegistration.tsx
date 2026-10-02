@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
-import { LEVELS, RENTAL_PRICE, type RiderType } from '@/lib/ride-sessions'
+import {
+  LEVELS, RENTAL_PRICE, SUBSCRIPTION_PRICE, MEMBER_PRICE, GUEST_PRICE, TRIPS_PER_MONTH, priceFor, type RiderType,
+} from '@/lib/ride-sessions'
 
 // ============================================================
-// טופס הרשמה לטיול רכיבה — בחירת "רוכב/ת טבע בייק" או "אורח/ת".
-// המחיר הסופי נקבע בשרת (app/api/rides/route.ts) לפי הטלפון.
+// טופס הרשמה לטיול רכיבה — מנוי חודשי, או טיול בודד לרוכב/ת טבע בייק
+// או לאורח/ת. המחיר הסופי נקבע בשרת (app/api/rides/route.ts) לפי הטלפון:
+// רוכבי טבע בייק מאומתים מול riders, ולמנוי הטיול השני בחודש כלול.
 // ============================================================
 
 const PINK = '#D4288A'
@@ -16,15 +19,17 @@ type Props = {
   title: string
   dateLabel: string
   capacity: number
-  memberPrice: number
-  guestPrice: number
+  /** Hebrew month name of the trip, e.g. 'אוקטובר' — what the subscription covers. */
+  monthName: string
 }
 
-type Done = { first_name: string; rider_type: RiderType; price: number; wantsRental: boolean; payUrl: string | null }
+type Done = {
+  first_name: string; rider_type: RiderType; price: number; included: boolean; wantsRental: boolean; payUrl: string | null
+}
 
-export default function RideRegistration({ slug, title, dateLabel, capacity, memberPrice, guestPrice }: Props) {
+export default function RideRegistration({ slug, title, dateLabel, capacity, monthName }: Props) {
   const [status, setStatus] = useState<{ count: number; closed: boolean } | null>(null)
-  const [riderType, setRiderType] = useState<RiderType>('member')
+  const [riderType, setRiderType] = useState<RiderType>('subscriber')
   const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', email: '', level: '', notes: '' })
   const [wantsRental, setWantsRental] = useState(false)
   const [rentalHeight, setRentalHeight] = useState('')
@@ -85,7 +90,7 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mem
         if (data?.closed) await loadStatus()
         return
       }
-      setDone({ first_name: form.first_name, rider_type: data.rider_type, price: data.price, wantsRental: Boolean(data.wants_rental), payUrl: data.payUrl ?? null })
+      setDone({ first_name: form.first_name, rider_type: data.rider_type, price: data.price, included: Boolean(data.included), wantsRental: Boolean(data.wants_rental), payUrl: data.payUrl ?? null })
       await loadStatus()
     } catch {
       setError('לא הצלחנו לשלוח. בדקו את החיבור ונסו שוב.')
@@ -101,21 +106,35 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mem
   return (
     <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-5">
       {/* pricing */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="space-y-2">
         <PriceCard
-          active={!done && riderType === 'member'}
-          onClick={() => { setRiderType('member'); setNotMember(false) }}
-          label="רוכב/ת טבע בייק"
-          price={memberPrice}
+          active={!done && riderType === 'subscriber'}
+          onClick={() => { setRiderType('subscriber'); setNotMember(false) }}
+          label={`מנוי חודשי · ${TRIPS_PER_MONTH} טיולים ב${monthName}`}
+          price={SUBSCRIPTION_PRICE}
+          unit="לחודש"
+          badge="הכי משתלם"
           disabled={!!done}
         />
-        <PriceCard
-          active={!done && riderType === 'guest'}
-          onClick={() => { setRiderType('guest'); setNotMember(false) }}
-          label="אורח/ת"
-          price={guestPrice}
-          disabled={!!done}
-        />
+        <p className="text-[11px] text-stone-500 text-center">או טיול בודד:</p>
+        <div className="grid grid-cols-2 gap-2">
+          <PriceCard
+            active={!done && riderType === 'member'}
+            onClick={() => { setRiderType('member'); setNotMember(false) }}
+            label="רוכב/ת טבע בייק"
+            price={MEMBER_PRICE}
+            unit="לטיול"
+            disabled={!!done}
+          />
+          <PriceCard
+            active={!done && riderType === 'guest'}
+            onClick={() => { setRiderType('guest'); setNotMember(false) }}
+            label="אורח/ת"
+            price={GUEST_PRICE}
+            unit="לטיול"
+            disabled={!!done}
+          />
+        </div>
       </div>
 
       {/* live meter */}
@@ -136,9 +155,19 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mem
           <p className="text-stone-300 text-sm">
             {done.first_name}, שמרנו לך מקום ב{title} · {dateLabel}
           </p>
+          {done.included ? (
+            <p className="bg-stone-800 rounded-xl p-4 font-bold">
+              ✅ הטיול כלול במנוי החודשי שלך ל{monthName} — אין צורך בתשלום נוסף.
+            </p>
+          ) : (
+            <>
           <p className="text-stone-400 text-sm">
-            {done.rider_type === 'member' ? 'זיהינו אותך כרוכב/ת טבע בייק 🤘' : 'נרשמת כאורח/ת — כיף שבאת!'} כדי לשריין את המקום
-            סופית יש להשלים תשלום.
+            {done.rider_type === 'subscriber'
+              ? `נרשמת למנוי החודשי של ${monthName} — הוא כולל את שני הטיולים של החודש. לטיול השני פשוט נרשמים שוב עם אותו מספר טלפון, בלי תשלום נוסף.`
+              : done.rider_type === 'member'
+                ? 'זיהינו אותך כרוכב/ת טבע בייק 🤘'
+                : 'נרשמת כאורח/ת — כיף שבאת!'}{' '}
+            כדי לשריין את המקום סופית יש להשלים תשלום.
           </p>
           {done.payUrl ? (
             <a
@@ -155,13 +184,15 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mem
               לתשלום: {done.price} ₪ · קישור לתשלום יישלח אליך בוואטסאפ
             </p>
           )}
+            </>
+          )}
           {done.wantsRental && (
             <p className="bg-stone-800 rounded-xl p-3 text-sm text-stone-300">
               🚲 ביקשת אופניים בהשכרה —{' '}
               {RENTAL_PRICE != null ? `${RENTAL_PRICE} ₪, בתשלום נפרד.` : 'נעדכן אותך במחיר ובפרטים בוואטסאפ.'}
             </p>
           )}
-          <p className="text-xs text-stone-500">המקום נשמר אך ורק לאחר ביצוע תשלום בפועל.</p>
+          {!done.included && <p className="text-xs text-stone-500">המקום נשמר אך ורק לאחר ביצוע תשלום בפועל.</p>}
         </section>
       ) : closed ? (
         <section className="text-center bg-stone-800 rounded-xl p-5 space-y-1.5">
@@ -172,7 +203,7 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mem
         <section className="space-y-4">
           {riderType === 'member' && (
             <p className="text-xs text-stone-400 leading-relaxed">
-              רוכבי טבע בייק — הזינו את הטלפון שאיתו נרשמתם לחוג (או של ההורה), והמחיר של {memberPrice} ₪ יחול אוטומטית.
+              רוכבי טבע בייק — הזינו את הטלפון שאיתו נרשמתם לחוג (או של ההורה), והמחיר של {MEMBER_PRICE} ₪ יחול אוטומטית.
             </p>
           )}
           <div className="grid grid-cols-2 gap-3">
@@ -259,7 +290,7 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mem
                   onClick={() => { setRiderType('guest'); setNotMember(false); setError('') }}
                   className="underline font-bold"
                 >
-                  להירשם כאורח/ת ({guestPrice} ₪)
+                  להירשם כאורח/ת ({GUEST_PRICE} ₪)
                 </button>
               )}
             </div>
@@ -271,7 +302,7 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mem
             className="w-full text-white font-bold py-4 rounded-xl text-lg disabled:opacity-50 transition"
             style={{ background: PINK }}
           >
-            {sending ? 'שולח…' : `הרשמה · ${riderType === 'member' ? memberPrice : guestPrice} ₪`}
+            {sending ? 'שולח…' : `הרשמה · ${priceFor(riderType)} ₪`}
           </button>
         </section>
       )}
@@ -279,8 +310,8 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mem
   )
 }
 
-function PriceCard({ active, onClick, label, price, disabled }: {
-  active: boolean; onClick: () => void; label: string; price: number; disabled: boolean
+function PriceCard({ active, onClick, label, price, unit, badge, disabled }: {
+  active: boolean; onClick: () => void; label: string; price: number; unit: string; badge?: string; disabled: boolean
 }) {
   return (
     <button
@@ -288,12 +319,17 @@ function PriceCard({ active, onClick, label, price, disabled }: {
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}
-      className="rounded-xl border p-3 text-center transition disabled:cursor-default"
+      className="relative w-full rounded-xl border p-3 text-center transition disabled:cursor-default"
       style={active ? { background: `${PINK}22`, borderColor: PINK } : { background: '#0c0a09', borderColor: '#44403c' }}
     >
+      {badge && (
+        <span className="absolute -top-2.5 left-3 text-[10px] font-bold text-white rounded-full px-2 py-0.5" style={{ background: PINK }}>
+          {badge}
+        </span>
+      )}
       <span className="block text-xs text-stone-400 mb-0.5">{label}</span>
       <span className="block text-2xl font-extrabold">{price} ₪</span>
-      <span className="block text-[11px] text-stone-500">לטיול</span>
+      <span className="block text-[11px] text-stone-500">{unit}</span>
     </button>
   )
 }

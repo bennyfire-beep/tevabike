@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { SESSIONS, sessionBySlug, MEMBER_PRICE, GUEST_PRICE } from '@/lib/ride-sessions'
+import {
+  SESSIONS, sessionBySlug, MEMBER_PRICE, GUEST_PRICE, SUBSCRIPTION_PRICE, TRIPS_PER_MONTH, monthOf, monthLabel,
+} from '@/lib/ride-sessions'
 import RideRegistration from './RideRegistration'
 import TripCover from '../TripCover'
 
@@ -22,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!s) return { title: 'הטיול לא נמצא — טבע בייק' }
   return {
     title: `${s.title} — טבע בייק`,
-    description: `${s.dateLabel} · ${s.location} · ${s.summary} רוכבי טבע בייק ${MEMBER_PRICE} ₪, אורחים ${GUEST_PRICE} ₪.`,
+    description: `${s.dateLabel} · ${s.location} · ${s.summary} מנוי חודשי ${SUBSCRIPTION_PRICE} ₪ (${TRIPS_PER_MONTH} טיולים), או טיול בודד: רוכבי טבע בייק ${MEMBER_PRICE} ₪, אורחים ${GUEST_PRICE} ₪.`,
     ...(s.image ? { openGraph: { images: [s.image] } } : {}),
   }
 }
@@ -69,7 +71,8 @@ export default async function RidePage({ params }: { params: Promise<{ slug: str
             <li><b className="text-stone-100">נתוני מסלול:</b> {s.distanceKm} ק״מ, {s.climbM} מטר טיפוס, {s.routeCharacter}</li>
             <li><b className="text-stone-100">נקודת מפגש:</b> {s.meetingPoint}</li>
             <li>
-              <b className="text-stone-100">עלות:</b> {MEMBER_PRICE} ₪ לרוכבי טבע בייק · {GUEST_PRICE} ₪ לאורחים
+              <b className="text-stone-100">עלות:</b> מנוי חודשי {SUBSCRIPTION_PRICE} ₪ ({TRIPS_PER_MONTH} טיולים ב{monthLabel(monthOf(s.date))}) · טיול
+              בודד: {MEMBER_PRICE} ₪ לרוכבי טבע בייק, {GUEST_PRICE} ₪ לאורחים
             </li>
           </ul>
 
@@ -119,8 +122,7 @@ export default async function RidePage({ params }: { params: Promise<{ slug: str
             title={s.title}
             dateLabel={s.dateLabel}
             capacity={s.capacity}
-            memberPrice={MEMBER_PRICE}
-            guestPrice={GUEST_PRICE}
+            monthName={monthLabel(monthOf(s.date))}
           />
         </aside>
       </div>

@@ -1,11 +1,14 @@
--- Guided ride sessions ("סשן רכיבה") — one-off day rides open to Teva Bike
--- riders (₪90) and guests (₪250). The rides themselves are configured in
+-- Guided riding trips around Israel ("טיולי רכיבה") — two a month, joined
+-- with a monthly subscription (₪200, both trips) or as a single trip: Teva
+-- Bike riders ₪90, guests ₪250. The trips themselves are configured in
 -- lib/ride-sessions.ts; registrations are tagged with the ride's slug and the
 -- per-ride cap is counted there.
 --
 -- rider_type / price_ils are decided server-side in app/api/rides/route.ts:
 -- 'member' only when the phone matches riders.phone or riders.parent_phone,
--- so the member price can't be claimed just by ticking the box. price_ils is
+-- so the member price can't be claimed just by ticking the box; a
+-- subscriber's second trip of the month (same phone, same
+-- subscription_month) is stored at price_ils 0. price_ils is
 -- stored on the row so a later price change never rewrites what someone was
 -- quoted.
 --
@@ -21,8 +24,12 @@ create table if not exists ride_session_registrations (
   phone text not null,
   email text,
   level text not null check (level in ('beginner', 'intermediate', 'advanced')),
-  rider_type text not null check (rider_type in ('member', 'guest')),
+  -- 'subscriber' = monthly subscription (both of the month's trips),
+  -- 'member' / 'guest' = a single trip. A subscriber's later trips in the
+  -- same month are stored with price_ils 0 (included in the subscription).
+  rider_type text not null check (rider_type in ('subscriber', 'member', 'guest')),
   price_ils numeric not null,
+  subscription_month text,
   notes text,
   -- Bike rental request. rental_height_cm is for picking a frame size;
   -- rental_price_ils is the rental price at registration time (null while

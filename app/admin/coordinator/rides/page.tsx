@@ -85,7 +85,9 @@ export default function RidesAdminPage() {
   const inSession = regs.filter(r => sessionKey(r) === sessionFilter)
   const active = inSession.filter(r => r.status !== 'cancelled')
   const paid = active.filter(r => r.status === 'paid')
+  const subscribers = active.filter(r => r.rider_type === 'subscriber')
   const members = active.filter(r => r.rider_type === 'member')
+  const guests = active.filter(r => r.rider_type === 'guest')
   const rentals = active.filter(r => r.wants_rental)
   const expected = active.reduce((sum, r) => sum + Number(r.price_ils || 0), 0)
   const collected = paid.reduce((sum, r) => sum + Number(r.price_ils || 0), 0)
@@ -159,7 +161,7 @@ export default function RidesAdminPage() {
         {session
           ? card('נרשמים', `${active.length} / ${capacity}`, full ? 'מלא' : `נותרו ${capacity - active.length}`, full ? '#f87171' : '#e8efe9', full ? '#7f2d2d' : '#252b27')
           : card('נרשמים', String(active.length))}
-        {card('רוכבי טבע בייק / אורחים', `${members.length} / ${active.length - members.length}`)}
+        {card('מנויים / רוכבי טבע בייק / אורחים', `${subscribers.length} / ${members.length} / ${guests.length}`)}
         {card('השכרת אופניים', String(rentals.length), rentals.length ? 'לבדוק מידות לפי גובה' : undefined)}
         {card('שילמו', String(paid.length), `מתוך ${active.length}`, '#b5e853')}
         {card('נגבה / צפוי', `₪${collected.toLocaleString('he-IL')}`, `מתוך ₪${expected.toLocaleString('he-IL')}`, '#fbbf24')}
@@ -195,11 +197,11 @@ export default function RidesAdminPage() {
                   </td>
                   <td style={td}>
                     <span style={{
-                      background: r.rider_type === 'member' ? '#D4288A22' : '#252b27',
-                      color: r.rider_type === 'member' ? '#ec4899' : '#c3ccc4',
+                      background: r.rider_type === 'subscriber' ? '#1a2114' : r.rider_type === 'member' ? '#D4288A22' : '#252b27',
+                      color: r.rider_type === 'subscriber' ? '#b5e853' : r.rider_type === 'member' ? '#ec4899' : '#c3ccc4',
                       borderRadius: 12, padding: '2px 9px', fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
                     }}>
-                      {RIDER_TYPE_LABEL[r.rider_type] ?? r.rider_type} · ₪{r.price_ils}
+                      {RIDER_TYPE_LABEL[r.rider_type] ?? r.rider_type} · {r.rider_type === 'subscriber' && Number(r.price_ils) === 0 ? 'כלול במנוי' : `₪${r.price_ils}`}
                     </span>
                     {r.wants_rental && (
                       <div style={{ color: '#fbbf24', fontSize: 12, marginTop: 6, whiteSpace: 'nowrap' }}>

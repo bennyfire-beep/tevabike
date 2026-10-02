@@ -9,18 +9,27 @@
 // slug (ride_session_registrations.session_slug), so a past trip's rows stay
 // as history once its entry is removed or its date has passed.
 
-// A Teva Bike rider pays MEMBER_PRICE, anyone else GUEST_PRICE. The server
-// decides which one applies by looking the phone number up in `riders`
-// (phone or parent_phone) — the form's "I'm a Teva Bike rider" toggle is only
-// a claim, never trusted on its own.
+// Three ways to join a trip:
+//   subscriber — monthly subscription, SUBSCRIPTION_PRICE for both of the
+//                month's trips (TRIPS_PER_MONTH). The first registration in a
+//                month is charged; later ones that month with the same phone
+//                are "included" (price 0). Open to everyone.
+//   member     — a single trip at MEMBER_PRICE, for Teva Bike riders only. The
+//                server checks the phone against `riders` (phone or
+//                parent_phone) — the form's choice is only a claim.
+//   guest      — a single trip at GUEST_PRICE, for anyone.
+export const SUBSCRIPTION_PRICE = 200
+export const TRIPS_PER_MONTH = 2
 export const MEMBER_PRICE = 90
 export const GUEST_PRICE = 250
 
-export type RiderType = 'member' | 'guest'
+export type RiderType = 'subscriber' | 'member' | 'guest'
+export const RIDER_TYPES: RiderType[] = ['subscriber', 'member', 'guest']
 
 export const RIDER_TYPE_LABEL: Record<RiderType, string> = {
-  member: 'רוכב/ת טבע בייק',
-  guest: 'אורח/ת',
+  subscriber: 'מנוי חודשי',
+  member: 'רוכב/ת טבע בייק · טיול בודד',
+  guest: 'אורח/ת · טיול בודד',
 }
 
 // Bike rental, paid on top of the trip price. null = price not set yet — the
@@ -28,7 +37,15 @@ export const RIDER_TYPE_LABEL: Record<RiderType, string> = {
 // TODO(בני): לעדכן כשהמחיר ידוע (למשל 150).
 export const RENTAL_PRICE: number | null = null
 
-export const priceFor = (t: RiderType) => (t === 'member' ? MEMBER_PRICE : GUEST_PRICE)
+export const priceFor = (t: RiderType) =>
+  t === 'subscriber' ? SUBSCRIPTION_PRICE : t === 'member' ? MEMBER_PRICE : GUEST_PRICE
+
+/** 'YYYY-MM' of a trip — a subscription covers the trips of one calendar month. */
+export const monthOf = (date: string) => date.slice(0, 7)
+
+const HE_MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']
+/** '2026-10' → 'אוקטובר' */
+export const monthLabel = (month: string) => HE_MONTHS[Number(month.slice(5, 7)) - 1] ?? month
 
 export const LEVELS = [
   { value: 'beginner', label: 'מתחיל/ה' },
@@ -64,7 +81,7 @@ export type RideSession = {
   /** Cover photo under /public. null → a designed placeholder is shown. */
   image: string | null
   /** Arbox payment links per price. null → the link is sent on WhatsApp. */
-  payUrl: { member: string | null; guest: string | null }
+  payUrl: { subscriber: string | null; member: string | null; guest: string | null }
 }
 
 // Two trips a month around Israel. Each trip is one entry here — copy the
@@ -97,7 +114,7 @@ export const SESSIONS: RideSession[] = [
     ],
     capacity: 20,
     image: '/trip-rosh-hanikra-hanita-riders.jpg',
-    payUrl: { member: null, guest: null },
+    payUrl: { subscriber: null, member: null, guest: null },
   },
 ]
 

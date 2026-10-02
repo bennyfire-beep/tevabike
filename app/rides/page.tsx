@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { SESSIONS, MEMBER_PRICE, GUEST_PRICE, isPast } from '@/lib/ride-sessions'
+import { SESSIONS, MEMBER_PRICE, GUEST_PRICE, SUBSCRIPTION_PRICE, TRIPS_PER_MONTH, isPast } from '@/lib/ride-sessions'
 import TripCover from './TripCover'
 import HeroVideo from './HeroVideo'
 
@@ -11,7 +11,7 @@ import HeroVideo from './HeroVideo'
 
 export const metadata: Metadata = {
   title: 'טיולי רכיבה בארץ — טבע בייק',
-  description: `טיולי אופני שטח מודרכים ברחבי הארץ, פעמיים בחודש. רוכבי טבע בייק ${MEMBER_PRICE} ₪, אורחים ${GUEST_PRICE} ₪.`,
+  description: `טיולי אופני שטח מודרכים ברחבי הארץ, פעמיים בחודש. מנוי חודשי ${SUBSCRIPTION_PRICE} ₪, או טיול בודד: רוכבי טבע בייק ${MEMBER_PRICE} ₪, אורחים ${GUEST_PRICE} ₪.`,
 }
 
 // Trips drop off the list the day after they happen — re-render on request so
@@ -104,14 +104,23 @@ export default function RidesPage() {
           ))}
         </ul>
 
-        <div className="bg-stone-900 border border-stone-800 rounded-2xl p-6 md:flex md:items-center md:justify-between gap-6 space-y-4 md:space-y-0">
+        <div className="bg-stone-900 border border-stone-800 rounded-2xl p-6 space-y-5">
           <div>
             <h2 className="text-xl font-extrabold mb-1">כמה זה עולה?</h2>
-            <p className="text-stone-400 text-sm">מחיר לטיול אחד. רוכבי טבע בייק מזוהים אוטומטית לפי מספר הטלפון.</p>
+            <p className="text-stone-400 text-sm">
+              הכי משתלם להצטרף למנוי החודשי — או להצטרף לטיול בודד מתי שמתאים לכם.
+            </p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <PriceTag label="רוכבי טבע בייק" price={MEMBER_PRICE} highlight />
-            <PriceTag label="אורחים" price={GUEST_PRICE} />
+          <div className="grid gap-3 md:grid-cols-[1.3fr_1fr_1fr]">
+            <PriceTag
+              label="מנוי חודשי"
+              price={SUBSCRIPTION_PRICE}
+              unit="לחודש"
+              note={`${TRIPS_PER_MONTH} טיולים בחודש, כל אחד כ־4 שעות`}
+              highlight
+            />
+            <PriceTag label="טיול בודד · רוכבי טבע בייק" price={MEMBER_PRICE} unit="לטיול" note="מזוהים אוטומטית לפי הטלפון" />
+            <PriceTag label="טיול בודד · אורחים" price={GUEST_PRICE} unit="לטיול" note="פתוח לכולם" />
           </div>
         </div>
 
@@ -156,15 +165,20 @@ export default function RidesPage() {
   )
 }
 
-function PriceTag({ label, price, highlight = false }: { label: string; price: number; highlight?: boolean }) {
+function PriceTag({ label, price, unit, note, highlight = false }: {
+  label: string; price: number; unit: string; note: string; highlight?: boolean
+}) {
   return (
     <div
-      className="rounded-xl px-4 py-2.5 border"
-      style={highlight ? { background: `${PINK}22`, borderColor: PINK } : { background: 'rgba(255,255,255,.06)', borderColor: 'rgba(255,255,255,.15)' }}
+      className="rounded-xl px-4 py-3.5 border"
+      style={highlight ? { background: `${PINK}22`, borderColor: PINK } : { background: 'rgba(255,255,255,.04)', borderColor: 'rgba(255,255,255,.12)' }}
     >
-      <span className="text-sm text-stone-300">{label} · </span>
-      <span className="text-lg font-extrabold">{price} ₪</span>
-      <span className="text-sm text-stone-400"> לטיול</span>
+      <p className="text-sm text-stone-300 mb-1">{label}</p>
+      <p>
+        <span className="text-2xl font-extrabold">{price} ₪</span>
+        <span className="text-sm text-stone-400"> {unit}</span>
+      </p>
+      <p className="text-xs text-stone-500 mt-1">{note}</p>
     </div>
   )
 }
