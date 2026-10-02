@@ -209,7 +209,7 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mon
             <Field label="שם משפחה *" value={form.last_name} onChange={(v) => set('last_name', v)} />
           </div>
           <Field label="טלפון *" type="tel" value={form.phone} onChange={(v) => set('phone', v)} />
-          <Field label="אימייל" type="email" value={form.email} onChange={(v) => set('email', v)} />
+          <Field label="אימייל (לאישור הרשמה ותזכורת לפני הטיול)" type="email" value={form.email} onChange={(v) => set('email', v)} />
 
           <div>
             <label className="block text-sm text-stone-400 mb-1.5">רמת רכיבה *</label>

@@ -42,7 +42,10 @@ create table if not exists ride_session_registrations (
   status text not null default 'pending' check (status in ('pending', 'paid', 'cancelled')),
   whatsapp_optin boolean not null default false,
   whatsapp_optin_at timestamptz,
-  whatsapp_optin_source text
+  whatsapp_optin_source text,
+  -- Set by app/api/cron/ride-reminders once the 2-days-before reminder email
+  -- went out, so a rerun of the cron never sends it twice.
+  reminder_sent_at timestamptz
 );
 
 create index if not exists ride_session_registrations_slug_idx

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
+import { sendRegistrationConfirmation } from '@/lib/whatsapp-templates'
+import { sendRideConfirmation } from '@/lib/ride-emails'
 import {
   SESSIONS, SESSION_SLUGS, sessionBySlug, isPast, priceFor, phoneKey, RENTAL_PRICE, RENTAL_PAY_URL, RIDER_TYPES, PAY_URL,
   monthOf, monthLabel, TRIPS_PER_MONTH,
@@ -242,12 +244,24 @@ export async function POST(req: NextRequest) {
     }
 
     const count = rank ?? 0
-    void notifyBenny(session, { first_name, last_name, phone, email, level, rider_type, price, included, notes, wants_rental, rental_height_cm, count })
+    const payUrl = included ? null : PAY_URL[rider_type]
+
+    // Awaited rather than fire-and-forget: on Vercel an un-awaited promise can
+    // be cut off once the response is sent. Each of these swallows its own
+    // errors, so none of them can fail the registration.
+    await Promise.allSettled([
+      notifyBenny(session, { first_name, last_name, phone, email, level, rider_type, price, included, notes, wants_rental, rental_height_cm, count }),
+      email
+        ? sendRideConfirmation(session, { email, first_name, rider_type, price, included, payUrl, wants_rental })
+        : Promise.resolve(false),
+      // No-op until Meta approves the registration_confirmation template.
+      sendRegistrationConfirmation(phone, first_name, `טיול רכיבה ${session.title}`, session.dateLabel),
+    ])
 
     return NextResponse.json({
       ok: true, rider_type, price, included, wants_rental, count,
       month: subscription_month ? monthLabel(subscription_month) : null,
-      payUrl: included ? null : PAY_URL[rider_type],
+      payUrl,
       rentalPayUrl: wants_rental ? RENTAL_PAY_URL : null,
     })
   } catch (e) {
