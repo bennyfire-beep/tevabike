@@ -1,6 +1,6 @@
 -- Guided riding trips around Israel ("טיולי רכיבה") — two a month, joined
--- with a monthly subscription (₪200, both trips) or as a single trip: Teva
--- Bike riders ₪90, guests ₪250. The trips themselves are configured in
+-- with a monthly subscription (₪200, both trips, open to everyone) or, for
+-- Teva Bike riders, as a single trip (₪90). The trips are configured in
 -- lib/ride-sessions.ts; registrations are tagged with the ride's slug and the
 -- per-ride cap is counted there.
 --
@@ -25,15 +25,14 @@ create table if not exists ride_session_registrations (
   email text,
   level text not null check (level in ('beginner', 'intermediate', 'advanced')),
   -- 'subscriber' = monthly subscription (both of the month's trips),
-  -- 'member' / 'guest' = a single trip. A subscriber's later trips in the
-  -- same month are stored with price_ils 0 (included in the subscription).
-  rider_type text not null check (rider_type in ('subscriber', 'member', 'guest')),
+  -- 'member' = a single trip for a Teva Bike rider. A subscriber's later
+  -- trips in the same month are stored with price_ils 0 (included).
+  rider_type text not null check (rider_type in ('subscriber', 'member')),
   price_ils numeric not null,
   subscription_month text,
   notes text,
-  -- Bike rental request. rental_height_cm is for picking a frame size;
-  -- rental_price_ils is the rental price at registration time (null while
-  -- RENTAL_PRICE in lib/ride-sessions.ts is not set yet).
+  -- Electric-bike rental request. rental_height_cm is for picking a frame
+  -- size; rental_price_ils is the rental price at registration time.
   wants_rental boolean not null default false,
   rental_height_cm int,
   rental_price_ils numeric,

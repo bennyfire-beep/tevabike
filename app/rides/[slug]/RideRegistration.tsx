@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react'
 import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 import {
-  LEVELS, RENTAL_PRICE, SUBSCRIPTION_PRICE, MEMBER_PRICE, GUEST_PRICE, TRIPS_PER_MONTH, priceFor, type RiderType,
+  LEVELS, RENTAL_PRICE, SUBSCRIPTION_PRICE, MEMBER_PRICE, TRIPS_PER_MONTH, priceFor, type RiderType,
 } from '@/lib/ride-sessions'
 
 // ============================================================
-// טופס הרשמה לטיול רכיבה — מנוי חודשי, או טיול בודד לרוכב/ת טבע בייק
-// או לאורח/ת. המחיר הסופי נקבע בשרת (app/api/rides/route.ts) לפי הטלפון:
+// טופס הרשמה לטיול רכיבה — מנוי חודשי (פתוח לכולם), או טיול בודד לרוכב/ת
+// טבע בייק. המחיר הסופי נקבע בשרת (app/api/rides/route.ts) לפי הטלפון:
 // רוכבי טבע בייק מאומתים מול riders, ולמנוי הטיול השני בחודש כלול.
 // ============================================================
 
@@ -24,7 +24,8 @@ type Props = {
 }
 
 type Done = {
-  first_name: string; rider_type: RiderType; price: number; included: boolean; wantsRental: boolean; payUrl: string | null
+  first_name: string; rider_type: RiderType; price: number; included: boolean
+  wantsRental: boolean; payUrl: string | null; rentalPayUrl: string | null
 }
 
 export default function RideRegistration({ slug, title, dateLabel, capacity, monthName }: Props) {
@@ -90,7 +91,7 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mon
         if (data?.closed) await loadStatus()
         return
       }
-      setDone({ first_name: form.first_name, rider_type: data.rider_type, price: data.price, included: Boolean(data.included), wantsRental: Boolean(data.wants_rental), payUrl: data.payUrl ?? null })
+      setDone({ first_name: form.first_name, rider_type: data.rider_type, price: data.price, included: Boolean(data.included), wantsRental: Boolean(data.wants_rental), payUrl: data.payUrl ?? null, rentalPayUrl: data.rentalPayUrl ?? null })
       await loadStatus()
     } catch {
       setError('לא הצלחנו לשלוח. בדקו את החיבור ונסו שוב.')
@@ -116,25 +117,14 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mon
           badge="הכי משתלם"
           disabled={!!done}
         />
-        <p className="text-[11px] text-stone-500 text-center">או טיול בודד:</p>
-        <div className="grid grid-cols-2 gap-2">
-          <PriceCard
-            active={!done && riderType === 'member'}
-            onClick={() => { setRiderType('member'); setNotMember(false) }}
-            label="רוכב/ת טבע בייק"
-            price={MEMBER_PRICE}
-            unit="לטיול"
-            disabled={!!done}
-          />
-          <PriceCard
-            active={!done && riderType === 'guest'}
-            onClick={() => { setRiderType('guest'); setNotMember(false) }}
-            label="אורח/ת"
-            price={GUEST_PRICE}
-            unit="לטיול"
-            disabled={!!done}
-          />
-        </div>
+        <PriceCard
+          active={!done && riderType === 'member'}
+          onClick={() => { setRiderType('member'); setNotMember(false) }}
+          label="רוכבי טבע בייק · טיול בודד"
+          price={MEMBER_PRICE}
+          unit="לטיול"
+          disabled={!!done}
+        />
       </div>
 
       {/* live meter */}
@@ -164,9 +154,7 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mon
           <p className="text-stone-400 text-sm">
             {done.rider_type === 'subscriber'
               ? `נרשמת למנוי החודשי של ${monthName} — הוא כולל את שני הטיולים של החודש. לטיול השני פשוט נרשמים שוב עם אותו מספר טלפון, בלי תשלום נוסף.`
-              : done.rider_type === 'member'
-                ? 'זיהינו אותך כרוכב/ת טבע בייק 🤘'
-                : 'נרשמת כאורח/ת — כיף שבאת!'}{' '}
+              : 'זיהינו אותך כרוכב/ת טבע בייק 🤘'}{' '}
             כדי לשריין את המקום סופית יש להשלים תשלום.
           </p>
           {done.payUrl ? (
@@ -187,10 +175,20 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mon
             </>
           )}
           {done.wantsRental && (
-            <p className="bg-stone-800 rounded-xl p-3 text-sm text-stone-300">
-              🚲 ביקשת אופניים בהשכרה —{' '}
-              {RENTAL_PRICE != null ? `${RENTAL_PRICE} ₪, בתשלום נפרד.` : 'נעדכן אותך במחיר ובפרטים בוואטסאפ.'}
-            </p>
+            <div className="bg-stone-800 rounded-xl p-3 space-y-2.5">
+              <p className="text-sm text-stone-300">🚲 ביקשת אופניים חשמליים בהשכרה — {RENTAL_PRICE} ₪, בתשלום נפרד.</p>
+              {done.rentalPayUrl && (
+                <a
+                  href={done.rentalPayUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full font-bold py-3 rounded-xl border"
+                  style={{ borderColor: PINK, color: PINK }}
+                >
+                  תשלום על השכרת האופניים · {RENTAL_PRICE} ₪
+                </a>
+              )}
+            </div>
           )}
           {!done.included && <p className="text-xs text-stone-500">המקום נשמר אך ורק לאחר ביצוע תשלום בפועל.</p>}
         </section>
@@ -234,10 +232,8 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mon
                 style={{ accentColor: PINK }}
               />
               <span>
-                <b className="text-stone-100">🚲 צריך/ה אופניים בהשכרה</b>
-                <span className="block text-stone-400 text-xs mt-0.5">
-                  {RENTAL_PRICE != null ? `${RENTAL_PRICE} ₪ לטיול, בנוסף למחיר הטיול` : 'המחיר יעודכן בקרוב — נחזור אליך עם הפרטים'}
-                </span>
+                <b className="text-stone-100">🚲 צריך/ה אופניים חשמליים בהשכרה</b>
+                <span className="block text-stone-400 text-xs mt-0.5">{RENTAL_PRICE} ₪ לטיול, בתשלום נפרד ממחיר הטיול</span>
               </span>
             </label>
             {wantsRental && (
@@ -287,10 +283,10 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mon
               {notMember && (
                 <button
                   type="button"
-                  onClick={() => { setRiderType('guest'); setNotMember(false); setError('') }}
+                  onClick={() => { setRiderType('subscriber'); setNotMember(false); setError('') }}
                   className="underline font-bold"
                 >
-                  להירשם כאורח/ת ({GUEST_PRICE} ₪)
+                  להירשם למנוי החודשי ({SUBSCRIPTION_PRICE} ₪)
                 </button>
               )}
             </div>

@@ -87,7 +87,6 @@ export default function RidesAdminPage() {
   const paid = active.filter(r => r.status === 'paid')
   const subscribers = active.filter(r => r.rider_type === 'subscriber')
   const members = active.filter(r => r.rider_type === 'member')
-  const guests = active.filter(r => r.rider_type === 'guest')
   const rentals = active.filter(r => r.wants_rental)
   const expected = active.reduce((sum, r) => sum + Number(r.price_ils || 0), 0)
   const collected = paid.reduce((sum, r) => sum + Number(r.price_ils || 0), 0)
@@ -161,8 +160,8 @@ export default function RidesAdminPage() {
         {session
           ? card('נרשמים', `${active.length} / ${capacity}`, full ? 'מלא' : `נותרו ${capacity - active.length}`, full ? '#f87171' : '#e8efe9', full ? '#7f2d2d' : '#252b27')
           : card('נרשמים', String(active.length))}
-        {card('מנויים / רוכבי טבע בייק / אורחים', `${subscribers.length} / ${members.length} / ${guests.length}`)}
-        {card('השכרת אופניים', String(rentals.length), rentals.length ? 'לבדוק מידות לפי גובה' : undefined)}
+        {card('מנויים / טיול בודד', `${subscribers.length} / ${members.length}`)}
+        {card('השכרת אופניים חשמליים', String(rentals.length), rentals.length ? 'לבדוק מידות לפי גובה' : undefined)}
         {card('שילמו', String(paid.length), `מתוך ${active.length}`, '#b5e853')}
         {card('נגבה / צפוי', `₪${collected.toLocaleString('he-IL')}`, `מתוך ₪${expected.toLocaleString('he-IL')}`, '#fbbf24')}
       </div>

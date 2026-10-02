@@ -1,6 +1,7 @@
 // Shared config for guided riding trips around Israel ("טיולי רכיבה בארץ") —
 // two day trips a month, in the spirit of outdoor-cafe.com's "רכיבה בארץ"
-// events: open to Teva Bike riders and to guests, at two prices. Used by the public pages (app/rides),
+// events: a monthly subscription open to everyone, or a single trip for Teva
+// Bike riders. Used by the public pages (app/rides),
 // the API (app/api/rides) and the coordinator screen
 // (app/admin/coordinator/rides), so prices, caps and dates can never drift
 // between them.
@@ -9,7 +10,7 @@
 // slug (ride_session_registrations.session_slug), so a past trip's rows stay
 // as history once its entry is removed or its date has passed.
 
-// Three ways to join a trip:
+// Two ways to join a trip:
 //   subscriber — monthly subscription, SUBSCRIPTION_PRICE for both of the
 //                month's trips (TRIPS_PER_MONTH). The first registration in a
 //                month is charged; later ones that month with the same phone
@@ -17,28 +18,30 @@
 //   member     — a single trip at MEMBER_PRICE, for Teva Bike riders only. The
 //                server checks the phone against `riders` (phone or
 //                parent_phone) — the form's choice is only a claim.
-//   guest      — a single trip at GUEST_PRICE, for anyone.
+// There is no single-trip option for non-riders: they join by subscription.
 export const SUBSCRIPTION_PRICE = 200
 export const TRIPS_PER_MONTH = 2
 export const MEMBER_PRICE = 90
-export const GUEST_PRICE = 250
 
-export type RiderType = 'subscriber' | 'member' | 'guest'
-export const RIDER_TYPES: RiderType[] = ['subscriber', 'member', 'guest']
+export type RiderType = 'subscriber' | 'member'
+export const RIDER_TYPES: RiderType[] = ['subscriber', 'member']
 
 export const RIDER_TYPE_LABEL: Record<RiderType, string> = {
   subscriber: 'מנוי חודשי',
   member: 'רוכב/ת טבע בייק · טיול בודד',
-  guest: 'אורח/ת · טיול בודד',
 }
 
-// Bike rental, paid on top of the trip price. null = price not set yet — the
-// form still lets riders ask for a bike and says the price will follow.
-// TODO(בני): לעדכן כשהמחיר ידוע (למשל 150).
-export const RENTAL_PRICE: number | null = null
+export const priceFor = (t: RiderType) => (t === 'subscriber' ? SUBSCRIPTION_PRICE : MEMBER_PRICE)
 
-export const priceFor = (t: RiderType) =>
-  t === 'subscriber' ? SUBSCRIPTION_PRICE : t === 'member' ? MEMBER_PRICE : GUEST_PRICE
+// Arbox payment links, one per price — shared by every trip.
+export const PAY_URL: Record<RiderType, string> = {
+  subscriber: 'https://arbox.link/Islfyx2_',
+  member: 'https://arbox.link/LmQ75_Cw',
+}
+
+// Electric-bike rental, paid separately on top of the trip.
+export const RENTAL_PRICE = 400
+export const RENTAL_PAY_URL = 'https://arbox.link/dh-JXeGi'
 
 /** 'YYYY-MM' of a trip — a subscription covers the trips of one calendar month. */
 export const monthOf = (date: string) => date.slice(0, 7)
@@ -80,8 +83,6 @@ export type RideSession = {
   capacity: number
   /** Cover photo under /public. null → a designed placeholder is shown. */
   image: string | null
-  /** Arbox payment links per price. null → the link is sent on WhatsApp. */
-  payUrl: { subscriber: string | null; member: string | null; guest: string | null }
 }
 
 // Two trips a month around Israel. Each trip is one entry here — copy the
@@ -114,7 +115,6 @@ export const SESSIONS: RideSession[] = [
     ],
     capacity: 20,
     image: '/trip-rosh-hanikra-hanita-riders.jpg',
-    payUrl: { subscriber: null, member: null, guest: null },
   },
 ]
 

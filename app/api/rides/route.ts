@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 import {
-  SESSIONS, SESSION_SLUGS, sessionBySlug, isPast, priceFor, phoneKey, RENTAL_PRICE, RIDER_TYPES,
+  SESSIONS, SESSION_SLUGS, sessionBySlug, isPast, priceFor, phoneKey, RENTAL_PRICE, RENTAL_PAY_URL, RIDER_TYPES, PAY_URL,
   monthOf, monthLabel, TRIPS_PER_MONTH,
   LEVEL_VALUES, LEVEL_LABEL, RIDER_TYPE_LABEL, type RiderType, type RideSession,
 } from '@/lib/ride-sessions'
 
 // ============================================================
 // נתיב: app/api/rides/route.ts
-// טיולי רכיבה בארץ — מנוי חודשי ₪200 (שני טיולים), או טיול בודד: רוכבי
-// טבע בייק ₪90, אורחים ₪250 (lib/ride-sessions.ts).
+// טיולי רכיבה בארץ — מנוי חודשי ₪200 (שני טיולים, פתוח לכולם), או טיול
+// בודד לרוכבי טבע בייק ₪90 (lib/ride-sessions.ts).
 // GET  — מצב נוכחי לכל טיול (כמה נרשמו, האם סגורה)
 // POST — הרשמה לטיול. המחיר נקבע כאן לפי הטלפון מול טבלת riders.
 // ============================================================
@@ -88,7 +88,7 @@ async function notifyBenny(session: RideSession, r: {
     ['אימייל', r.email ?? '—'],
     ['רמה', LEVEL_LABEL[r.level] ?? r.level],
     ['סוג', `${RIDER_TYPE_LABEL[r.rider_type]} · ${r.included ? `כלול במנוי של ${monthLabel(monthOf(session.date))}` : `₪${r.price}`}`],
-    ['השכרת אופניים', r.wants_rental ? `כן — גובה ${r.rental_height_cm} ס״מ${RENTAL_PRICE != null ? ` · ₪${RENTAL_PRICE}` : ''}` : 'לא'],
+    ['השכרת אופניים חשמליים', r.wants_rental ? `כן — גובה ${r.rental_height_cm} ס״מ · ₪${RENTAL_PRICE}` : 'לא'],
     ['הערות', r.notes ?? '—'],
     ['נרשמו עד כה', `${r.count} / ${session.capacity}`],
   ]
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
     const notes = String(body.notes ?? '').trim().slice(0, 500) || null
     const wants_rental = body.wants_rental === true
     const rental_height_cm = wants_rental ? Math.round(Number(body.rental_height_cm)) : null
-    const rider_type: RiderType = RIDER_TYPES.includes(body.rider_type) ? body.rider_type : 'guest'
+    const rider_type: RiderType = RIDER_TYPES.includes(body.rider_type) ? body.rider_type : 'subscriber'
     const consent = body.consent === true
 
     const session = sessionBySlug(slug)
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
       if (!(await isTevaBikeRider(db, phone))) {
         return NextResponse.json(
           {
-            error: 'לא מצאנו את מספר הטלפון ברשימת רוכבי טבע בייק. נסו את המספר שאיתו נרשמתם לחוג (או של ההורה), או הירשמו כאורחים.',
+            error: 'לא מצאנו את מספר הטלפון ברשימת רוכבי טבע בייק. נסו את המספר שאיתו נרשמתם לחוג (או של ההורה), או הירשמו למנוי החודשי.',
             notMember: true,
           },
           { status: 400 }
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
       }
       if (mine.length >= TRIPS_PER_MONTH) {
         return NextResponse.json(
-          { error: `המנוי כולל ${TRIPS_PER_MONTH} טיולים בחודש וכבר נרשמת לכולם. לטיול נוסף אפשר להירשם כטיול בודד.` },
+          { error: `המנוי כולל ${TRIPS_PER_MONTH} טיולים בחודש וכבר נרשמת לכולם. לטיול נוסף כתבו לנו בוואטסאפ.` },
           { status: 409 }
         )
       }
@@ -247,7 +247,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true, rider_type, price, included, wants_rental, count,
       month: subscription_month ? monthLabel(subscription_month) : null,
-      payUrl: included ? null : session.payUrl[rider_type],
+      payUrl: included ? null : PAY_URL[rider_type],
+      rentalPayUrl: wants_rental ? RENTAL_PAY_URL : null,
     })
   } catch (e) {
     console.error('[rides] POST error:', e)

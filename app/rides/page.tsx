@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { SESSIONS, MEMBER_PRICE, GUEST_PRICE, SUBSCRIPTION_PRICE, TRIPS_PER_MONTH, isPast } from '@/lib/ride-sessions'
+import { SESSIONS, MEMBER_PRICE, SUBSCRIPTION_PRICE, TRIPS_PER_MONTH, isPast } from '@/lib/ride-sessions'
 import TripCover from './TripCover'
 import HeroVideo from './HeroVideo'
 
@@ -11,7 +11,7 @@ import HeroVideo from './HeroVideo'
 
 export const metadata: Metadata = {
   title: 'טיולי רכיבה בארץ — טבע בייק',
-  description: `טיולי אופני שטח מודרכים ברחבי הארץ, פעמיים בחודש. מנוי חודשי ${SUBSCRIPTION_PRICE} ₪, או טיול בודד: רוכבי טבע בייק ${MEMBER_PRICE} ₪, אורחים ${GUEST_PRICE} ₪.`,
+  description: `טיולי אופני שטח מודרכים ברחבי הארץ, פעמיים בחודש. מנוי חודשי ${SUBSCRIPTION_PRICE} ₪, או טיול בודד לרוכבי טבע בייק ${MEMBER_PRICE} ₪.`,
 }
 
 // Trips drop off the list the day after they happen — re-render on request so
@@ -108,10 +108,10 @@ export default function RidesPage() {
           <div>
             <h2 className="text-xl font-extrabold mb-1">כמה זה עולה?</h2>
             <p className="text-stone-400 text-sm">
-              הכי משתלם להצטרף למנוי החודשי — או להצטרף לטיול בודד מתי שמתאים לכם.
+              המנוי החודשי פתוח לכולם. רוכבי טבע בייק יכולים להצטרף גם לטיול בודד.
             </p>
           </div>
-          <div className="grid gap-3 md:grid-cols-[1.3fr_1fr_1fr]">
+          <div className="grid gap-3 md:grid-cols-2">
             <PriceTag
               label="מנוי חודשי"
               price={SUBSCRIPTION_PRICE}
@@ -120,7 +120,6 @@ export default function RidesPage() {
               highlight
             />
             <PriceTag label="טיול בודד · רוכבי טבע בייק" price={MEMBER_PRICE} unit="לטיול" note="מזוהים אוטומטית לפי הטלפון" />
-            <PriceTag label="טיול בודד · אורחים" price={GUEST_PRICE} unit="לטיול" note="פתוח לכולם" />
           </div>
         </div>
 
