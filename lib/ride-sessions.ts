@@ -1,0 +1,136 @@
+// Shared config for guided riding trips around Israel ("טיולי רכיבה בארץ") —
+// two day trips a month, in the spirit of outdoor-cafe.com's "רכיבה בארץ"
+// events: a monthly subscription open to everyone, or a single trip for Teva
+// Bike riders. Used by the public pages (app/rides),
+// the API (app/api/rides) and the coordinator screen
+// (app/admin/coordinator/rides), so prices, caps and dates can never drift
+// between them.
+//
+// Adding a trip = adding an entry to SESSIONS. Registrations are stored per
+// slug (ride_session_registrations.session_slug), so a past trip's rows stay
+// as history once its entry is removed or its date has passed.
+
+// Two ways to join a trip:
+//   subscriber — monthly subscription, SUBSCRIPTION_PRICE for both of the
+//                month's trips (TRIPS_PER_MONTH). The first registration in a
+//                month is charged; later ones that month with the same phone
+//                are "included" (price 0). Open to everyone.
+//   member     — a single trip at MEMBER_PRICE, for Teva Bike riders only. The
+//                server checks the phone against `riders` (phone or
+//                parent_phone) — the form's choice is only a claim.
+// There is no single-trip option for non-riders: they join by subscription.
+export const SUBSCRIPTION_PRICE = 200
+export const TRIPS_PER_MONTH = 2
+export const MEMBER_PRICE = 90
+
+export type RiderType = 'subscriber' | 'member'
+export const RIDER_TYPES: RiderType[] = ['subscriber', 'member']
+
+export const RIDER_TYPE_LABEL: Record<RiderType, string> = {
+  subscriber: 'מנוי חודשי',
+  member: 'רוכב/ת טבע בייק · טיול בודד',
+}
+
+export const priceFor = (t: RiderType) => (t === 'subscriber' ? SUBSCRIPTION_PRICE : MEMBER_PRICE)
+
+// Arbox payment links, one per price — shared by every trip.
+export const PAY_URL: Record<RiderType, string> = {
+  subscriber: 'https://arbox.link/Islfyx2_',
+  member: 'https://arbox.link/LmQ75_Cw',
+}
+
+// Electric-bike rental, paid separately on top of the trip.
+export const RENTAL_PRICE = 400
+export const RENTAL_PAY_URL = 'https://arbox.link/dh-JXeGi'
+
+/** 'YYYY-MM' of a trip — a subscription covers the trips of one calendar month. */
+export const monthOf = (date: string) => date.slice(0, 7)
+
+const HE_MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר']
+/** '2026-10' → 'אוקטובר' */
+export const monthLabel = (month: string) => HE_MONTHS[Number(month.slice(5, 7)) - 1] ?? month
+
+export const LEVELS = [
+  { value: 'beginner', label: 'מתחיל/ה' },
+  { value: 'intermediate', label: 'בינוני/ת' },
+  { value: 'advanced', label: 'מתקדם/ת' },
+] as const
+
+export const LEVEL_LABEL: Record<string, string> = Object.fromEntries(LEVELS.map((l) => [l.value, l.label]))
+export const LEVEL_VALUES: string[] = LEVELS.map((l) => l.value)
+
+export type RideSession = {
+  slug: string
+  title: string
+  /** ISO date — the ride counts as past (and closes) the day after. */
+  date: string
+  dateLabel: string
+  hours: string
+  location: string
+  meetingPoint: string
+  /** Waze / Google Maps link to the meeting point. null hides the button. */
+  navUrl: string | null
+  guide: string
+  distanceKm: number
+  climbM: number
+  routeCharacter: string
+  routeType: string
+  technicalLevel: string
+  fitnessLevel: string
+  terrain: string
+  summary: string
+  description: string[]
+  capacity: number
+  /** Cover photo under /public. null → a designed placeholder is shown. */
+  image: string | null
+}
+
+// Two trips a month around Israel. Each trip is one entry here — copy the
+// first one, give it a new slug and fill it in.
+//
+// TODO(בני): התאריך, השעות, נקודת המפגש ונתוני המסלול של ראש הנקרה–חניתה
+// הם הערכה — לאשר/לתקן, ולהוסיף קישורי תשלום ותמונה לפני שמפרסמים.
+export const SESSIONS: RideSession[] = [
+  {
+    slug: 'rosh-hanikra-hanita',
+    title: 'ראש הנקרה – חניתה',
+    date: '2026-10-23',
+    dateLabel: 'שישי 23.10',
+    hours: '8:00–12:00',
+    location: 'הגליל המערבי',
+    meetingPoint: 'קיבוץ חניתה',
+    navUrl: null,
+    guide: 'מיכאל איזנשטין',
+    distanceKm: 25,
+    climbM: 500,
+    routeCharacter: 'שבילי יער וסינגלים',
+    routeType: 'מעגלי',
+    technicalLevel: 'בינונית',
+    fitnessLevel: 'בינונית',
+    terrain: 'סלע גלילי ואדמה',
+    summary: 'טיול רכיבה ביער חניתה ועל רכס ראש הנקרה, עם תצפיות לים התיכון ולצוקים הלבנים.',
+    description: [
+      'הטיול הראשון בסדרת טיולי הרכיבה שלנו בארץ יוצא לפינה הצפון־מערבית של ישראל. נרכב בשבילי יער חניתה, בין עצי אורן ואלון, ונעלה אל רכס ראש הנקרה — עם תצפיות פתוחות לים התיכון, לחוף הגליל המערבי ולצוקי הגיר הלבנים.',
+      'זה טיול, לא אימון: רוכבים בקצב נעים, עוצרים בתצפיות, מספרים על המקום ועושים הפסקת קפה באמצע. מיכאל איזנשטין מוביל את הקבוצה לאורך כל הדרך ודואג שכולם נהנים בקצב שלהם.',
+    ],
+    capacity: 20,
+    image: '/trip-rosh-hanikra-hanita-riders.jpg',
+  },
+]
+
+export const SESSION_SLUGS: string[] = SESSIONS.map((s) => s.slug)
+
+export const sessionBySlug = (slug: string) => SESSIONS.find((s) => s.slug === slug)
+
+/** Israel-local "today" as YYYY-MM-DD, so a ride closes at local midnight. */
+export function todayInIsrael(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date())
+}
+
+export const isPast = (s: RideSession) => s.date < todayInIsrael()
+
+/** Last 9 digits — the common part of 054-1234567, 0541234567 and +972541234567. */
+export function phoneKey(phone: string | null | undefined): string {
+  const digits = (phone ?? '').replace(/\D/g, '')
+  return digits.length >= 9 ? digits.slice(-9) : ''
+}

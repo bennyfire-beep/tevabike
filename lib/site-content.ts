@@ -1,4 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  SESSIONS, isPast, SUBSCRIPTION_PRICE, TRIPS_PER_MONTH, MEMBER_PRICE, RENTAL_PRICE,
+} from '@/lib/ride-sessions'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The dynamic half of the WhatsApp reply-suggestion context: prices/dates that
@@ -156,6 +159,20 @@ async function fetchActiveGroups(admin: SupabaseClient): Promise<string | null> 
     .join('\n')
 }
 
+/** Riding trips in Israel (טיולי רכיבה) — configured in code (lib/ride-sessions.ts), not a table. */
+function rideTripsText(): string | null {
+  const upcoming = SESSIONS.filter((s) => !isPast(s)).sort((a, b) => a.date.localeCompare(b.date))
+  const pricing =
+    `מחיר: מנוי חודשי ${SUBSCRIPTION_PRICE} ₪ (כולל ${TRIPS_PER_MONTH} טיולים בחודש, פתוח לכולם), ` +
+    `או טיול בודד לרוכבי טבע בייק ${MEMBER_PRICE} ₪ (אין טיול בודד למי שאינו רוכב טבע בייק). ` +
+    `השכרת אופניים חשמליים ${RENTAL_PRICE} ₪ לטיול. הרשמה: https://tevabike.com/rides`
+  if (upcoming.length === 0) return `${pricing}\nאין כרגע טיול פתוח להרשמה — הטיולים הבאים יעלו לאתר בקרוב.`
+  const list = upcoming
+    .map((s) => `${s.title} — ${s.dateLabel} ${s.hours}, ${s.location}, מפגש: ${s.meetingPoint}, מדריך: ${s.guide}, ${s.distanceKm} ק״מ, רמה ${s.technicalLevel} — https://tevabike.com/rides/${s.slug}`)
+    .join('\n')
+  return `${pricing}\n${list}`
+}
+
 /** Everything pulled live for the current suggestion — joined into one text block, or '' if everything came up empty. */
 export async function fetchDynamicSiteContent(admin: SupabaseClient): Promise<string> {
   const [shop, workshops, trips, groups] = await Promise.all([
@@ -169,6 +186,8 @@ export async function fetchDynamicSiteContent(admin: SupabaseClient): Promise<st
   if (groups) parts.push(`חוגים פעילים כרגע (ללוח זמנים בלבד — למחיר תמיד לפי המידע הסטטי למעלה, לא להמציא כאן):\n${groups}`)
   if (workshops) parts.push(`סדנאות פתוחות כרגע:\n${workshops}`)
   if (trips) parts.push(`טיולים פתוחים כרגע:\n${trips}`)
+  const rides = rideTripsText()
+  if (rides) parts.push(`טיולי רכיבה בארץ (פעמיים בחודש, טיולי בוקר מודרכים של כ־4 שעות):\n${rides}`)
   if (shop) parts.push(`חנות (tevabike.com/shop) — כרגע באתר:\n${shop}`)
   return parts.join('\n\n')
 }
