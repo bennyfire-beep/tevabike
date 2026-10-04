@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { SESSIONS, MEMBER_PRICE, SUBSCRIPTION_PRICE, TRIPS_PER_MONTH, isPast } from '@/lib/ride-sessions'
 import TripCover from './TripCover'
 import HeroVideo from './HeroVideo'
+import HeroClips from './HeroClips'
+import { fetchHeroClips } from '@/lib/hero-clips'
 
 // ============================================================
 // טיולי רכיבה בארץ — פתיח + רשימת הטיולים הקרובים (lib/ride-sessions.ts)
@@ -20,7 +22,9 @@ export const dynamic = 'force-dynamic'
 
 const PINK = '#D4288A'
 
-export default function RidesPage() {
+export default async function RidesPage() {
+  // Clips managed at /admin/coordinator/hero-videos; the built-in loop is the fallback.
+  const clips = await fetchHeroClips('rides')
   const upcoming = SESSIONS.filter((s) => !isPast(s)).sort((a, b) => a.date.localeCompare(b.date))
 
   return (
@@ -29,10 +33,14 @@ export default function RidesPage() {
       <header
         className="relative overflow-hidden px-6 pt-16 pb-16 md:pt-24 md:pb-24 bg-stone-950 bg-cover bg-center bg-[url(/rides-hero-poster.jpg)] md:bg-[url(/rides-hero-wide-poster.jpg)]"
       >
-        <HeroVideo
-          portrait={{ mp4: '/rides-hero.mp4', webm: '/rides-hero.webm' }}
-          wide={{ mp4: '/rides-hero-wide.mp4', webm: '/rides-hero-wide.webm' }}
-        />
+        {clips.length > 0 ? (
+          <HeroClips clips={clips} />
+        ) : (
+          <HeroVideo
+            portrait={{ mp4: '/rides-hero.mp4', webm: '/rides-hero.webm' }}
+            wide={{ mp4: '/rides-hero-wide.mp4', webm: '/rides-hero-wide.webm' }}
+          />
+        )}
         {/* darker on the right, where the RTL text sits, and fading into the page below */}
         <div
           aria-hidden="true"
