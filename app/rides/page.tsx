@@ -2,9 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { SESSIONS, MEMBER_PRICE, SUBSCRIPTION_PRICE, TRIPS_PER_MONTH, isPast } from '@/lib/ride-sessions'
 import TripCover from './TripCover'
-import HeroVideo from './HeroVideo'
 import HeroClips from './HeroClips'
-import { fetchHeroClips } from '@/lib/hero-clips'
+import { fetchHeroClips, type HeroClip } from '@/lib/hero-clips'
 
 // ============================================================
 // טיולי רכיבה בארץ — פתיח + רשימת הטיולים הקרובים (lib/ride-sessions.ts)
@@ -22,25 +21,26 @@ export const dynamic = 'force-dynamic'
 
 const PINK = '#D4288A'
 
+// Plays when no clip is active in the admin: Benny's montage, letterbox bars
+// cropped off (landscape 576×312), framed centred on every screen.
+const DEFAULT_CLIPS: HeroClip[] = [{
+  id: 'default', label: 'מונטאז׳', url: '/rides-clips/montage.mp4', storage_path: null, sort: 0, active: true,
+  start_s: 0, end_s: 27.1, focus_desktop: 50, focus_mobile: 50,
+}]
+
 export default async function RidesPage() {
-  // Clips managed at /admin/coordinator/hero-videos; the built-in loop is the fallback.
-  const clips = await fetchHeroClips('rides')
+  // Clips managed at /admin/coordinator/hero-videos; the montage plays when none is active.
+  const fromAdmin = await fetchHeroClips('rides')
+  const clips = fromAdmin.length > 0 ? fromAdmin : DEFAULT_CLIPS
   const upcoming = SESSIONS.filter((s) => !isPast(s)).sort((a, b) => a.date.localeCompare(b.date))
 
   return (
     <div dir="rtl" className="min-h-screen bg-stone-950 text-stone-100">
       {/* intro — what the trips are, before the list */}
       <header
-        className="relative overflow-hidden px-6 pt-16 pb-16 md:pt-24 md:pb-24 bg-stone-950 bg-cover bg-center bg-[url(/rides-hero-poster.jpg)] md:bg-[url(/rides-hero-wide-poster.jpg)]"
+        className="relative overflow-hidden px-6 pt-16 pb-16 md:pt-24 md:pb-24 bg-stone-950 bg-cover bg-center bg-[url(/rides-hero-poster.jpg)]"
       >
-        {clips.length > 0 ? (
-          <HeroClips clips={clips} />
-        ) : (
-          <HeroVideo
-            portrait={{ mp4: '/rides-hero.mp4', webm: '/rides-hero.webm' }}
-            wide={{ mp4: '/rides-hero-wide.mp4', webm: '/rides-hero-wide.webm' }}
-          />
-        )}
+        <HeroClips clips={clips} />
         {/* darker on the right, where the RTL text sits, and fading into the page below */}
         <div
           aria-hidden="true"
