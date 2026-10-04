@@ -6,10 +6,18 @@ import { useEffect, useRef } from 'react'
 // because React doesn't put the `muted` attribute into server-rendered HTML,
 // and iOS Safari only autoplays videos that are muted from the start — so
 // it's set on the element directly before asking it to play.
-// Hidden for visitors who prefer reduced motion; the poster still shows
-// behind it as the header background.
+// No poster attribute: until the first frame (or for visitors who prefer
+// reduced motion, where the video is hidden) the header's own background
+// shows through — a still of the matching cut, picked by CSS per breakpoint.
+//
+// Two cuts of the same loop: the clips were shot upright, so the phone-width
+// header uses the portrait cut, while wide screens get a landscape cut where
+// each clip's band was chosen by hand (riders' heads, not torsos) — a single
+// portrait file centre-cropped on desktop cut the waving rider's head off.
 
-export default function HeroVideo({ mp4, webm, poster }: { mp4: string; webm: string; poster: string }) {
+type Cut = { mp4: string; webm: string }
+
+export default function HeroVideo({ portrait, wide }: { portrait: Cut; wide: Cut }) {
   const ref = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
@@ -24,7 +32,6 @@ export default function HeroVideo({ mp4, webm, poster }: { mp4: string; webm: st
   return (
     <video
       ref={ref}
-      poster={poster}
       autoPlay
       muted
       loop
@@ -33,9 +40,13 @@ export default function HeroVideo({ mp4, webm, poster }: { mp4: string; webm: st
       aria-hidden="true"
       className="absolute inset-0 w-full h-full object-cover motion-reduce:hidden"
     >
-      {/* MP4 first — every mainstream browser plays it; WebM only for the few without H.264 */}
-      <source src={mp4} type="video/mp4" />
-      <source src={webm} type="video/webm" />
+      {/* The first matching <source> wins: wide cut from 768px up, portrait
+          below. MP4 before WebM in each pair — every mainstream browser plays
+          H.264; WebM only for the few without it. */}
+      <source src={wide.mp4} type="video/mp4" media="(min-width: 768px)" />
+      <source src={wide.webm} type="video/webm" media="(min-width: 768px)" />
+      <source src={portrait.mp4} type="video/mp4" />
+      <source src={portrait.webm} type="video/webm" />
     </video>
   )
 }

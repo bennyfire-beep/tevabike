@@ -27,10 +27,12 @@ export default function RidesPage() {
     <div dir="rtl" className="min-h-screen bg-stone-950 text-stone-100">
       {/* intro — what the trips are, before the list */}
       <header
-        className="relative overflow-hidden px-6 pt-16 pb-16 md:pt-24 md:pb-24 bg-stone-950 bg-cover bg-center"
-        style={{ backgroundImage: 'url(/rides-hero-poster.jpg)' }}
+        className="relative overflow-hidden px-6 pt-16 pb-16 md:pt-24 md:pb-24 bg-stone-950 bg-cover bg-center bg-[url(/rides-hero-poster.jpg)] md:bg-[url(/rides-hero-wide-poster.jpg)]"
       >
-        <HeroVideo mp4="/rides-hero.mp4" webm="/rides-hero.webm" poster="/rides-hero-poster.jpg" />
+        <HeroVideo
+          portrait={{ mp4: '/rides-hero.mp4', webm: '/rides-hero.webm' }}
+          wide={{ mp4: '/rides-hero-wide.mp4', webm: '/rides-hero-wide.webm' }}
+        />
         {/* darker on the right, where the RTL text sits, and fading into the page below */}
         <div
           aria-hidden="true"
