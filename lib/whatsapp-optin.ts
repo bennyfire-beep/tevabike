@@ -21,6 +21,7 @@ export const WHATSAPP_OPTIN_SOURCES = {
   hashlama: 'אימון השלמה',
   instructors_course: 'קורס מדריכים',
   ride_sessions: 'טיולי רכיבה',
+  parent_meeting: 'אסיפת הורים',
 } as const
 
 export type WhatsappOptinSource = keyof typeof WHATSAPP_OPTIN_SOURCES
