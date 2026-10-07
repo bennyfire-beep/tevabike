@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import YearCalendar from '@/components/YearCalendar'
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 const PINK      = '#D4288A'
@@ -10,39 +11,6 @@ const GREEN_M   = '#1F3D2A'
 const OFF_WHITE = '#F5F2EE'
 
 // ─── Data ────────────────────────────────────────────────────────────────────
-// Summer 2026: Misgav kids run Sunday + Thursday. Friday classes are cancelled.
-const KIDS_CLASSES = [
-  { level: 'מיני גרביטי',    branch: 'משגב',        days: "א' + ה' 15:30–17:00", age: '6-10',  icon: '🌱' },
-  { level: 'גרביטי מתחילים', branch: 'משגב',        days: "א' + ה' 15:30–17:00", age: '6-10',  icon: '🌱' },
-  { level: 'גרביטי פרו',     branch: 'משגב',        days: "א' + ה' 15:30–17:00", age: '12+',   icon: '⚡' },
-  { level: 'מיני גרביטי',    branch: 'ביריה',       days: "ב' + ד' 16:00–17:15", age: '6-10',  icon: '🌱' },
-  { level: 'גרביטי מתקדמים', branch: 'ביריה',       days: "ב' + ד' 16:00–17:15", age: '10-14', icon: '🔥' },
-  { level: 'מיני גרביטי',    branch: 'מטה אשר',     days: "ג'",                  age: '6-10',  icon: '🌱' },
-  { level: 'גרביטי מתקדמים', branch: 'מטה אשר',     days: "ג'",                  age: '10-14', icon: '🔥' },
-  { level: 'גרביטי מתקדמים', branch: 'פרוד-אמירים', days: "ד' 15:45–17:00",      age: '10-14', icon: '🔥' },
-]
-
-// The two Misgav tracks. Once-weekly students pick either Sunday or Thursday.
-const MISGAV_TRACKS = [
-  { title: 'פעם בשבוע',    price: 300, desc: 'הילד בוחר יום קבוע — ראשון או חמישי', best: false },
-  { title: 'פעמיים בשבוע', price: 550, desc: 'ראשון וגם חמישי — אימון כפול בשבוע',  best: true  },
-]
-
-const ADULTS_CLASSES = [
-  { level: 'טכני מבוגרים', day: "יום א'", icon: '🏔️', desc: 'שיפור טכניקת רכיבה בשטח' },
-  { level: 'כושר ואושר',   day: "יום ב'", icon: '💪', desc: 'אימון כושר על הפדלים' },
-  { level: 'נשים כושר',    day: "יום ג'", icon: '✨', desc: 'קבוצת נשים בסביבה תומכת' },
-  { level: 'טכני חשמלי',   day: "יום ד'", icon: '⚡', desc: 'טכניקה על אופניים חשמליים' },
-  { level: 'נשים טכני',    day: "יום ה'", icon: '🌟', desc: 'טכניקה מתקדמת לנשים' },
-]
-
-const LEVEL_COLORS: Record<string, [string, string]> = {
-  'מיני גרביטי':    [`${PINK}1A`, PINK],
-  'גרביטי מתחילים': [`${PINK}1A`, PINK],
-  'גרביטי מתקדמים': ['#8B22D41A', '#8B22D4'],
-  'גרביטי פרו':     ['#1F3D2A',   '#4cdb7a'],
-}
-
 const BRANCH_COLOR: Record<string, string> = {
   'משגב':        PINK,
   'ביריה':       '#4cdb7a',
@@ -114,8 +82,6 @@ function FormSelect({ label, value, onChange, options }: {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [tab, setTab]           = useState<'kids' | 'adults'>('kids')
-
   return (
     <main style={{ fontFamily: 'inherit', background: '#fff', color: DARK, overflowX: 'hidden' }}>
 
@@ -177,7 +143,7 @@ export default function Home() {
           {/* CTAs */}
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <a href="/register" className="btn-primary">הירשמו עכשיו</a>
-            <a href="#classes" className="btn-outline">גלה את החוגים</a>
+            <a href="#classes" className="btn-outline">ללוח השנה</a>
           </div>
         </div>
 
@@ -215,180 +181,25 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ════════════════════════════ CLASSES ════════════════════════════ */}
+      {/* ════════════════════════════ CALENDAR ════════════════════════════ */}
+      {/* id stays "classes" so the existing nav/hero anchors keep working. */}
       <section id="classes" style={{ background: OFF_WHITE, padding: '88px 24px' }}>
         <div style={{ maxWidth: 1120, margin: '0 auto' }}>
-          {/* Section header */}
-          <div style={{ textAlign: 'center', marginBottom: 52 }}>
+          <div style={{ textAlign: 'center', marginBottom: 44 }}>
             <span style={{ background: `${PINK}18`, color: PINK, borderRadius: 20, padding: '5px 18px', fontSize: 12, fontWeight: 700, letterSpacing: '0.05em' }}>
-              לוח חוגים
+              לוח שנה
             </span>
             <h2 style={{ fontSize: 'clamp(1.9rem, 3.5vw, 2.8rem)', fontWeight: 900, color: DARK, margin: '14px 0 8px', letterSpacing: '-0.025em' }}>
-              בחרו את החוג שלכם
+              לוח הפעילות השנתי
             </h2>
-            <p style={{ color: '#7A8880', fontSize: 16, margin: 0 }}>חוגים מקצועיים לכל הגילאים ורמות הרכיבה</p>
+            <p style={{ color: '#7A8880', fontSize: 16, margin: 0 }}>חגים, ימים ללא פעילות, מחנות ותחרויות — הכל במקום אחד</p>
           </div>
 
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 40 }}>
-            {[
-              { id: 'kids',   label: 'ילדים — גרביטי', emoji: '🚵' },
-              { id: 'adults', label: 'מבוגרים',         emoji: '🏔️' },
-            ].map(t => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id as 'kids' | 'adults')}
-                style={{
-                  padding: '11px 30px', borderRadius: 10, border: 'none',
-                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 15,
-                  background: tab === t.id ? PINK : '#fff',
-                  color: tab === t.id ? '#fff' : '#666',
-                  boxShadow: tab === t.id ? `0 6px 20px rgba(212,40,138,0.32)` : '0 2px 10px rgba(0,0,0,0.07)',
-                  transition: 'all .25s',
-                }}
-              >
-                {t.emoji} {t.label}
-              </button>
-            ))}
+          <YearCalendar />
+
+          <div style={{ textAlign: 'center', marginTop: 40 }}>
+            <a href="/register" className="btn-primary">הרשמה לחוג ←</a>
           </div>
-
-          {/* Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 20 }}>
-            {tab === 'kids' ? KIDS_CLASSES.map((c, i) => {
-              const [bg, color] = LEVEL_COLORS[c.level] ?? [`${PINK}18`, PINK]
-              return (
-                <div
-                  key={i}
-                  className="card-class"
-                  style={{ background: '#fff', borderRadius: 16, padding: 26, border: '1px solid #EAE6E1', boxShadow: '0 2px 14px rgba(0,0,0,0.05)', cursor: 'pointer' }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
-                    <span style={{ background: bg, color, borderRadius: 20, padding: '4px 13px', fontSize: 11, fontWeight: 700 }}>
-                      {c.level}
-                    </span>
-                    <span style={{ fontSize: 22 }}>{c.icon}</span>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: BRANCH_COLOR[c.branch] ?? '#ccc', flexShrink: 0 }} />
-                      <span style={{ fontWeight: 700, fontSize: 14, color: DARK }}>{c.branch}</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, color: '#7A8880', fontSize: 13 }}>
-                      <span>📅</span> <span>{c.days}</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, color: '#7A8880', fontSize: 13 }}>
-                      <span>👦</span> <span>גיל {c.age}</span>
-                    </div>
-                  </div>
-
-                  <a
-                    href="/register"
-                    style={{
-                      display: 'block', textAlign: 'center', padding: '9px 0', borderRadius: 8,
-                      background: `${PINK}12`, color: PINK, fontSize: 13, fontWeight: 700,
-                      textDecoration: 'none', border: `1px solid ${PINK}2A`,
-                      transition: 'background .2s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = `${PINK}22`}
-                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = `${PINK}12`}
-                  >
-                    הרשמה לחוג ←
-                  </a>
-                </div>
-              )
-            }) : ADULTS_CLASSES.map((c, i) => (
-              <div
-                key={i}
-                className="card-class"
-                style={{ background: '#fff', borderRadius: 16, padding: 26, border: '1px solid #EAE6E1', boxShadow: '0 2px 14px rgba(0,0,0,0.05)', cursor: 'pointer' }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-                  <span style={{ background: `${PINK}1A`, color: PINK, borderRadius: 20, padding: '4px 13px', fontSize: 11, fontWeight: 700 }}>
-                    {c.level}
-                  </span>
-                  <span style={{ fontSize: 22 }}>{c.icon}</span>
-                </div>
-                <p style={{ color: '#7A8880', fontSize: 13, margin: '0 0 14px', lineHeight: 1.6 }}>{c.desc}</p>
-                <div style={{ display: 'flex', gap: 6, color: '#7A8880', fontSize: 13, marginBottom: 18 }}>
-                  <span>📅</span> <span>{c.day}</span>
-                </div>
-                <a
-                  href="/register"
-                  style={{
-                    display: 'block', textAlign: 'center', padding: '9px 0', borderRadius: 8,
-                    background: `${PINK}12`, color: PINK, fontSize: 13, fontWeight: 700,
-                    textDecoration: 'none', border: `1px solid ${PINK}2A`,
-                    transition: 'background .2s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = `${PINK}22`}
-                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = `${PINK}12`}
-                >
-                  הרשמה לחוג ←
-                </a>
-              </div>
-            ))}
-          </div>
-
-          {/* ── Misgav pricing tracks (kids tab only) ── */}
-          {tab === 'kids' && (
-            <div style={{ marginTop: 48 }}>
-              <div style={{ textAlign: 'center', marginBottom: 26 }}>
-                <h3 style={{ fontSize: 'clamp(1.3rem, 2.6vw, 1.8rem)', fontWeight: 900, color: DARK, margin: '0 0 6px', letterSpacing: '-0.02em' }}>
-                  מסלולי משגב
-                </h3>
-                <p style={{ color: '#7A8880', fontSize: 15, margin: 0 }}>
-                  ראשון וחמישי · 15:30–17:00
-                </p>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 18, maxWidth: 720, margin: '0 auto' }}>
-                {MISGAV_TRACKS.map(t => (
-                  <div
-                    key={t.title}
-                    style={{
-                      background: '#fff', borderRadius: 16, padding: '28px 24px',
-                      border: t.best ? `2px solid ${PINK}` : '1px solid #EAE6E1',
-                      boxShadow: t.best ? `0 8px 28px rgba(212,40,138,0.16)` : '0 2px 14px rgba(0,0,0,0.05)',
-                      position: 'relative', textAlign: 'center',
-                    }}
-                  >
-                    {t.best && (
-                      <span style={{
-                        position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
-                        background: PINK, color: '#fff', borderRadius: 20,
-                        padding: '4px 16px', fontSize: 11, fontWeight: 800, whiteSpace: 'nowrap',
-                      }}>
-                        הכי משתלם
-                      </span>
-                    )}
-
-                    <div style={{ fontSize: 16, fontWeight: 800, color: DARK, marginBottom: 10 }}>{t.title}</div>
-
-                    <div style={{ marginBottom: 12 }}>
-                      <span style={{ fontSize: 40, fontWeight: 900, color: PINK, letterSpacing: '-0.03em' }}>₪{t.price}</span>
-                      <span style={{ fontSize: 14, color: '#7A8880', fontWeight: 600 }}> / חודש</span>
-                    </div>
-
-                    <p style={{ color: '#7A8880', fontSize: 13.5, margin: '0 0 20px', lineHeight: 1.6 }}>{t.desc}</p>
-
-                    <a
-                      href="/register"
-                      style={{
-                        display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 8,
-                        background: t.best ? PINK : `${PINK}12`,
-                        color:      t.best ? '#fff' : PINK,
-                        fontSize: 14, fontWeight: 700, textDecoration: 'none',
-                        border: `1px solid ${t.best ? PINK : `${PINK}2A`}`,
-                      }}
-                    >
-                      הרשמה ←
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </section>
 
@@ -494,7 +305,7 @@ export default function Home() {
                 { label: 'מחנה חנוכה', href: '/camp-hanukkah' },
                 { label: 'סדנת איר באג', href: '/workshop-airbag' },
                 { label: 'טבע בייק אקדמי', href: '/instructors-course' },
-                { label: 'חוגים',    href: '#classes'  },
+                { label: 'לוח שנה',  href: '#classes'  },
                 { label: 'הרשמה',   href: '/register' },
                 { label: 'למה אנחנו', href: '#why'    },
                 { label: 'חנות',     href: '/shop'    },

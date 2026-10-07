@@ -41,6 +41,7 @@ const NAV: NavGroup[] = [
     { href: '/admin/coordinator/hashlama', label: 'אימון השלמה', icon: '🌲' },
     { href: '/admin/coordinator/parent-meeting', label: 'אסיפת הורים', icon: '💜' },
     { href: '/admin/coordinator/rides', label: 'טיולי רכיבה', icon: '🚵' },
+    { href: '/admin/coordinator/calendar', label: 'לוח שנה', icon: '📅' },
     { href: '/admin/coordinator/hero-videos', label: 'סרטוני רקע', icon: '🎬' },
     { href: '/admin/coordinator/trips', label: 'טיולי חו״ל', icon: '✈️', salaryOnly: true },
   ]},
