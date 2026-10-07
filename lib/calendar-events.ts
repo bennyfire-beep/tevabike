@@ -1,5 +1,5 @@
 // Year-calendar events (table site_calendar_events, managed at
-// /admin/coordinator/calendar, shown on the homepage by
+// /admin/coordinator/calendar, shown on /calendar by
 // components/YearCalendar.tsx). See migration 20261007_site_calendar_events.sql.
 
 export const CALENDAR_TYPES = ['holiday', 'closed', 'competition', 'camp', 'other'] as const

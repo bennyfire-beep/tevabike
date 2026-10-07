@@ -8,7 +8,7 @@ import {
 } from '@/lib/calendar-events'
 
 // ============================================================
-// לוח שנה — הוספה, עריכה ומחיקה של אירועים בלוח השנה שבעמוד הבית
+// לוח שנה — הוספה, עריכה ומחיקה של אירועים בעמוד /calendar
 // נתיב: app/admin/coordinator/calendar/page.tsx
 // טבלה: site_calendar_events · תצוגה באתר: components/YearCalendar.tsx
 // ============================================================
@@ -122,13 +122,13 @@ export default function CalendarAdminPage() {
     <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <div>
-          <h2 style={{ margin: '0 0 3px', fontSize: 20, fontWeight: 800 }}>לוח שנה · עמוד הבית</h2>
+          <h2 style={{ margin: '0 0 3px', fontSize: 20, fontWeight: 800 }}>לוח שנה</h2>
           <p style={{ ...muted, fontSize: 13, margin: 0 }}>
             {loading ? 'טוען...' : `${events.length} אירועים בלוח`}
           </p>
         </div>
         <div style={{ marginRight: 'auto' }}>
-          <a href="/#classes" target="_blank" rel="noopener noreferrer" style={{ ...ghostBtn, textDecoration: 'none' }}>פתיחת הלוח באתר</a>
+          <a href="/calendar" target="_blank" rel="noopener noreferrer" style={{ ...ghostBtn, textDecoration: 'none' }}>פתיחת הלוח באתר</a>
         </div>
       </div>
 

@@ -1,4 +1,4 @@
--- Year calendar on the homepage (#classes section), managed from the admin
+-- Year calendar page (/calendar), managed from the admin
 -- at app/admin/coordinator/calendar. One row = one event; a single-day event
 -- leaves end_date null.
 --
@@ -20,7 +20,7 @@ create index if not exists site_calendar_events_start_idx on site_calendar_event
 
 alter table site_calendar_events enable row level security;
 
--- The homepage is a client component that reads with the anon key, and the
+-- The calendar is a client component that reads with the anon key, and the
 -- calendar is public information — so anyone may read, only coordinators
 -- may write.
 create policy site_calendar_events_select_public on site_calendar_events

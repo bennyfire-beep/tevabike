@@ -6,7 +6,7 @@ import {
   type CalendarEvent, type CalendarEventType,
 } from '@/lib/calendar-events'
 
-// Year calendar for the homepage — school year (Sep–Aug) or calendar year,
+// Year calendar for /calendar — school year (Sep–Aug) or calendar year,
 // 12 month grids with the events coloured by type and listed under each
 // month. Events come from site_calendar_events (edited at
 // /admin/coordinator/calendar); the table is public-read so the anon client
