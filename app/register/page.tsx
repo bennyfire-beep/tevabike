@@ -86,6 +86,7 @@ export default function RegisterPage() {
     notes: '',
   })
   const [whatsappOptin, setWhatsappOptin] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const [utm, setUtm] = useState<{ utm_source?: string; utm_medium?: string; utm_campaign?: string }>({})
 
   // Capture campaign tags from the landing URL and keep them for the session,
@@ -146,6 +147,10 @@ export default function RegisterPage() {
     }
     if (!isKids && form.branch === 'משגב' && !form.chosen_day) {
       setError('בחרו אימון')
+      return
+    }
+    if (!termsAccepted) {
+      setError('יש לאשר את תקנון ההשתתפות')
       return
     }
 
@@ -478,6 +483,21 @@ export default function RegisterPage() {
                     className="mt-0.5 w-[18px] h-[18px] accent-lime-400 cursor-pointer shrink-0"
                   />
                   <span>{WHATSAPP_OPTIN_LABEL}</span>
+                </label>
+
+                <label className="flex items-start gap-2.5 cursor-pointer text-sm text-stone-300 select-none">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-0.5 w-[18px] h-[18px] accent-lime-400 cursor-pointer shrink-0"
+                  />
+                  <span>
+                    קראתי ואני מסכים/ה ל
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="underline text-lime-300 hover:text-lime-200">
+                      תקנון ההשתתפות במועדון
+                    </a>{' '}*
+                  </span>
                 </label>
 
                 {error && <div className="bg-red-950 border border-red-800 text-red-200 rounded-lg p-3 text-sm">{error}</div>}
