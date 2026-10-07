@@ -49,6 +49,7 @@ export default function SiteNav() {
             <a href="/instructors-course" className="nav-link" style={{ color: '#f0b90b', fontWeight: 700 }}>טבע בייק אקדמי</a>
             <a href="/#why" className="nav-link">למה אנחנו</a>
             <a href="/shop" className="nav-link">חנות</a>
+            <a href="/terms" className="nav-link">תקנון</a>
             <a href="/register" className="btn-primary" style={{ padding: '8px 22px', fontSize: 14, borderRadius: 8 }}>
               הרשמה
             </a>
