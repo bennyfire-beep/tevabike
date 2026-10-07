@@ -575,6 +575,14 @@ export default function Home() {
               >
                 מדיניות פרטיות
               </a>
+              <a
+                href="/terms"
+                style={{ color: 'rgba(255,255,255,0.42)', fontSize: 12, textDecoration: 'none', transition: 'color .2s' }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = PINK}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.42)'}
+              >
+                תקנון
+              </a>
             </div>
             <span style={{ color: PINK, fontSize: 12, fontWeight: 600 }}>
               Made with ❤️ in the Galilee

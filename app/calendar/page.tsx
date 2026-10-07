@@ -32,7 +32,11 @@ export default function CalendarPage() {
 
         <YearCalendar />
 
-        <div style={{ textAlign: 'center', marginTop: 40 }}>
+        <p style={{ textAlign: 'center', color: '#7A8880', fontSize: 14, margin: '32px 0 0' }}>
+          מה קורה בחגים, בחופשות ובימי זיכרון? הכל מפורט ב<a href="/terms#b" style={{ color: PINK, fontWeight: 700 }}>תקנון ההשתתפות</a>.
+        </p>
+
+        <div style={{ textAlign: 'center', marginTop: 24 }}>
           <a href="/register" className="btn-primary">הרשמה לחוג ←</a>
         </div>
       </div>
