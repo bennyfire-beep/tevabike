@@ -1,6 +1,6 @@
 // app/terms/page.tsx — תקנון השתתפות במועדון, ציבורי לגמרי (בלי התחברות).
 //
-// הטקסט כלשונו מהתקנון שבני שלח (סעיפים א׳–כג׳). העיצוב זהה ל-/privacy.
+// הטקסט כלשונו מהתקנון שבני שלח (סעיפים א׳–כג׳). העיצוב בהיר, כמו /calendar.
 // כל סעיף כתוב כטקסט פשוט: שורה שמתחילה ב-"- " היא פריט ברשימה, שורה
 // קצרה שנגמרת בנקודתיים היא כותרת משנה (למשל "ילדים ונוער:"), וכל השאר פסקאות.
 //
@@ -10,12 +10,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+// Light theme, like /calendar: off-white page, white cards, dark text.
 const C = {
   brand: "#D4288A",
   dark: "#0C1814",
-  green: "#152A1E",
-  greenMid: "#1F3D2A",
-  offWhite: "#F5F2EE",
+  page: "#F5F2EE",
+  card: "#FFFFFF",
+  border: "#EAE6E1",
+  body: "#3D4A44",
+  muted: "#7A8880",
 };
 
 export const metadata: Metadata = {
@@ -365,7 +368,7 @@ function SectionBody({ text }: { text: string }) {
         </ul>,
       );
     } else if (line.endsWith(":") && line.length <= 40) {
-      out.push(<h3 key={i} className="font-bold pt-2" style={{ color: C.offWhite }}>{line.slice(0, -1)}</h3>);
+      out.push(<h3 key={i} className="font-bold pt-2" style={{ color: C.dark }}>{line.slice(0, -1)}</h3>);
     } else {
       out.push(<p key={i} className="leading-relaxed">{line}</p>);
     }
@@ -375,23 +378,24 @@ function SectionBody({ text }: { text: string }) {
 
 export default function TermsPage() {
   return (
-    <main dir="rtl" className="min-h-screen" style={{ background: C.dark, color: C.offWhite }}>
-      {/* Hero — logo + כותרת, כמו ב/privacy */}
+    <main dir="rtl" className="min-h-screen" style={{ background: C.page, color: C.dark }}>
+      {/* Hero — logo + כותרת */}
       <section className="relative overflow-hidden px-6 pt-16 pb-10 text-center">
         <div
           className="absolute inset-0"
-          style={{ background: `radial-gradient(ellipse at top, ${C.brand}26, transparent 60%)` }}
+          style={{ background: `radial-gradient(ellipse at top, ${C.brand}1A, transparent 60%)` }}
         />
         <div className="relative max-w-2xl mx-auto space-y-4">
           <Link href="/" className="inline-block">
+            {/* The logo's "TEVA" is white, so it sits on a dark badge. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="טבע בייק" style={{ height: 48, borderRadius: 6, margin: "0 auto 8px", display: "block" }} />
+            <img src="/logo.png" alt="טבע בייק" style={{ height: 48, borderRadius: 6, margin: "0 auto 8px", display: "block", background: C.dark, padding: "6px 12px", boxSizing: "content-box", boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }} />
           </Link>
           <p className="font-bold tracking-widest text-sm" style={{ color: C.brand }}>
             ילדים, נוער ומבוגרים
           </p>
           <h1 className="text-4xl sm:text-5xl font-black leading-tight">תקנון השתתפות במועדון טבע בייק</h1>
-          <div className="text-lg leading-relaxed space-y-3 text-right" style={{ color: "#D8E2DC" }}>
+          <div className="text-lg leading-relaxed space-y-3 text-right" style={{ color: C.body }}>
             <p>
               מועדון TevaBike – טבע בייק מקיים חוגי רכיבה על אופני הרים לילדים, בני נוער ומבוגרים,
               בהדרכת מדריכי רכיבה מוסמכים.
@@ -414,13 +418,13 @@ export default function TermsPage() {
           <nav
             aria-label="תוכן העניינים"
             className="rounded-2xl p-6 border"
-            style={{ background: C.green, borderColor: C.greenMid }}
+            style={{ background: C.card, borderColor: C.border, boxShadow: "0 2px 14px rgba(0,0,0,0.04)" }}
           >
             <h2 className="text-lg font-black mb-3">תוכן העניינים</h2>
             <ol className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
               {SECTIONS.map((s) => (
                 <li key={s.id}>
-                  <a href={`#${s.id}`} className="hover:underline" style={{ color: "#D8E2DC" }}>{s.title}</a>
+                  <a href={`#${s.id}`} className="hover:underline" style={{ color: C.dark }}>{s.title}</a>
                 </li>
               ))}
             </ol>
@@ -431,10 +435,10 @@ export default function TermsPage() {
               key={s.id}
               id={s.id}
               className="rounded-2xl p-6 border scroll-mt-24"
-              style={{ background: C.green, borderColor: C.greenMid }}
+              style={{ background: C.card, borderColor: C.border, boxShadow: "0 2px 14px rgba(0,0,0,0.04)" }}
             >
               <h2 className="text-xl font-black mb-3">{s.title}</h2>
-              <div style={{ color: "#D8E2DC" }}>
+              <div style={{ color: C.body }}>
                 <SectionBody text={s.text} />
                 {s.id === "b" && (
                   <p className="pt-3">
@@ -447,14 +451,14 @@ export default function TermsPage() {
             </div>
           ))}
 
-          <div className="text-center space-y-1 pt-2 text-lg" style={{ color: "#D8E2DC" }}>
+          <div className="text-center space-y-1 pt-2 text-lg" style={{ color: C.body }}>
             <p>אנו מאחלים לכל הרוכבות והרוכבים רכיבה מהנה, בטוחה, מקצועית ומלאה בהתקדמות, אתגרים וחוויות! 🚵‍♂️💜</p>
             <p className="pt-2">בברכה,</p>
             <p className="font-bold">צוות מועדון טבע בייק</p>
           </div>
 
           <div className="text-center pt-4">
-            <Link href="/" className="text-sm underline" style={{ color: "#9FB3A8" }}>
+            <Link href="/" className="text-sm underline" style={{ color: C.muted }}>
               חזרה לעמוד הבית
             </Link>
           </div>
