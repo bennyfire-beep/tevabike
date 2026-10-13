@@ -7,6 +7,6 @@
 // it up automatically.
 
 export const COURSE_DATES_LABEL =
-  "16.10 (עיוני) · 23.10 (עיוני-מעשי) · 6.11 (עזרה ראשונה) — ייתכנו שינויים במערכת בהתאם לכמות הנרשמים"
+  "יום שישי, 13.11.2026 · יום שישי, 20.11.2026 — ייתכנו שינויים במערכת בהתאם לכמות הנרשמים"
 export const COLLEGE_REGISTRATION_LINK = "https://fill.tofsy.co.il/BvjFJw"
 export const COLLEGE_PHONE = "04-6749202"
