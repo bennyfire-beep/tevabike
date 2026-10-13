@@ -3,7 +3,16 @@
 
 import { useEffect, useState } from "react";
 import { WHATSAPP_OPTIN_LABEL } from "@/lib/whatsapp-optin";
-import { COURSE_DATES_LABEL, COLLEGE_REGISTRATION_LINK, COLLEGE_PHONE } from "@/lib/instructors-course";
+import {
+  COURSE_DATES_LABEL,
+  COURSE_HOURS_LABEL,
+  COURSE_LOCATION,
+  COURSE_WAZE_HINT,
+  COURSE_EQUIPMENT,
+  FIRST_AID_LABEL,
+  COLLEGE_REGISTRATION_LINK,
+  COLLEGE_PHONE,
+} from "@/lib/instructors-course";
 
 const C = {
   brand: "#f0b90b",
@@ -100,9 +109,11 @@ const WHO_FOR = [
 
 const COURSE_FACTS: [string, string][] = [
   ["📅 מועד הקורס", COURSE_DATES_LABEL],
+  ["🕗 שעות", COURSE_HOURS_LABEL],
   ["🚵 הכשרת רכיבה", "15 שעות"],
-  ["🩹 עזרה ראשונה", "15 שעות נוספות (במכללה)"],
-  ["📍 מיקום", "מועדון טבע בייק, משגב"],
+  ["🩹 עזרה ראשונה", "15 שעות נוספות — יום מעשי + זום"],
+  ["📍 מיקום", `${COURSE_LOCATION} (${COURSE_WAZE_HINT})`],
+  ["🚲 ציוד", COURSE_EQUIPMENT],
   ["👥 משתתפים", "מינימום 8, מקסימום 15"],
   ["💰 עלות", "3,200 ₪ כולל מע״מ למשתתף"],
 ];
@@ -316,8 +327,10 @@ export default function InstructorsCoursePage() {
           ))}
         </ol>
         <p className="mt-3 leading-relaxed" style={{ color: "#D8E2DC" }}>
-          בנוסף, המשתתפים יעברו קורס עזרה ראשונה בהיקף של 15 שעות, שיועבר
-          במסגרת המכללה.
+          בנוסף, המשתתפים יעברו קורס עזרה ראשונה בהיקף של 15 שעות במסגרת
+          מכללת משגב, שתשלח בנפרד פרטים ומועדים. הקורס יכלול יום אחד מעשי,
+          ויתר הלימודים יתקיימו מרחוק בזום. בסיום יתקיימו מבחן תיאורטי ומבחן
+          מעשי.
         </p>
       </Section>
 
@@ -443,8 +456,11 @@ export default function InstructorsCoursePage() {
           style={{ background: C.green, borderColor: C.greenMid, color: "#D8E2DC" }}
         >
           <p>היקף הכשרת הרכיבה: <b style={{ color: C.offWhite }}>15 שעות</b></p>
-          <p>קורס עזרה ראשונה: <b style={{ color: C.offWhite }}>15 שעות נוספות</b></p>
-          <p>מיקום: <b style={{ color: C.offWhite }}>מועדון טבע בייק, משגב</b></p>
+          <p>מועדי המפגשים: <b style={{ color: C.offWhite }}>{COURSE_DATES_LABEL}</b></p>
+          <p>שעות: <b style={{ color: C.offWhite }}>{COURSE_HOURS_LABEL}</b></p>
+          <p>קורס עזרה ראשונה: <b style={{ color: C.offWhite }}>{FIRST_AID_LABEL}</b></p>
+          <p>מיקום: <b style={{ color: C.offWhite }}>{COURSE_LOCATION}</b> (לניווט {COURSE_WAZE_HINT})</p>
+          <p>ציוד למפגשים: <b style={{ color: C.offWhite }}>{COURSE_EQUIPMENT}</b></p>
           <p>מספר משתתפים: <b style={{ color: C.offWhite }}>מינימום 8, מקסימום 15</b></p>
           <p>עלות: <b style={{ color: C.offWhite }}>3,200 ₪ כולל מע״מ למשתתף</b></p>
           <p>אופי הקורס: <b style={{ color: C.offWhite }}>מעשי ועיוני</b></p>
