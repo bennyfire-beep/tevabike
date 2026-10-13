@@ -9,7 +9,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
-import { COURSE_DATES_LABEL, COLLEGE_REGISTRATION_LINK, COLLEGE_PHONE } from '@/lib/instructors-course'
+import {
+  COURSE_DATES_LABEL,
+  COURSE_HOURS_LABEL,
+  COURSE_LOCATION,
+  COURSE_WAZE_HINT,
+  COURSE_EQUIPMENT,
+  FIRST_AID_LABEL,
+  COLLEGE_REGISTRATION_LINK,
+  COLLEGE_PHONE,
+} from '@/lib/instructors-course'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,7 +56,10 @@ function confirmationHtml(name: string) {
 
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px;margin:20px 0">
       <p style="margin:0 0 6px"><b style="color:#f0b90b">📅 מועד הקורס:</b> ${COURSE_DATES_LABEL}</p>
-      <p style="margin:0"><b style="color:#f0b90b">📍 איפה:</b> מועדון טבע בייק, משגב</p>
+      <p style="margin:0 0 6px"><b style="color:#f0b90b">🕗 שעות:</b> ${COURSE_HOURS_LABEL}</p>
+      <p style="margin:0 0 6px"><b style="color:#f0b90b">📍 איפה:</b> ${COURSE_LOCATION} (לניווט ${COURSE_WAZE_HINT})</p>
+      <p style="margin:0 0 6px"><b style="color:#f0b90b">🚲 ציוד:</b> ${COURSE_EQUIPMENT}</p>
+      <p style="margin:0"><b style="color:#f0b90b">🩹 עזרה ראשונה:</b> ${FIRST_AID_LABEL}</p>
     </div>
 
     ${linkBlock}
