@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { checkRateLimit } from '@/lib/auth-actions'
+import { checkRateLimit, resetRateLimit } from '@/lib/auth-actions'
 import { rolesOf, homeFor } from '@/lib/roles'
 
 export default function LoginPage() {
@@ -35,6 +35,11 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
+
+    // Same as /admin/login: a successful sign-in clears the counter. Without
+    // this every good login counted as an attempt, and the 4th in an hour
+    // would lock the user out.
+    await resetRateLimit(email.toLowerCase(), 'login')
 
     // התפקידים מ-admin_roles — שורה אחת לכל תפקיד, ויש מי שמחזיק כמה.
     // כאן עמדה .single(), שמחזירה שגיאה (לא שורה) כששתי שורות מתאימות, ולכן
