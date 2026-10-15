@@ -35,6 +35,9 @@ import { isBenny } from '@/lib/salary-access'
 //                    groups, then every group in the club across all branches.
 //                    Picking any of them opens the register; a group with no
 //                    session today gets one opened for it server-side.
+//                    Above them, "➕ דיווח שעות עבודה": the instructor's own
+//                    non-lesson hours (מחסן, עבודה מועדון...), filed through
+//                    /api/instructor/report-hours — see WorkHoursSection.
 //   התלמידים שלי   — the riders of the groups I teach.
 //   המשכורת שלי    — this month's pay, mine only.
 //   ★ גפן          — Benny and Tal only (lib/gefen-access.ts). Logs a special
@@ -104,6 +107,7 @@ type Session = {
   duration: number | null
   type: 'regular' | 'special' | null
   instructor_ids: string[] | null
+  created_via?: string | null
 }
 type Group = {
   id: string
@@ -628,6 +632,300 @@ function GefenSection({
   )
 }
 
+// ── "➕ דיווח שעות עבודה" ─────────────────────────────────────────────────────
+// Non-lesson work hours (עבודה במועדון, מחסן, בניה, ...) that the instructor
+// files themselves, through /api/instructor/report-hours. That route makes a
+// special-activity session of the same shape as the coordinator's "★ פעילות
+// מיוחדת", so pay reports price it at the instructor's own hourly rate with no
+// change. The instructor is taken from the access token on the server — this
+// component never sends an instructor id.
+//
+// Self-contained (own state, own fetches) and declared at module level so it
+// is a stable component type under the React Compiler.
+type WorkEntry = {
+  id: string
+  session_date: string
+  activity_name: string
+  duration: number
+  notes: string | null
+  created_at: string | null
+  self_reported: boolean
+  editable: boolean
+}
+type WorkList = { today: string; minDate: string; monthStart: string; entries: WorkEntry[] }
+
+const WORK_SUGGESTIONS = ['עבודה מועדון', 'מחסן', 'בניה', 'הכנת ציוד']
+
+function WorkHoursSection() {
+  const [list, setList]       = useState<WorkList | null>(null)
+  const [loadError, setLoadError] = useState('')
+  const [open, setOpen]       = useState(false)
+  // null = new report; otherwise the id of the report being fixed.
+  const [editId, setEditId]   = useState<string | null>(null)
+  const [date, setDate]       = useState('')
+  const [name, setName]       = useState('')
+  const [hours, setHours]     = useState('')
+  const [notes, setNotes]     = useState('')
+  const [saving, setSaving]   = useState(false)
+  const [formError, setFormError] = useState('')
+  const [busyId, setBusyId]   = useState<string | null>(null)
+  const [savedMsg, setSavedMsg] = useState('')
+
+  // Returns the list or an error message; callers decide when to set state,
+  // so the mount effect only sets state from the resolved promise.
+  const fetchList = useCallback(async (): Promise<{ list?: WorkList; error?: string }> => {
+    try {
+      const headers = await authHeaders()
+      if (!headers) return { error: 'החיבור פג — יש להתחבר מחדש' }
+      const r = await fetch('/api/instructor/report-hours', { headers })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) return { error: d.error ?? 'טעינת הדיווחים נכשלה' }
+      return { list: d as WorkList }
+    } catch (e) {
+      return { error: 'טעינת הדיווחים נכשלה: ' + (e as Error).message }
+    }
+  }, [])
+
+  const load = useCallback(async () => {
+    const res = await fetchList()
+    setLoadError(res.error ?? '')
+    if (res.list) setList(res.list)
+  }, [fetchList])
+
+  useEffect(() => {
+    let cancelled = false
+    fetchList().then(res => {
+      if (cancelled) return
+      setLoadError(res.error ?? '')
+      if (res.list) setList(res.list)
+    })
+    return () => { cancelled = true }
+  }, [fetchList])
+
+  function startNew() {
+    setEditId(null)
+    setDate(list?.today ?? localToday())
+    setName('')
+    setHours('')
+    setNotes('')
+    setFormError('')
+    setSavedMsg('')
+    setOpen(true)
+  }
+
+  function startEdit(e: WorkEntry) {
+    setEditId(e.id)
+    setDate(e.session_date)
+    setName(e.activity_name)
+    setHours(String(e.duration))
+    setNotes(e.notes ?? '')
+    setFormError('')
+    setSavedMsg('')
+    setOpen(true)
+  }
+
+  async function submit() {
+    const hrs = parseFloat(hours)
+    if (!name.trim()) { setFormError('צריך למלא שם פעילות'); return }
+    if (!Number.isFinite(hrs) || hrs < 0.25 || hrs > 16) { setFormError('מספר השעות חייב להיות בין 0.25 ל-16'); return }
+    if (!date) { setFormError('צריך לבחור תאריך'); return }
+
+    setFormError('')
+    setSaving(true)
+    try {
+      const headers = await authHeaders()
+      if (!headers) { setFormError('החיבור פג — יש להתחבר מחדש'); return }
+      const r = await fetch('/api/instructor/report-hours', {
+        method: editId ? 'PATCH' : 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(editId ? { id: editId } : {}),
+          date, activity_name: name.trim(), hours: hrs, notes: notes.trim(),
+        }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setFormError(d.error ?? 'השמירה נכשלה'); return }
+      setOpen(false)
+      setEditId(null)
+      setSavedMsg(editId ? '✓ הדיווח עודכן' : `✓ נשמרו ${hrs} שעות`)
+      await load()
+    } catch (e) {
+      setFormError('השמירה נכשלה: ' + (e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function remove(e: WorkEntry) {
+    if (!confirm(`למחוק את הדיווח "${e.activity_name}" (${e.duration} ש׳) מ-${fmtDay(e.session_date)}?`)) return
+    setBusyId(e.id)
+    setSavedMsg('')
+    try {
+      const headers = await authHeaders()
+      if (!headers) { setLoadError('החיבור פג — יש להתחבר מחדש'); return }
+      const r = await fetch(`/api/instructor/report-hours?id=${encodeURIComponent(e.id)}`, { method: 'DELETE', headers })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { alert(d.error ?? 'המחיקה נכשלה'); return }
+      if (editId === e.id) { setOpen(false); setEditId(null) }
+      await load()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const monthStart = list?.monthStart ?? ''
+  const entries    = list?.entries ?? []
+  const thisMonth  = entries.filter(e => e.session_date >= monthStart)
+  const lastMonth  = entries.filter(e => e.session_date < monthStart)
+  const monthHours = thisMonth.reduce((sum, e) => sum + e.duration, 0)
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', minHeight: 56, boxSizing: 'border-box', background: C.surface2, border: `1px solid ${C.border}`,
+    color: C.text, borderRadius: 14, padding: '0 16px', fontFamily: FONT, fontSize: 18,
+  }
+  const labelStyle: React.CSSProperties = { display: 'block', color: C.muted, fontSize: 15, fontWeight: 700, marginBottom: 6 }
+
+  const rows = (items: WorkEntry[]) => (
+    <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 18, overflow: 'hidden' }}>
+      {items.map((e, i) => (
+        <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '12px 16px', borderTop: i === 0 ? 'none' : `1px solid ${C.border}` }}>
+          <span style={{ minWidth: 64, fontSize: 13.5, color: C.muted }}>{fmtDay(e.session_date)}</span>
+          <span style={{ flex: 1, minWidth: 120, display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 15.5, fontWeight: 700, color: C.text }}>{e.activity_name}</span>
+            {!e.self_reported && <span style={{ fontSize: 12, color: C.muted }}>נרשם ע״י רכז</span>}
+            {e.notes && <span style={{ fontSize: 12.5, color: C.muted }}>{e.notes}</span>}
+          </span>
+          <span style={{ fontSize: 15, fontWeight: 800, color: C.present }}>{e.duration} ש׳</span>
+          {e.editable && (
+            <span style={{ display: 'flex', gap: 6 }}>
+              <button
+                onClick={() => startEdit(e)}
+                aria-label={`עריכת ${e.activity_name} מ-${fmtDay(e.session_date)}`}
+                style={{ minHeight: 40, minWidth: 40, background: C.surface2, border: `1px solid ${C.border}`, color: C.purpleSoft, borderRadius: 10, fontFamily: FONT, fontSize: 15, cursor: 'pointer' }}
+              >
+                ✎
+              </button>
+              <button
+                onClick={() => remove(e)}
+                disabled={busyId === e.id}
+                aria-label={`מחיקת ${e.activity_name} מ-${fmtDay(e.session_date)}`}
+                style={{ minHeight: 40, minWidth: 40, background: C.surface2, border: `1px solid ${C.border}`, color: C.absent, borderRadius: 10, fontFamily: FONT, fontSize: 15, cursor: busyId === e.id ? 'default' : 'pointer', opacity: busyId === e.id ? 0.5 : 1 }}
+              >
+                🗑
+              </button>
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+
+  return (
+    <section aria-label="דיווח שעות עבודה" style={{ marginBottom: 26 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+        <h2 style={{ flex: 1, minWidth: 150, fontSize: 17, fontWeight: 900, margin: 0, color: C.purpleSoft }}>
+          ⏱️ השעות שלי החודש{thisMonth.length > 0 ? ` · ${monthHours} ש׳` : ''}
+        </h2>
+        {!open && (
+          <button
+            onClick={startNew}
+            style={{ minHeight: 48, background: `linear-gradient(90deg, ${C.purple}, ${C.pink})`, color: '#fff', border: 'none', borderRadius: 14, padding: '0 18px', fontFamily: FONT, fontSize: 16, fontWeight: 900, cursor: 'pointer' }}
+          >
+            ➕ דיווח שעות עבודה
+          </button>
+        )}
+      </div>
+
+      {savedMsg && <p role="status" style={{ color: C.present, fontSize: 15, fontWeight: 700, margin: '0 0 12px' }}>{savedMsg}</p>}
+
+      {open && (
+        <div style={{ background: C.surface, border: `1px solid ${C.purple}`, borderRadius: 20, padding: '18px 18px', marginBottom: 16 }}>
+          <h3 style={{ fontSize: 18, fontWeight: 900, margin: '0 0 4px' }}>{editId ? '✎ תיקון דיווח' : '➕ דיווח שעות עבודה'}</h3>
+          <p style={{ color: C.muted, fontSize: 13.5, margin: '0 0 14px' }}>
+            עבודה שאינה אימון קבוצתי — נרשמת על שמך ומחושבת לפי התעריף השעתי שלך.
+          </p>
+
+          <label htmlFor="wh-date" style={labelStyle}>תאריך</label>
+          <input
+            id="wh-date" type="date" value={date} onChange={e => setDate(e.target.value)}
+            min={list?.minDate} max={list?.today} dir="ltr"
+            style={{ ...inputStyle, marginBottom: 14 }}
+          />
+
+          <label htmlFor="wh-name" style={labelStyle}>שם הפעילות</label>
+          <input
+            id="wh-name" value={name} onChange={e => setName(e.target.value)} maxLength={60}
+            placeholder="למשל: עבודה מועדון"
+            style={{ ...inputStyle, marginBottom: 8 }}
+          />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+            {WORK_SUGGESTIONS.map(s => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setName(s)}
+                aria-pressed={name === s}
+                style={{ minHeight: 40, background: name === s ? C.purple : C.surface2, color: name === s ? '#0d0b10' : C.purpleSoft, border: `1px solid ${name === s ? C.purple : C.border}`, borderRadius: 20, padding: '0 14px', fontFamily: FONT, fontSize: 14.5, fontWeight: 700, cursor: 'pointer' }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+
+          <label htmlFor="wh-hours" style={labelStyle}>מספר שעות</label>
+          <input
+            id="wh-hours" value={hours} onChange={e => setHours(e.target.value)}
+            type="number" inputMode="decimal" step="0.25" min="0.25" max="16" placeholder="0" dir="ltr"
+            style={{ ...inputStyle, marginBottom: 14 }}
+          />
+
+          <label htmlFor="wh-notes" style={labelStyle}>הערות (לא חובה)</label>
+          <textarea
+            id="wh-notes" value={notes} onChange={e => setNotes(e.target.value)} maxLength={500} rows={2}
+            style={{ ...inputStyle, minHeight: 72, padding: '12px 16px', fontSize: 16, resize: 'vertical' }}
+          />
+
+          {formError && <p role="alert" style={{ color: C.absent, fontSize: 15, margin: '12px 0 0' }}>{formError}</p>}
+
+          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+            <button
+              onClick={submit}
+              disabled={saving}
+              style={{ flex: 1, minHeight: 56, background: saving ? C.surface2 : `linear-gradient(90deg, ${C.purple}, ${C.pink})`, color: saving ? C.muted : '#fff', border: 'none', borderRadius: 16, fontFamily: FONT, fontWeight: 900, fontSize: 18, cursor: saving ? 'default' : 'pointer' }}
+            >
+              {saving ? 'שומר...' : editId ? '💾 שמירת תיקון' : '💾 שמירת דיווח'}
+            </button>
+            <button
+              onClick={() => { setOpen(false); setEditId(null); setFormError('') }}
+              disabled={saving}
+              style={{ minHeight: 56, background: 'transparent', border: `1px solid ${C.border}`, color: C.muted, borderRadius: 16, padding: '0 20px', fontFamily: FONT, fontWeight: 800, fontSize: 16, cursor: 'pointer' }}
+            >
+              ביטול
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loadError ? (
+        <p role="alert" style={{ color: C.absent, fontSize: 15, margin: 0 }}>{loadError}</p>
+      ) : !list ? (
+        <p style={{ color: C.muted, fontSize: 15, margin: 0 }}>טוען...</p>
+      ) : thisMonth.length === 0 ? (
+        <p style={{ color: C.muted, fontSize: 15, margin: 0 }}>עדיין אין שעות עבודה החודש.</p>
+      ) : (
+        rows(thisMonth)
+      )}
+
+      {lastMonth.length > 0 && (
+        <>
+          <h3 style={{ fontSize: 15, fontWeight: 800, color: C.muted, margin: '16px 0 8px' }}>החודש הקודם — עדיין אפשר לתקן</h3>
+          {rows(lastMonth)}
+        </>
+      )}
+    </section>
+  )
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 export default function InstructorPage() {
   const router = useRouter()
@@ -756,7 +1054,7 @@ export default function InstructorPage() {
       const [sessRes, groupRes, staffRes, mineRes] = await Promise.all([
         supabase
           .from('class_sessions')
-          .select('id, class_name, branch, session_date, instructor_id, group_id, start_time, duration, type, instructor_ids')
+          .select('id, class_name, branch, session_date, instructor_id, group_id, start_time, duration, type, instructor_ids, created_via')
           .eq('session_date', today)
           .order('start_time', { nullsFirst: true }),
         supabase
@@ -780,7 +1078,9 @@ export default function InstructorPage() {
       if (cancelled) return
 
       if (sessRes.error) setBoardError('טעינת האימונים נכשלה')
-      setDaySessions((sessRes.data ?? []) as Session[])
+      // Self-reported work hours have no register to mark — they are listed in
+      // "השעות שלי החודש" instead of as a session to open.
+      setDaySessions(((sessRes.data ?? []) as Session[]).filter(s => s.created_via !== 'instructor_self_report'))
       setGroups((groupRes.data ?? []) as Group[])
 
       const names: Record<string, string> = {}
@@ -1369,6 +1669,8 @@ export default function InstructorPage() {
                 {boardError}
               </p>
             )}
+
+            <WorkHoursSection />
 
             {loadingBoard ? (
               <p style={{ color: C.muted, textAlign: 'center', padding: 40, fontSize: 16 }}>טוען אימונים...</p>

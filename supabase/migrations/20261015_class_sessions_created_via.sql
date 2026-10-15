@@ -1,0 +1,14 @@
+-- Where a class_sessions row came from.
+--
+-- Added for instructor self-reported work hours (app/api/instructor/report-hours):
+-- an instructor may edit or delete an hours report only if they filed it
+-- themselves through that route. Sessions a coordinator created in the
+-- instructor's name (עבודה מועדון, מחסן, ...) look identical otherwise —
+-- same type='special', same instructor_id — so without a marker the route
+-- could not tell them apart and would let the instructor delete them.
+--
+-- Values:
+--   null                       — every existing row, and anything created by
+--                                the coordinator / admin screens
+--   'instructor_self_report'   — created by /api/instructor/report-hours
+alter table class_sessions add column if not exists created_via text;
