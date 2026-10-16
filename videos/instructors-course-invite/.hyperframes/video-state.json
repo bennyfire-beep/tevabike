@@ -1,0 +1,185 @@
+{
+  "version": 1,
+  "historyId": "7235f9d4-5034-4f48-a5ac-8d46c201c6f3",
+  "currentRevision": "80f8aa80-4930-45bc-b99a-1883b5507337",
+  "pendingChanges": false,
+  "files": {
+    "assets/fonts/heebo-hebrew-400-normal.woff2": {
+      "hash": "2bc607f150e17d5e334f2ce917a2385661f5f4457f212b5b3bed6a22fc1d2077",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/2b/2bc607f150e17d5e334f2ce917a2385661f5f4457f212b5b3bed6a22fc1d2077"
+    },
+    "assets/fonts/heebo-hebrew-700-normal.woff2": {
+      "hash": "7dee88b8da46dc5bbc8e7a4a14f1ae18ea506679b60f80ea765cf373a0c3073b",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/7d/7dee88b8da46dc5bbc8e7a4a14f1ae18ea506679b60f80ea765cf373a0c3073b"
+    },
+    "assets/fonts/heebo-hebrew-900-normal.woff2": {
+      "hash": "595fb95c473c13b02a8a3d0ae3e9f66858d77ad8b7581a3a2316248e4898b5b4",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/59/595fb95c473c13b02a8a3d0ae3e9f66858d77ad8b7581a3a2316248e4898b5b4"
+    },
+    "assets/fonts/heebo-latin-400-normal.woff2": {
+      "hash": "2fbe59e5561759450e111cff78825304c9278ec6ba5e808cbaff1c4a97dfa6fa",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/2f/2fbe59e5561759450e111cff78825304c9278ec6ba5e808cbaff1c4a97dfa6fa"
+    },
+    "assets/fonts/heebo-latin-700-normal.woff2": {
+      "hash": "2dd5f140b9902257dc0f38e89f47f79d40b31438abef118637d916861fd370bb",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/2d/2dd5f140b9902257dc0f38e89f47f79d40b31438abef118637d916861fd370bb"
+    },
+    "assets/fonts/heebo-latin-900-normal.woff2": {
+      "hash": "4e4a560a3c3dacfe914893a33d35a97192b7edbcf102bb326de1ea5b99d484f5",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/4e/4e4a560a3c3dacfe914893a33d35a97192b7edbcf102bb326de1ea5b99d484f5"
+    },
+    "assets/group.jpg": {
+      "hash": "483317528bc571166c8fcaece43901187e48b13e14878fac73a68a4188436316",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/48/483317528bc571166c8fcaece43901187e48b13e14878fac73a68a4188436316"
+    },
+    "assets/logos.jpg": {
+      "hash": "596b560e49ee6208fb63fbcdb0980cb5895fb07b69b8b43c3b5efbec3b6ca699",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/59/596b560e49ee6208fb63fbcdb0980cb5895fb07b69b8b43c3b5efbec3b6ca699"
+    },
+    "assets/riders.jpg": {
+      "hash": "648ac5648bfd7504b8445f8a89295285b8e24f8785d2cbf57c3ba2879dea0ecb",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/64/648ac5648bfd7504b8445f8a89295285b8e24f8785d2cbf57c3ba2879dea0ecb"
+    },
+    "assets/teva-bike-logo.png": {
+      "hash": "4b823bc67708a0247099972cd41cd88ef7f45b95bf60598792a093d4dd5fbfb0",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/4b/4b823bc67708a0247099972cd41cd88ef7f45b95bf60598792a093d4dd5fbfb0"
+    },
+    "hyperframes.json": {
+      "hash": "44d4e8dcefebce0a13f5afa82aa270b0b19a1d3f82e434f92616010cee775dc4",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/44/44d4e8dcefebce0a13f5afa82aa270b0b19a1d3f82e434f92616010cee775dc4"
+    },
+    "index.html": {
+      "hash": "84e520c32795414a331f7165b8cc2a20e394f2cb854878a0406ad143be21f44f",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/84/84e520c32795414a331f7165b8cc2a20e394f2cb854878a0406ad143be21f44f"
+    },
+    "meta.json": {
+      "hash": "8e9df76e0311e4955b522672c377e76875464c4c1281e788b09443e2632b7d86",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/8e/8e9df76e0311e4955b522672c377e76875464c4c1281e788b09443e2632b7d86"
+    },
+    "package.json": {
+      "hash": "11848d2af3243cca32cebf6cb4b36415e91c8cc052f4b082d1bafaa832c25608",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/11/11848d2af3243cca32cebf6cb4b36415e91c8cc052f4b082d1bafaa832c25608"
+    },
+    "vendor/gsap.min.js": {
+      "hash": "c174bfce53a729418d57a8ad8625e7247c793a22fef8e2851e3cfa3de9cd8280",
+      "content": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/c1/c174bfce53a729418d57a8ad8625e7247c793a22fef8e2851e3cfa3de9cd8280"
+    }
+  },
+  "revisions": {
+    "6731a741-0e3e-41c3-8994-fe76bdda9ab3": {
+      "actor": {
+        "kind": "outside",
+        "name": "Outside"
+      },
+      "label": "Changed outside the app",
+      "startedAt": 1792139922826,
+      "endedAt": 1792139922827,
+      "files": {
+        "index.html": {
+          "before": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/3c/3ca7a54b2efa46e5fc48e6432116defc2e3e7af1c1dbaf72168adf04e990bb7c",
+          "after": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/62/62601f40f28b1904671d95f48c4412117fb0ed4e506814a4eba34aee4a5672e2"
+        }
+      }
+    },
+    "80f8aa80-4930-45bc-b99a-1883b5507337": {
+      "actor": {
+        "kind": "outside",
+        "name": "Outside"
+      },
+      "label": "Changed outside the app",
+      "startedAt": 1792140004200,
+      "endedAt": 1792140004201,
+      "files": {
+        "index.html": {
+          "before": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/62/62601f40f28b1904671d95f48c4412117fb0ed4e506814a4eba34aee4a5672e2",
+          "after": "/root/.cache/hyperframes/history/7235f9d4-5034-4f48-a5ac-8d46c201c6f3/blobs/84/84e520c32795414a331f7165b8cc2a20e394f2cb854878a0406ad143be21f44f"
+        }
+      }
+    }
+  },
+  "checks": {
+    "latest": {
+      "revision": "6731a741-0e3e-41c3-8994-fe76bdda9ab3",
+      "id": "1990547c-c562-4e4e-80ef-213de808dd27"
+    },
+    "revisions": {
+      "6731a741-0e3e-41c3-8994-fe76bdda9ab3": [
+        {
+          "id": "1990547c-c562-4e4e-80ef-213de808dd27",
+          "scope": "project",
+          "report": "/home/user/tevabike/videos/instructors-course-invite/.hyperframes/artifacts/checks/1990547c-c562-4e4e-80ef-213de808dd27.json",
+          "metadata": {
+            "ok": true,
+            "browserSkipped": false,
+            "options": {
+              "samples": 9,
+              "atTransitions": false,
+              "maxIssues": 80,
+              "collapseStatic": true,
+              "tolerance": 2,
+              "timeout": 3000,
+              "contrast": true,
+              "strict": false,
+              "snapshots": false,
+              "browserGpuMode": "auto"
+            }
+          },
+          "createdAt": 1792139933514,
+          "contentHash": "e89c8f48403bcdaa86abf38b99e24da16401498ffb72ed63813ad72f9a5ed591",
+          "revision": "6731a741-0e3e-41c3-8994-fe76bdda9ab3",
+          "inputFingerprint": "f2c9940fb05cfbd300fe0c63019db565561abfa3262268d643090129741f094c",
+          "inputScope": "local-project-files",
+          "attribution": "recorded-revision"
+        }
+      ]
+    },
+    "unversioned": [
+      {
+        "id": "5c41d89e-e20a-43ff-82fe-8a0e303d9043",
+        "scope": "project",
+        "report": "/home/user/tevabike/videos/instructors-course-invite/.hyperframes/artifacts/checks/5c41d89e-e20a-43ff-82fe-8a0e303d9043.json",
+        "metadata": {
+          "ok": true,
+          "browserSkipped": false,
+          "options": {
+            "samples": 9,
+            "atTransitions": false,
+            "maxIssues": 80,
+            "collapseStatic": true,
+            "tolerance": 2,
+            "timeout": 3000,
+            "contrast": true,
+            "strict": false,
+            "snapshots": false,
+            "browserGpuMode": "auto"
+          }
+        },
+        "createdAt": 1792139838994,
+        "contentHash": "e89c8f48403bcdaa86abf38b99e24da16401498ffb72ed63813ad72f9a5ed591",
+        "revision": null,
+        "inputFingerprint": "7bd96cc6b016f8909518a4a79614b32cee2adbdb74c6947e968ee92847a89f6c",
+        "inputScope": "local-project-files",
+        "attribution": "unversioned"
+      }
+    ]
+  },
+  "snapshots": {
+    "latest": null,
+    "revisions": {},
+    "unversioned": []
+  },
+  "renders": {
+    "latest": {
+      "id": "4407836e-6a08-40bd-ad3f-c8047d2d132d",
+      "completedAt": 1792140065407,
+      "output": "/home/user/tevabike/videos/instructors-course-invite/renders/invite.mp4",
+      "status": "completed",
+      "revision": "80f8aa80-4930-45bc-b99a-1883b5507337"
+    },
+    "retainedRevisions": [
+      "80f8aa80-4930-45bc-b99a-1883b5507337",
+      "6731a741-0e3e-41c3-8994-fe76bdda9ab3"
+    ]
+  },
+  "pendingArtifactCleanup": []
+}

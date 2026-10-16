@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="he">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <!-- gsap@3.14.2 vendored locally: this sandbox's network policy blocks the CDN. -->
+    <script src="vendor/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: "Heebo"; src: url("assets/fonts/heebo-hebrew-400-normal.woff2") format("woff2"); font-weight: 400; unicode-range: U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F; font-display: block; }
+      @font-face { font-family: "Heebo"; src: url("assets/fonts/heebo-latin-400-normal.woff2") format("woff2"); font-weight: 400; unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF; font-display: block; }
+      @font-face { font-family: "Heebo"; src: url("assets/fonts/heebo-hebrew-700-normal.woff2") format("woff2"); font-weight: 700; unicode-range: U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F; font-display: block; }
+      @font-face { font-family: "Heebo"; src: url("assets/fonts/heebo-latin-700-normal.woff2") format("woff2"); font-weight: 700; unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF; font-display: block; }
+      @font-face { font-family: "Heebo"; src: url("assets/fonts/heebo-hebrew-900-normal.woff2") format("woff2"); font-weight: 900; unicode-range: U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F; font-display: block; }
+      @font-face { font-family: "Heebo"; src: url("assets/fonts/heebo-latin-900-normal.woff2") format("woff2"); font-weight: 900; unicode-range: U+0000-00FF, U+2000-206F, U+2190-21FF; font-display: block; }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0c1814; }
+      #root {
+        position: relative; width: 1080px; height: 1920px; overflow: hidden;
+        background: #0c1814; font-family: "Heebo", sans-serif; color: #f5f2ee; direction: rtl;
+      }
+      .clip { position: absolute; inset: 0; overflow: hidden; }
+      .pink { color: #d4288a; }
+      .lime { color: #c6f432; }
+      .abs { position: absolute; }
+      .center { left: 0; right: 0; text-align: center; }
+
+      /* ── scene 1: hook ── */
+      #s1-photo { position: absolute; inset: -40px; background: url("assets/riders.jpg") center 30% / cover; transform-origin: 50% 35%; }
+      #s1-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(12,24,20,0.15) 0%, rgba(12,24,20,0.35) 45%, rgba(12,24,20,0.95) 78%, #0c1814 100%); }
+      #s1-a { top: 1290px; font-size: 104px; font-weight: 900; line-height: 1; }
+      #s1-b { top: 1430px; font-size: 112px; font-weight: 900; line-height: 1; }
+      #s1-bar { top: 1570px; left: 50%; width: 360px; margin-left: -180px; height: 10px; background: #d4288a; transform-origin: 100% 50%; }
+
+      /* ── scene 2: title ── */
+      #s2-bg { position: absolute; inset: 0; background: radial-gradient(circle at 50% 40%, #2a1022 0%, #0c1814 70%); }
+      #s2-kicker { top: 470px; font-size: 40px; font-weight: 700; letter-spacing: 0.02em; color: #c6f432; }
+      .s2-line { font-weight: 900; line-height: 1.25; }
+      #s2-l1 { top: 545px; font-size: 150px; }
+      #s2-l2 { top: 735px; font-size: 150px; }
+      #s2-l3 { top: 945px; font-size: 128px; }
+      #s2-l3 span { display: inline-block; background: #d4288a; color: #fff; padding: 0 34px 12px; border-radius: 18px; }
+      #s2-sub { top: 1235px; font-size: 46px; font-weight: 400; color: #e6e1dc; }
+      #s2-sub b { font-weight: 900; color: #fff; }
+
+      /* ── scene 3: what you learn ── */
+      #s3-bg { position: absolute; inset: 0; background: #0c1814; }
+      #s3-card { position: absolute; left: 90px; top: 150px; width: 900px; height: 718px; border-radius: 36px; overflow: hidden; background: url("assets/group.jpg") center / cover; box-shadow: 0 30px 80px rgba(0,0,0,0.5); }
+      #s3-title { top: 950px; font-size: 84px; font-weight: 900; }
+      .s3-item { position: absolute; right: 110px; left: 110px; height: 132px; display: flex; align-items: center; gap: 34px; font-size: 54px; font-weight: 700; border-bottom: 2px solid rgba(245,242,238,0.14); }
+      .s3-item i { flex: none; width: 62px; height: 62px; border-radius: 50%; border: 5px solid #c6f432; position: relative; }
+      .s3-item i::after { content: ""; position: absolute; left: 13px; top: 6px; width: 15px; height: 28px; border: solid #c6f432; border-width: 0 7px 7px 0; transform: rotate(45deg); }
+
+      /* ── scene 4: details ── */
+      #s4-bg { position: absolute; inset: 0; background: linear-gradient(180deg, #0c1814 0%, #1b0f1a 100%); }
+      #s4-title { top: 250px; font-size: 96px; font-weight: 900; }
+      .s4-row { position: absolute; right: 100px; left: 100px; height: 230px; padding: 0 44px; border-radius: 30px; background: rgba(245,242,238,0.06); border: 2px solid rgba(245,242,238,0.10); display: flex; flex-direction: column; justify-content: center; }
+      .s4-row .k { font-size: 38px; font-weight: 700; color: #c6f432; margin-bottom: 8px; }
+      .s4-row .v { font-size: 56px; font-weight: 900; line-height: 1.15; }
+      .s4-row .v small { font-size: 42px; line-height: 1.4; font-weight: 400; color: #d8d2cc; }
+      #s4-limited { top: 1560px; left: 50%; width: 760px; margin-left: -380px; height: 120px; border-radius: 60px; background: #d4288a; font-size: 50px; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+
+      /* ── scene 5: CTA ── */
+      #s5-photo { position: absolute; inset: -40px; background: url("assets/riders.jpg") center 30% / cover; filter: blur(14px) brightness(0.35); }
+      #s5-logos { position: absolute; left: 90px; top: 380px; width: 900px; height: 366px; border-radius: 32px; overflow: hidden; background: url("assets/logos.jpg") center / cover; box-shadow: 0 30px 80px rgba(0,0,0,0.55); }
+      #s5-l1 { top: 860px; font-size: 92px; font-weight: 900; line-height: 1.05; }
+      #s5-l2 { top: 1080px; font-size: 48px; font-weight: 400; color: #e6e1dc; }
+      #s5-btn { top: 1260px; left: 50%; width: 840px; margin-left: -420px; height: 170px; border-radius: 85px; background: #d4288a; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 20px 60px rgba(212,40,138,0.45); }
+      #s5-btn .t { font-size: 46px; font-weight: 700; }
+      #s5-btn .u { font-size: 58px; font-weight: 900; direction: ltr; letter-spacing: 0.01em; }
+      #s5-tag { top: 1560px; font-size: 44px; font-weight: 900; letter-spacing: 0.02em; color: #c6f432; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="26" data-width="1080" data-height="1920">
+
+      <!-- Scene 1 — hook (0–4.8) -->
+      <div id="s1" class="clip" data-start="0" data-duration="4.8" data-track-index="0">
+        <div id="s1-photo" data-layout-allow-overflow></div>
+        <div id="s1-shade"></div>
+        <div id="s1-a" class="abs center">רוכבים מנוסים?</div>
+        <div id="s1-b" class="abs center">הגיע הזמן <span class="pink">להדריך.</span></div>
+        <div id="s1-bar" class="abs"></div>
+      </div>
+
+      <!-- Scene 2 — course title (4.5–9.8) -->
+      <div id="s2" class="clip" data-start="4.5" data-duration="5.3" data-track-index="1">
+        <div id="s2-bg"></div>
+        <div id="s2-kicker" class="abs center">טבע בייק אקדמי מזמינה אתכם</div>
+        <div id="s2-l1" class="abs center s2-line">קורס מדריכי</div>
+        <div id="s2-l2" class="abs center s2-line">רכיבה טכנית</div>
+        <div id="s2-l3" class="abs center s2-line"><span>באופני הרים</span></div>
+        <div id="s2-sub" class="abs center">בשיתוף <b>מכללת משגב</b> לחינוך וספורט</div>
+      </div>
+
+      <!-- Scene 3 — what you learn (9.5–15.8) -->
+      <div id="s3" class="clip" data-start="9.5" data-duration="6.3" data-track-index="0">
+        <div id="s3-bg"></div>
+        <div id="s3-card"></div>
+        <div id="s3-title" class="abs center">מה <span class="pink">תלמדו?</span></div>
+        <div class="s3-item" style="top:1080px"><i></i>בניית שיעור וניהול סיכונים</div>
+        <div class="s3-item" style="top:1212px"><i></i>עקרונות ההדרכה הטכנית</div>
+        <div class="s3-item" style="top:1344px"><i></i>ניהול והובלת קבוצה בשטח</div>
+        <div class="s3-item" style="top:1476px"><i></i>התמודדות עם אירועים בשטח</div>
+        <div class="s3-item" style="top:1608px; border-bottom:none"><i></i>הרבה תרגול מעשי בשטח</div>
+      </div>
+
+      <!-- Scene 4 — details (15.5–21.3) -->
+      <div id="s4" class="clip" data-start="15.5" data-duration="5.8" data-track-index="1">
+        <div id="s4-bg"></div>
+        <div id="s4-title" class="abs center">פרטי <span class="pink">הקורס</span></div>
+        <div class="s4-row" style="top:420px"><div class="k">מתי?</div><div class="v">ימי שישי · 13.11 + 20.11<br /><small>בין 08:00 ל־15:30</small></div></div>
+        <div class="s4-row" style="top:680px"><div class="k">איפה?</div><div class="v">מועדון טבע בייק, רקפת</div></div>
+        <div class="s4-row" style="top:940px"><div class="k">כולל</div><div class="v">15 שעות הדרכה מעשית ועיונית<br /><small>ועוד 15 שעות עזרה ראשונה</small></div></div>
+        <div class="s4-row" style="top:1200px"><div class="k">בסיום</div><div class="v">תעודת מדריך רכיבה טכנית</div></div>
+        <div id="s4-limited" class="abs">מספר המקומות מוגבל!</div>
+      </div>
+
+      <!-- Scene 5 — CTA (21–26) -->
+      <div id="s5" class="clip" data-start="21" data-duration="5" data-track-index="0">
+        <div id="s5-photo" data-layout-allow-overflow></div>
+        <div id="s5-logos"></div>
+        <div id="s5-l1" class="abs center">הופכים ניסיון רכיבה<br /><span class="pink">ליכולת הדרכה</span></div>
+        <div id="s5-l2" class="abs center">לפרטים והרשמה</div>
+        <div id="s5-btn" class="abs"><div class="u">tevabike.com</div></div>
+        <div id="s5-tag" class="abs center">ידע. שליטה. קהילה.</div>
+      </div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+      window.__timelines["main"] = tl;
+      var IN = "power3.out";
+
+      // Scene 1 — slow push on the riders, two-line hook
+      tl.fromTo("#s1-photo", { scale: 1.12 }, { scale: 1.0, duration: 4.8, ease: "power1.out" }, 0);
+      tl.fromTo("#s1-a", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: IN }, 0.35);
+      tl.fromTo("#s1-b", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: IN }, 1.4);
+      tl.fromTo("#s1-bar", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "power2.out" }, 1.9);
+      tl.to("#s1", { scale: 1.6, opacity: 0, filter: "blur(10px)", duration: 0.4, ease: "power3.in" }, 4.4);
+
+      // Scene 2 — title cascade
+      tl.fromTo("#s2", { scale: 0.6, opacity: 0, filter: "blur(10px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.4, ease: IN }, 4.5);
+      tl.fromTo("#s2-kicker", { y: -30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: IN }, 4.75);
+      tl.fromTo(["#s2-l1", "#s2-l2"], { y: 90, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: IN, stagger: 0.22 }, 4.95);
+      tl.fromTo("#s2-l3", { scale: 0.5, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.55, ease: "back.out(1.6)" }, 5.6);
+      tl.fromTo("#s2-sub", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, ease: IN }, 6.3);
+      tl.to("#s2", { xPercent: 100, duration: 0.45, ease: "power3.in" }, 9.35);
+
+      // Scene 3 — photo card + checklist
+      tl.fromTo("#s3", { xPercent: -100 }, { xPercent: 0, duration: 0.45, ease: IN }, 9.5);
+      tl.fromTo("#s3-card", { scale: 1.08 }, { scale: 1, duration: 6.3, ease: "power1.out" }, 9.5);
+      tl.fromTo("#s3-title", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.5, ease: IN }, 10.0);
+      tl.fromTo(".s3-item", { x: -80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: IN, stagger: 0.55 }, 10.5);
+      tl.to("#s3", { opacity: 0, duration: 0.3, ease: "power2.in" }, 15.5);
+
+      // Scene 4 — detail rows
+      tl.fromTo("#s4", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" }, 15.5);
+      tl.fromTo("#s4-title", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.5, ease: IN }, 15.7);
+      tl.fromTo(".s4-row", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.5, ease: IN, stagger: 0.45 }, 16.1);
+      tl.fromTo("#s4-limited", { scale: 0.4, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.8)" }, 18.4);
+      tl.to("#s4", { scale: 1.4, opacity: 0, filter: "blur(10px)", duration: 0.35, ease: "power3.in" }, 20.95);
+
+      // Scene 5 — CTA lockup, then hold
+      tl.fromTo("#s5", { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" }, 21.0);
+      tl.fromTo("#s5-logos", { y: -60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: IN }, 21.15);
+      tl.fromTo("#s5-l1", { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: IN }, 21.6);
+      tl.fromTo("#s5-l2", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: IN }, 22.2);
+      tl.fromTo("#s5-btn", { scale: 0.5, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.55, ease: "back.out(1.7)" }, 22.4);
+      tl.fromTo("#s5-tag", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: IN }, 23.0);
+      tl.to("#s5-btn", { scale: 1.05, duration: 0.35, ease: "power2.inOut", yoyo: true, repeat: 1 }, 24.0);
+
+      tl.to({}, { duration: 26 }, 0);
+    </script>
+  </body>
+</html>
