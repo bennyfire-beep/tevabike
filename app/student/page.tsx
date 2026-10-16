@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { riderGroupIds } from '@/lib/rider-groups'
 import { checkRateLimit, resetRateLimit } from '@/lib/auth-actions'
+import StudentActivities from '@/components/StudentActivities'
 
 // ─── Brand ────────────────────────────────────────────────────────────────────
 const PINK   = '#D4288A'
@@ -569,6 +570,9 @@ export default function StudentPage() {
 
       {/* ── Content ── */}
       <div style={{ maxWidth: 500, margin: '0 auto', padding: '20px 16px 80px' }}>
+
+        {/* ── Activities: camps, shuttle days, trips — register + who's going ── */}
+        <StudentActivities riderId={rider.id} />
 
         {/* ── Circular progress + motivation ── */}
         <Card style={{ textAlign: 'center', padding: '32px 24px' }}>
