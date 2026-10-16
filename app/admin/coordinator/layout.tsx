@@ -33,6 +33,7 @@ const NAV: NavGroup[] = [
     { href: '/admin/coordinator/interval', label: 'טיימר אינטרוול', icon: '⏱️' },
     { href: '/admin/coordinator/history', label: 'היסטוריה', icon: '🕓' },
     { href: '/admin/coordinator/registrations', label: 'הרשמות', icon: '📝' },
+    { href: '/admin/coordinator/activities', label: 'פעילויות באפליקציה', icon: '📱' },
     { href: '/admin/coordinator/workshops', label: 'סדנאות', icon: '🎒' },
     { href: '/admin/coordinator/camp', label: 'ימי שיא', icon: '🏕️' },
     { href: '/admin/coordinator/camp-sukkot', label: 'מחנה סוכות', icon: '⛺' },
