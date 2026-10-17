@@ -11,16 +11,16 @@
 // Hard cap per date — vehicles are booked, not elastic.
 export const CAPACITY = 15
 
-export const PRICE = 180
+// Current round: one training day ahead of the Israel Championship.
+export const PRICE = 150
 
-// Arbox payment link for the current round — one link priced per day; riders
-// who registered for both days are told to set the quantity to 2 there.
+// Arbox payment link — same link reused across rounds; riders are told the
+// price on this page, Arbox itself is configured separately per round.
 // null → the confirmation screen says the link will be sent on WhatsApp.
 export const PAY_URL: string | null = 'https://arbox.link/NqkgOCKC'
 
 export const DATES = [
-  { value: '2026-10-09', label: 'שישי 9.10', long: 'יום שישי 9 באוקטובר' },
-  { value: '2026-10-16', label: 'שישי 16.10', long: 'יום שישי 16 באוקטובר' },
+  { value: '2026-10-30', label: 'שישי 30.10', long: 'יום שישי 30 באוקטובר' },
 ] as const
 
 export const HOURS = '8:00–13:00'
