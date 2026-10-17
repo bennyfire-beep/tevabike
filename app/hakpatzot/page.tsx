@@ -121,26 +121,23 @@ export default function HakpatzotPage() {
   return (
     <div dir="rtl" className="min-h-screen bg-stone-950 text-stone-100">
       <div className="max-w-lg mx-auto">
-        {/* poster */}
-        <img src="/hakpatzot-poster-shveitz.jpg" alt="הרשמה להקפצות יער שוויץ — טבע בייק" className="w-full h-auto block" />
-
         {/* hero */}
         <header
           className="px-6 pt-8 pb-9"
           style={{ background: 'linear-gradient(160deg,#1B1220 0%, #241A28 55%, #2E1224 100%)' }}
         >
           <p className="text-xs font-bold tracking-[.14em] mb-2" style={{ color: PINK }}>
-            הקפצות לתחרות · יער שוויץ · ימי שישי
+            יום אימונים · לקראת אליפות ישראל
           </p>
           <h1 className="text-3xl font-extrabold mb-3">הרשמה להקפצות</h1>
           <p className="text-stone-300 text-[15px] leading-relaxed mb-5">
-            קבוצת טבע בייק מסיעה אתכם למסלולים לקראת התחרות. בחרו תאריך, השאירו פרטים ותפסו מקום.
+            קבוצת טבע בייק מסיעה אתכם למסלולים ביום האימונים לקראת אליפות ישראל. השאירו פרטים ותפסו מקום.
           </p>
           <ul className="flex flex-wrap gap-2 text-sm">
             {DATES.map((d) => (
               <li key={d.value} className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">📅 {d.label}</li>
             ))}
-            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">🕗 {HOURS} · יער שוויץ</li>
+            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">🕗 {HOURS} · אוהל הקבוצה</li>
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">💳 {PRICE} ₪ לרוכב ליום</li>
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">🎟️ {CAPACITY} מקומות בכל יום</li>
           </ul>
@@ -178,9 +175,15 @@ export default function HakpatzotPage() {
           {/* info */}
           <ul className="bg-stone-900 rounded-xl p-4 space-y-2 text-[14.5px] text-stone-300">
             <li>📅 {DATES.map((d) => d.long).join(' ו־')} · {HOURS}.</li>
-            <li>🚐 מפגש ביער שוויץ בשעה 8:00, יציאה להקפצות כ־10 דקות אחרי. סיום בשעה 13:00.</li>
-            <li>🎟️ כל יום מוגבל ל־{CAPACITY} רוכבים בלבד — לפי סדר ההרשמה. אפשר להירשם ליום אחד או לשניהם.</li>
-            <li>💳 {PRICE} ₪ לרוכב לכל יום · נרשמים לשני הימים? בעמוד התשלום מסמנים כמות 2.</li>
+            <li>🚐 מפגש באוהל הקבוצה בשעה 8:00, יציאה להקפצות כ־10 דקות אחרי. סיום בשעה 13:00.</li>
+            <li>
+              🎟️ {DATES.length > 1
+                ? `כל יום מוגבל ל־${CAPACITY} רוכבים בלבד — לפי סדר ההרשמה. אפשר להירשם ליום אחד או לשניהם.`
+                : `מוגבל ל־${CAPACITY} רוכבים בלבד — לפי סדר ההרשמה.`}
+            </li>
+            <li>
+              💳 {PRICE} ₪ לרוכב{DATES.length > 1 ? ' לכל יום · נרשמים לשני הימים? בעמוד התשלום מסמנים כמות 2.' : '.'}
+            </li>
             <li>💳 מקום נשמר אך ורק לאחר ביצוע תשלום בפועל.</li>
           </ul>
 
@@ -220,7 +223,7 @@ export default function HakpatzotPage() {
           ) : !loading && allClosed ? (
             <section className="text-center bg-stone-900 rounded-xl p-6 space-y-1.5">
               <h2 className="text-lg font-bold">ההרשמה סגורה</h2>
-              <p className="text-stone-400 text-sm">כל המקומות בשני הימים נתפסו. אם יתפנה מקום נעדכן כאן.</p>
+              <p className="text-stone-400 text-sm">כל המקומות נתפסו. אם יתפנה מקום נעדכן כאן.</p>
             </section>
           ) : (
             <section className="space-y-5">
@@ -229,7 +232,9 @@ export default function HakpatzotPage() {
               <Field label="טלפון *" type="tel" value={form.phone} onChange={(v) => set('phone', v)} />
 
               <div>
-                <label className="block text-sm text-stone-400 mb-1.5">תאריך * (אפשר לבחור את שניהם)</label>
+                <label className="block text-sm text-stone-400 mb-1.5">
+                  תאריך {DATES.length > 1 ? '* (אפשר לבחור את שניהם)' : '*'}
+                </label>
                 <div className="grid grid-cols-2 gap-2">
                   {DATES.map((d) => {
                     const full = byDate(d.value)?.closed ?? false
