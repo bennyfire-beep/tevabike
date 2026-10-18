@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveCaller, currentMonth, monthBounds } from '@/lib/instructor-identity'
 import { DEFAULT_HOURLY_RATE, GEFEN_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
-import { lessonPayConfigOf, lessonRateFor, coTaughtPresent } from '@/lib/lesson-pay'
+import { lessonPayConfigOf, lessonRateFor, coTaughtPresent, type PayBand } from '@/lib/lesson-pay'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "המשכורת שלי" — this month's pay for the signed-in instructor, and nobody
@@ -100,6 +100,21 @@ export async function GET(req: NextRequest) {
       .lte('travel_date', last),
   ])
 
+  // Manual per-session band pins (session_pay_overrides, Benny-only writes) —
+  // read with the service role since this route's own RLS-facing client
+  // reads as the instructor, who has no read access to the table. Fetched
+  // only for this instructor's own sessions so a rate-changing bug here
+  // cannot leak another instructor's override into their view.
+  const sessionIds = ((sessRes.data ?? []) as Array<{ id: string }>).map(s => s.id)
+  const overrideOf: Record<string, PayBand> = {}
+  if (sessionIds.length) {
+    const { data: overrideRows } = await db
+      .from('session_pay_overrides')
+      .select('session_id, band')
+      .in('session_id', sessionIds)
+    for (const o of overrideRows ?? []) overrideOf[o.session_id] = o.band as PayBand
+  }
+
   if (sessRes.error) {
     console.error('[instructor/my-salary] class_sessions query failed:', sessRes.error.message)
     return NextResponse.json({ error: 'שגיאה בטעינת השיעורים' }, { status: 500 })
@@ -176,7 +191,7 @@ export async function GET(req: NextRequest) {
       if (s.instructor_id) taughtBy.add(s.instructor_id)
       for (const extra of s.instructor_ids ?? []) taughtBy.add(extra)
       const bandPresent = coTaughtPresent(present, taughtBy.size || 1)
-      const rate = lessonRateFor(pay, bandPresent)
+      const rate = lessonRateFor(pay, bandPresent, overrideOf[s.id] ?? null)
       items.push({
         key: 'ls-' + s.id,
         kind: 'regular',

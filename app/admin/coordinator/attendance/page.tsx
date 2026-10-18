@@ -83,6 +83,11 @@ export default function AttendancePage() {
   const [newGroupId, setNewGroupId]   = useState('')
   const [newInstructor, setNewInst]   = useState('')
   const [newInstructor2, setNewInst2] = useState('')
+  // A third instructor sometimes co-teaches too, e.g. a large group split
+  // across many riders (see מיני גרביטי א/ב, משגב) — the instructor's own
+  // "open session" screen already supports any number via instructor_ids,
+  // this just brings the coordinator's own creation form up to the same 3.
+  const [newInstructor3, setNewInst3] = useState('')
   const [newHours, setNewHours]       = useState('1.5')
   const [creating, setCreating]       = useState(false)
 
@@ -199,7 +204,7 @@ export default function AttendancePage() {
     const g = groups.find(x => x.id === newGroupId)
     if (!g) return
     setCreating(true)
-    const ids = [newInstructor, newInstructor2].filter(Boolean)
+    const ids = [newInstructor, newInstructor2, newInstructor3].filter(Boolean)
     const { data, error } = await supabase
       .from('class_sessions')
       .insert({
@@ -217,6 +222,7 @@ export default function AttendancePage() {
     loadAttendance(s)
     setShowNew(false)
     setNewInst2('')
+    setNewInst3('')
     setCreating(false)
   }
 
@@ -485,7 +491,14 @@ export default function AttendancePage() {
               <label style={{ fontSize: 11, color: '#7a8f7d', display: 'block', marginBottom: 4 }}>🤝 מדריך שותף (אופציונלי)</label>
               <select value={newInstructor2} onChange={e => setNewInst2(e.target.value)} style={inp}>
                 <option value="">ללא</option>
-                {instructors.filter(i => i.active && i.id !== newInstructor).map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                {instructors.filter(i => i.active && i.id !== newInstructor && i.id !== newInstructor3).map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: '#7a8f7d', display: 'block', marginBottom: 4 }}>🤝 מדריך שותף נוסף (אופציונלי)</label>
+              <select value={newInstructor3} onChange={e => setNewInst3(e.target.value)} style={inp}>
+                <option value="">ללא</option>
+                {instructors.filter(i => i.active && i.id !== newInstructor && i.id !== newInstructor2).map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>
             </div>
             <div>

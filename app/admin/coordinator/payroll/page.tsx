@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { DEFAULT_HOURLY_RATE, GEFEN_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
-import { lessonPayConfigOf, lessonRateFor, coTaughtPresent } from '@/lib/lesson-pay'
+import { lessonPayConfigOf, lessonRateFor, coTaughtPresent, type PayBand } from '@/lib/lesson-pay'
 import { isSalaryAdmin, isBenny } from '@/lib/salary-access'
 import { currentMonth, monthBounds } from '@/lib/month'
 
@@ -89,6 +89,11 @@ type LineItem = {
   // for a session opened by mistake. base/travel items aren't real sessions
   // and have nothing to delete.
   sessionId: string | null
+  // kind='regular' only — a manual band pin from session_pay_overrides, and
+  // this instructor's own configured rate for each tier (for the override
+  // control's button labels). Absent/null = priced from attendance as usual.
+  overrideBand?: PayBand | null
+  bandRates?: { low: number; mid: number | null; high: number } | null
 }
 type PersonGroup = {
   name: string
@@ -184,6 +189,17 @@ export default function PayrollPage() {
       .gte('session_date', first)
       .lte('session_date', last)
       .order('session_date')
+
+    // Manual per-session band pins (session_pay_overrides) — set only by
+    // Benny, for a session whose recorded attendance is known to be wrong
+    // (see deleteSessionRow's sibling concern below: bad data, not a bad
+    // rate). Read is open to both salary admins so Shir sees the same
+    // numbers; RLS is the real gate on writing it, not this screen.
+    const { data: bandOverrideRows } = await supabase
+      .from('session_pay_overrides')
+      .select('session_id, band')
+    const bandOverrideOf: Record<string, PayBand> = {}
+    for (const o of bandOverrideRows ?? []) bandOverrideOf[o.session_id] = o.band as PayBand
 
     // Per-month travel override, typed into the salary report.
     const { data: travelRows } = await supabase
@@ -282,12 +298,14 @@ export default function PayrollPage() {
         // in full, only which band they fall into shifts. Divided by everyone
         // who actually taught (allCredited), not just those on payroll, so an
         // unpaid co-instructor (e.g. Benny) still lightens the paid one's band.
-        const bandPresent = coTaughtPresent(present, allCredited.length)
+        const bandPresent  = coTaughtPresent(present, allCredited.length)
+        const overrideBand = bandOverrideOf[s.id] ?? null
         for (const iid of credited) {
           const cfg  = lessonCfgOf[iid]
-          const rate = lessonRateFor(cfg, bandPresent)
+          const rate = lessonRateFor(cfg, bandPresent, overrideBand)
           // Show which band was picked — the flat model has only one, so it says nothing.
-          const banded = lessonPayConfigOf(cfg).model === 'by_attendance'
+          const payCfg = lessonPayConfigOf(cfg)
+          const banded = payCfg.model === 'by_attendance'
           items.push({
             key: s.id + iid,
             name: nameOf[iid] ?? 'מדריך לא ידוע',
@@ -297,6 +315,8 @@ export default function PayrollPage() {
             present,
             pay: rate,
             sessionId: s.id,
+            overrideBand,
+            bandRates: banded ? { low: payCfg.low, mid: payCfg.mid, high: payCfg.high } : null,
           })
         }
       }
@@ -375,6 +395,21 @@ export default function PayrollPage() {
     const { error } = await supabase.from('class_sessions').delete().eq('id', id)
     setDeletingSession(null)
     if (error) { alert('מחיקת האימון נכשלה: ' + error.message); return }
+    load(month)
+  }
+
+  // Manual band pin — Benny only (session_pay_overrides RLS is the real
+  // enforcement; canDelete just decides whether the control renders at all,
+  // same as deleteSessionRow above). band=null clears back to automatic.
+  const [savingOverride, setSavingOverride] = useState<string | null>(null)
+  async function setOverride(sessionId: string, band: PayBand | null) {
+    if (!canDelete) return
+    setSavingOverride(sessionId)
+    const { error } = band
+      ? await supabase.from('session_pay_overrides').upsert({ session_id: sessionId, band })
+      : await supabase.from('session_pay_overrides').delete().eq('session_id', sessionId)
+    setSavingOverride(null)
+    if (error) { alert('עדכון התעריף הידני נכשל: ' + error.message); return }
     load(month)
   }
 
@@ -533,7 +568,8 @@ export default function PayrollPage() {
                       // it doesn't narrow a repeated property access the same way.
                       const sessionId = it.sessionId
                       return (
-                      <div key={it.key} style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 120px 30px', ...cell, borderTop: '1px solid #141716', alignItems: 'center' }}>
+                      <div key={it.key}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 120px 30px', ...cell, borderTop: '1px solid #141716', alignItems: 'center' }}>
                         <span style={{ color: '#7a8f7d' }}>{it.date ? new Date(it.date + 'T12:00:00').toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : '—'}</span>
                         <span>
                           <span style={{ fontWeight: 600 }}>{it.label}</span>
@@ -543,7 +579,14 @@ export default function PayrollPage() {
                             ? <span style={{ marginRight: 6, background: '#81d4fa22', color: '#81d4fa', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>🚗 נסיעות</span>
                             : it.kind === 'special'
                               ? <span style={{ marginRight: 6, background: '#c084fc22', color: '#c084fc', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>★ מיוחדת</span>
-                              : it.branch && <span style={{ marginRight: 6, background: (BRANCH_COLOR[it.branch] ?? '#7a8f7d') + '22', color: BRANCH_COLOR[it.branch] ?? '#7a8f7d', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>{it.branch}</span>}
+                              : (
+                                <>
+                                  {it.branch && <span style={{ marginRight: 6, background: (BRANCH_COLOR[it.branch] ?? '#7a8f7d') + '22', color: BRANCH_COLOR[it.branch] ?? '#7a8f7d', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>{it.branch}</span>}
+                                  {it.overrideBand && (
+                                    <span title="התעריף נקבע ידנית ולא לפי הנוכחות" style={{ marginRight: 6, background: '#f0b90b22', color: '#f0b90b', borderRadius: 10, padding: '1px 8px', fontSize: 11 }}>✋ ידני</span>
+                                  )}
+                                </>
+                              )}
                         </span>
                         <span style={{ color: '#b5e853' }}>{it.present ?? '—'}</span>
                         <span style={{ color: '#4cdb7a', fontWeight: 700 }}>₪{it.pay.toLocaleString()}</span>
@@ -557,6 +600,39 @@ export default function PayrollPage() {
                             >🗑</button>
                           )}
                         </span>
+                      </div>
+                      {/* Manual band-pin control — Benny only (canDelete), regular
+                          lessons only. Overrides the attendance-derived band for
+                          this whole session (both credited instructors), for a
+                          session whose recorded present_count is known to be
+                          wrong rather than a rate that needs changing. */}
+                      {sessionId && canDelete && it.kind === 'regular' && it.bandRates && (
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', padding: '0 16px 10px 16px' }}>
+                          <span style={{ fontSize: 10, color: '#5f6f62' }}>תעריף ידני:</span>
+                          {([['low', it.bandRates.low], ['mid', it.bandRates.mid], ['high', it.bandRates.high]] as [PayBand, number | null][]).map(([band, amount]) => {
+                            if (amount == null) return null
+                            const active = it.overrideBand === band
+                            return (
+                              <button
+                                key={band}
+                                onClick={() => setOverride(sessionId, active ? null : band)}
+                                disabled={savingOverride === sessionId}
+                                style={{
+                                  fontSize: 11, padding: '2px 9px', borderRadius: 10,
+                                  border: `1px solid ${active ? '#f0b90b' : '#252b27'}`,
+                                  background: active ? '#f0b90b22' : 'transparent',
+                                  color: active ? '#f0b90b' : '#7a8f7d',
+                                  cursor: savingOverride === sessionId ? 'default' : 'pointer',
+                                  opacity: savingOverride === sessionId ? 0.5 : 1,
+                                  fontFamily: 'Heebo, Arial, sans-serif',
+                                }}
+                              >
+                                ₪{amount}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
                       </div>
                       )
                     })}
