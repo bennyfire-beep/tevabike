@@ -164,6 +164,8 @@ export async function POST(req: NextRequest) {
   // נועלים את המחיר לנרשם/ת לפי מספר הנרשמים הפעילים ברגע ההרשמה
   const activeCount = await countActiveRegistrations(supabase, trip.id)
   const packagePrice = activeCount < EARLY_BIRD_SLOTS ? EARLY_BIRD_PRICE : REGULAR_PRICE
+  // הנרשם/ת שתפס/ה את המקום האחרון במחיר השקה — מתריעים לבני וטל
+  const earlyBirdSoldOut = packagePrice === EARLY_BIRD_PRICE && activeCount + 1 >= EARLY_BIRD_SLOTS
   const priceLine = `מחיר החבילה שנקבע: ${packagePrice.toLocaleString()} ש"ח${packagePrice === EARLY_BIRD_PRICE ? ' (מחיר השקה)' : ''}`
 
   const { error } = await supabase.from('trip_registrations').insert({
@@ -232,9 +234,7 @@ export async function POST(req: NextRequest) {
       ``,
       trip.bank_details ? `להעברה בנקאית:\n${trip.bank_details}` : `פרטי ההעברה יישלחו בוואטסאפ.`,
       ``,
-      trip.payment_note || '',
-      ``,
-      `המקום נשמר סופית רק לאחר קבלת המקדמה.`,
+      trip.payment_note || `המקום נשמר סופית רק לאחר קבלת המקדמה.`,
       ``,
       meetingLine,
       ``,
@@ -250,10 +250,13 @@ export async function POST(req: NextRequest) {
   // התראה לבני וטל
   await sendEmail(
     ADMIN_EMAILS,
-    `הרשמה חדשה — ${trip.title}: ${riderNameHe}`,
+    `הרשמה חדשה — ${trip.title}: ${riderNameHe}${earlyBirdSoldOut ? ' · מחיר ההשקה נגמר' : ''}`,
     [
       trip.title,
       ``,
+      earlyBirdSoldOut
+        ? `🔔 זה היה המקום האחרון במחיר השקה (${EARLY_BIRD_SLOTS} מתוך ${EARLY_BIRD_SLOTS}). מהנרשם/ת הבא/ה המחיר ${REGULAR_PRICE.toLocaleString()} ש"ח, והמבצע ירד מהאתר אוטומטית.\n`
+        : '',
       `רוכב/ת: ${riderNameHe} (${riderNameEn})`,
       `תאריך לידה: ${birthDate} · ת"ז: ${idNumber}`,
       `נייד הרוכב/ת: ${riderPhone}`,
@@ -263,6 +266,7 @@ export async function POST(req: NextRequest) {
       `צילום דרכון: ${passportPath ? 'הועלה' : 'לא הועלה'}`,
       `הצהרות: תנאים כלליים ${termsAccepted ? '✔' : '✘'} · בריאות ${healthDeclared ? '✔' : '✘'} · התחייבות ביטוח ${insuranceCommitted ? '✔' : '✘'}`,
       priceLine,
+      hasMeeting ? `מפגש הכנה: ${meetingDate} בשעה ${String(trip.workshop_start).slice(0, 5)}${trip.workshop_location ? `, ${trip.workshop_location}` : ''}` : '',
       ``,
       `לשלוח פרטי העברה למקדמה של ₪${deposit}`,
     ].join('\n'),
