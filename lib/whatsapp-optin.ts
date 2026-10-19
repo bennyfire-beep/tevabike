@@ -23,6 +23,7 @@ export const WHATSAPP_OPTIN_SOURCES = {
   instructors_course: 'קורס מדריכים',
   ride_sessions: 'טיולי רכיבה',
   parent_meeting: 'אסיפת הורים',
+  sovev_ramon: 'סובב מצפה רמון',
 } as const
 
 export type WhatsappOptinSource = keyof typeof WHATSAPP_OPTIN_SOURCES
