@@ -1,13 +1,14 @@
 // app/sovev-ramon/page.tsx — יום רכיבה "סובב מצפה רמון", יום הבחירות 27.10.2026
-// דף נחיתה סטטי: תיאור, לוח זמנים, ציוד ושני קישורי תשלום Arbox (עם הסעה / הגעה עצמאית).
+// דף נחיתה: תיאור, לוח זמנים, ציוד וטופס הרשמה. הרכב מוגבל ל-RIDE_SEATS רוכבים (lib/sovev-ramon.ts);
+// אחרי ההרשמה הרוכב מקבל את קישור התשלום ב-Arbox שמתאים לאופן ההגעה.
 // תמונת השיתוף (og:image) והתמונה הראשית: public/trips/sovev-ramon.jpg
 
 import type { Metadata } from 'next'
+import RegisterForm from './RegisterForm'
+import { RIDE_SEATS } from '@/lib/sovev-ramon'
 
 const HERO = '/trips/sovev-ramon.jpg'
 
-const PAY_WITH_RIDE = 'https://arbox.link/bgpFmBiE' // 180 ₪ — מגיעים עם טבע בייק ברכב
-const PAY_INDEPENDENT = 'https://arbox.link/yEo2CTwd' // 150 ₪ — מגיעים עצמאית
 
 const C = { dark: '#0C1814', brand: '#D4288A', greenMid: '#1F3D2A', card: '#152A1E', offWhite: '#F5F2EE', muted: '#D8E2DC' }
 
@@ -70,25 +71,6 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
-function PayButton({ href, price, label, sub }: { href: string; price: number; label: string; sub: string }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block rounded-2xl p-5 border-2 text-center transition-transform hover:-translate-y-0.5"
-      style={{ borderColor: C.brand, background: `${C.brand}14` }}
-    >
-      <span className="block text-sm" style={{ color: C.muted }}>{sub}</span>
-      <span className="block text-xl font-bold mt-1">{label}</span>
-      <span className="block text-3xl font-black mt-2" style={{ color: C.brand }}>{price} ₪</span>
-      <span className="inline-block mt-3 rounded-xl px-6 py-2.5 font-bold" style={{ background: C.brand, color: '#fff' }}>
-        להרשמה ותשלום ←
-      </span>
-    </a>
-  )
-}
-
 export default function SovevRamonPage() {
   return (
     <main dir="rtl" className="min-h-screen" style={{ background: C.dark, color: C.offWhite }}>
@@ -128,12 +110,11 @@ export default function SovevRamonPage() {
       </section>
 
       <section className="px-6 pb-8">
-        <div className="max-w-2xl mx-auto grid sm:grid-cols-2 gap-4">
-          <PayButton href={PAY_WITH_RIDE} price={180} label="מגיעים איתי ברכב" sub="🚗 הסעה עם טבע בייק" />
-          <PayButton href={PAY_INDEPENDENT} price={150} label="מגיעים עצמאית" sub="🚙 ברכב שלכם" />
+        <div className="max-w-2xl mx-auto">
+          <RegisterForm />
         </div>
         <p className="max-w-2xl mx-auto text-center text-sm mt-3" style={{ color: C.muted }}>
-          המחיר כולל הובלה מקצועית במסלול והקפצת רכבים לנקודת הסיום. המקומות ברכב מוגבלים.
+          המחיר כולל הובלה מקצועית במסלול והקפצת רכבים לנקודת הסיום. ברכב יש {RIDE_SEATS} מקומות בלבד, כל הקודם זוכה.
         </p>
       </section>
 
