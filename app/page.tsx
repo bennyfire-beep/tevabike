@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import AvatarVideo, { hasAvatarVideo } from '@/components/AvatarVideo'
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
 const PINK      = '#D4288A'
@@ -191,6 +192,21 @@ export default function Home() {
       {/* ════════════════════════════ MORZINE YOUTH 2027 ════════════════════════════ */}
       <MorzineYouthPromo />
 
+      {/* ════════════════════════════ WELCOME VIDEO ════════════════════════════ */}
+      {hasAvatarVideo('welcome') && (
+        <section style={{ background: GREEN, padding: '72px 24px' }}>
+          <div style={{ maxWidth: 820, margin: '0 auto', textAlign: 'center' }}>
+            <span style={{ background: `${PINK}28`, color: PINK, borderRadius: 20, padding: '5px 18px', fontSize: 12, fontWeight: 700, letterSpacing: '0.05em' }}>
+              הכירו אותנו
+            </span>
+            <h2 style={{ color: '#fff', fontSize: 'clamp(1.7rem, 3.2vw, 2.4rem)', fontWeight: 900, margin: '14px 0 32px', letterSpacing: '-0.025em' }}>
+              ברוכים הבאים לטבע בייק
+            </h2>
+            <AvatarVideo id="welcome" style={{ boxShadow: '0 16px 48px rgba(0,0,0,0.4)' }} />
+          </div>
+        </section>
+      )}
+
       {/* ════════════════════════════ STATS STRIP ════════════════════════════ */}
       <section style={{ background: DARK }}>
         <div style={{ maxWidth: 960, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
@@ -251,6 +267,13 @@ export default function Home() {
               </button>
             ))}
           </div>
+
+          {/* Avatar intro for the selected tab */}
+          {hasAvatarVideo(tab) && (
+            <div style={{ maxWidth: 720, margin: '0 auto 40px' }}>
+              <AvatarVideo key={tab} id={tab} style={{ boxShadow: '0 8px 28px rgba(0,0,0,0.12)' }} />
+            </div>
+          )}
 
           {/* Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 20 }}>
