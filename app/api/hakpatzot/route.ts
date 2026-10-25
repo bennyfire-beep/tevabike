@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
-import { CAPACITY, DATE_VALUES, DATE_LABEL, GROUP_LABEL, AREA_LABEL } from '@/lib/hakpatzot'
+import { CAPACITY, REGISTRATION_CLOSED, DATE_VALUES, DATE_LABEL, GROUP_LABEL, AREA_LABEL } from '@/lib/hakpatzot'
 
 // ============================================================
 // נתיב: app/api/hakpatzot/route.ts
@@ -39,7 +39,7 @@ export async function GET() {
     return {
       date,
       count: mine.length,
-      closed: mine.length >= CAPACITY,
+      closed: REGISTRATION_CLOSED || mine.length >= CAPACITY,
       roster: mine.map((r) => ({
         first_name: r.first_name,
         last_initial: (r.last_name || '').trim().charAt(0),
@@ -120,6 +120,10 @@ export async function POST(req: NextRequest) {
     }
     if (!consent) {
       return NextResponse.json({ error: 'יש לאשר את סעיף האחריות והסיכונים' }, { status: 400 })
+    }
+
+    if (REGISTRATION_CLOSED) {
+      return NextResponse.json({ error: 'ההרשמה סגורה — המקומות התמלאו.', closed: true }, { status: 409 })
     }
 
     const db = admin()
