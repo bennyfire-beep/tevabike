@@ -16,7 +16,7 @@ export const CAPACITY = 15
 // true → the public form and API treat every date as closed regardless of
 // the actual count; existing registrations and the admin screen are
 // unaffected. Reset to false when opening the next round.
-export const REGISTRATION_CLOSED = true
+export const REGISTRATION_CLOSED = false
 
 // Current round: one training day ahead of the Israel Championship.
 export const PRICE = 150
