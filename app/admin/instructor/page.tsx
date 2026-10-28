@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import RiderForm from '@/components/RiderForm'
-import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
+import { resolveGroupId, loadRegister } from '@/lib/rider-groups'
 import { clearAdminSession } from '@/lib/auth-actions'
 import { today as localToday, monthLabel as fmtMonth, currentMonth, monthBounds } from '@/lib/month'
 import { rowForRole } from '@/lib/roles'
@@ -1154,37 +1154,11 @@ export default function InstructorPage() {
       return
     }
 
-    const groupId = await resolveGroupId(s.group_id, s.class_name, s.branch)
-    let list: Rider[] = []
-    if (groupId) {
-      const ids = await groupRiderIds(groupId)
-      if (ids.length) {
-        const { data } = await supabase
-          .from('riders')
-          .select('id, full_name, phone, payment_status')
-          .in('id', ids)
-          .order('full_name')
-        list = (data ?? []) as Rider[]
-      }
-    } else {
-      const { data } = await supabase
-        .from('riders')
-        .select('id, full_name, phone, payment_status')
-        .eq('group_name', s.class_name).eq('branch', s.branch).eq('is_regular', true)
-        .order('full_name')
-      list = (data ?? []) as Rider[]
-    }
-
-    const { data: attData } = await supabase
-      .from('attendance')
-      .select('rider_id, present')
-      .eq('session_id', s.id)
-
-    const map: Record<string, boolean> = {}
-    for (const a of attData ?? []) map[a.rider_id] = a.present
-    for (const r of list) if (!(r.id in map)) map[r.id] = true
-    setRiders(list)
-    setAttendance(map)
+    // Saved attendance rows are authoritative; the group roster only seeds an
+    // unsaved register (see loadRegister).
+    const reg = await loadRegister<Rider>(s, 'id, full_name, phone, payment_status')
+    setRiders(reg.riders)
+    setAttendance(reg.attendance)
     setLoadingRiders(false)
   }, [])
 

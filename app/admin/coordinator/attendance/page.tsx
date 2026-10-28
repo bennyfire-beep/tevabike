@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { resolveGroupId, groupRiderIds } from '@/lib/rider-groups'
+import { resolveGroupId, loadRegister } from '@/lib/rider-groups'
 import { saveAttendance as persistAttendance } from '@/lib/attendance'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { isBenny } from '@/lib/salary-access'
@@ -164,35 +164,11 @@ export default function AttendancePage() {
       return
     }
 
-    // Group membership now lives in rider_groups.
-    const groupId = await resolveGroupId(s.group_id, s.class_name, s.branch)
-    let list: Rider[] = []
-    if (groupId) {
-      const ids = await groupRiderIds(groupId)
-      if (ids.length) {
-        const { data: riderData } = await supabase
-          .from('riders')
-          .select('id, full_name, phone')
-          .in('id', ids)
-          .order('full_name')
-        list = riderData ?? []
-      }
-    } else {
-      // Legacy fallback when no matching group row exists.
-      const { data: riderData } = await supabase
-        .from('riders')
-        .select('id, full_name, phone')
-        .eq('group_name', s.class_name).eq('branch', s.branch).eq('is_regular', true)
-        .order('full_name')
-      list = riderData ?? []
-    }
-
-    const { data: attData } = await supabase.from('attendance').select('rider_id, present').eq('session_id', s.id)
-    setRiders(list)
-    const map: Record<string, boolean> = {}
-    for (const a of attData ?? []) map[a.rider_id] = a.present
-    for (const r of list) if (!(r.id in map)) map[r.id] = true
-    setAtt(map)
+    // Saved attendance rows are authoritative; the group roster only seeds an
+    // unsaved register (see loadRegister).
+    const reg = await loadRegister<Rider>(s, 'id, full_name, phone')
+    setRiders(reg.riders)
+    setAtt(reg.attendance)
   }, [])
 
   async function createSession() {
