@@ -16,9 +16,6 @@ const C = {
   muted: '#BFD0C5',
 }
 
-const WHATSAPP_NUMBER = '972584708084'
-const waLink = (text: string) => `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`
-
 const FEATURES = [
   { emoji: '🚲', title: 'מתקני אחסון אופניים חדשניים', text: 'לשמירה נוחה ומסודרת על האופניים שלכם.' },
   { emoji: '💪', title: 'חלל לפעילות Indoor', text: 'לאימונים ולפעילויות גם מחוץ למסלולים.' },
@@ -28,9 +25,9 @@ const FEATURES = [
 ]
 
 const PLANS = [
-  { id: 'storage', emoji: '🚲', name: 'אחסנת אופניים במועדון', price: 25, was: null as number | null, featured: false },
-  { id: 'combo', emoji: '🚲🚿', name: 'חבילה משולבת: אחסנה + מקלחות חופשי', price: 45, was: 50, featured: true },
-  { id: 'showers', emoji: '🚿', name: 'שימוש במקלחות המועדון', price: 25, was: null, featured: false },
+  { id: 'storage', emoji: '🚲', name: 'אחסנת אופניים במועדון', price: 25, was: null as number | null, featured: false, payUrl: 'https://arbox.link/CNWZksHf' },
+  { id: 'combo', emoji: '🚲🚿', name: 'חבילה משולבת: אחסנה + מקלחות חופשי', price: 45, was: 50, featured: true, payUrl: 'https://arbox.link/eSVSPD8g' },
+  { id: 'showers', emoji: '🚿', name: 'שימוש במקלחות המועדון', price: 25, was: null, featured: false, payUrl: 'https://arbox.link/k1e9AKYp' },
 ]
 
 export default function ClubPage() {
@@ -123,7 +120,7 @@ export default function ClubPage() {
                   <span className="text-sm" style={{ color: C.muted }}> / לחודש</span>
                 </div>
                 <a
-                  href={waLink(`היי, אני מעוניין/ת במנוי במועדון החדש של טבע בייק: ${p.name} (${p.price} ₪ לחודש)`)}
+                  href={p.payUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block rounded-xl py-3 font-bold transition hover:opacity-90"
@@ -133,7 +130,7 @@ export default function ClubPage() {
                       : { background: 'transparent', color: C.offWhite, border: `1px solid ${C.brand}` }
                   }
                 >
-                  💬 אני רוצה להצטרף
+                  💳 להצטרפות ותשלום
                 </a>
               </div>
             ))}
