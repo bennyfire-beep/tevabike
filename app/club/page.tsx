@@ -145,7 +145,6 @@ export default function ClubPage() {
             אנחנו ממשיכים להשקיע, להתפתח ולבנות עבורכם בית לרכיבה, לאימונים, למפגשים ולחוויות משותפות.
           </p>
           <p className="text-2xl font-black">💜🚵‍♂️ כי טבע בייק זה הרבה יותר מרכיבה — זה בית! 🏠🔥</p>
-          <p style={{ color: C.muted }}>פרטים נוספים על פתיחת המועדון בקרוב!</p>
           <p className="font-bold" style={{ color: C.brand }}>צוות טבע בייק 🚴‍♂️💜</p>
         </div>
       </section>
