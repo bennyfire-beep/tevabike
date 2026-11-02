@@ -43,7 +43,6 @@ export default function SiteNav() {
             <a href="/#classes" className="nav-link">חוגים</a>
             <a href="/calendar" className="nav-link">לוח שנה</a>
             <a href="/terms" className="nav-link">תקנון</a>
-            <a href="/club" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>המועדון החדש</a>
             <a href="/morzine-2027" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מורזין נוער 2027</a>
             <a href="/camp-hanukkah" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מחנה חנוכה</a>
             <a href="/workshop-airbag" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>סדנת איר באג</a>
