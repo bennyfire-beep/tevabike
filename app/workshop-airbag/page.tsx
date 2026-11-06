@@ -129,8 +129,8 @@ export default function WorkshopAirbagPage() {
         />
         <div className="relative max-w-2xl mx-auto space-y-5">
           <img
-            src="/workshop-hero.jpg.jpg"
-            alt="רוכב באוויר מעל כרית האוויר של טבע בייק — סשן איר באג"
+            src="/airbag-session-nov13.jpg"
+            alt="פוסטר סשן איירבג — 13 בנובמבר, 09:00–13:00, מוזמנים"
             className="w-full rounded-2xl border shadow-lg"
             style={{ borderColor: `${C.brand}55` }}
           />
