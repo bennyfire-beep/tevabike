@@ -15,7 +15,7 @@ import { downloadCsv } from '@/lib/csv-export'
 import {
   PAYMENT_METHODS,
   PAYMENT_METHOD_LABEL,
-  PAYMENT_STATUS_LABEL,
+  statusLabel,
   type PaymentMethod,
 } from '@/lib/workshop-payment'
 
@@ -46,6 +46,7 @@ type Registration = {
 const STATUS_BADGE: Record<string, string> = {
   paid: 'bg-lime-950 text-lime-300 border-lime-800',
   pending: 'bg-amber-950 text-amber-300 border-amber-800',
+  free: 'bg-sky-950 text-sky-300 border-sky-800',
   cancelled: 'bg-stone-800 text-stone-400 border-stone-700',
 }
 
@@ -116,7 +117,7 @@ export default function WorkshopsAdminPage() {
       ['תאריך סדנה', 'נרשם בתאריך', 'שם מלא', 'טלפון', 'אימייל', 'גיל', 'מותג אופניים', 'סטטוס תשלום', 'הערות'],
       shown.map((r) => [
         fmtDate(r.workshop_date), fmtDateTime(r.created_at), r.full_name, r.phone, r.email,
-        r.age ?? '', r.bike_brand ?? '', PAYMENT_STATUS_LABEL[r.payment_status as 'pending' | 'paid'] ?? r.payment_status,
+        r.age ?? '', r.bike_brand ?? '', statusLabel(r.payment_status),
         r.notes ?? '',
       ]),
     )
@@ -177,13 +178,13 @@ export default function WorkshopsAdminPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 mb-5">
-          {(['all', 'pending', 'paid', 'cancelled'] as const).map((s) => (
+          {(['all', 'pending', 'paid', 'free', 'cancelled'] as const).map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
               className={`px-3 py-1.5 rounded-lg text-xs ${statusFilter === s ? 'bg-stone-100 text-stone-950 font-semibold' : 'bg-stone-900 text-stone-400'}`}
             >
-              {s === 'all' ? 'הכל' : PAYMENT_STATUS_LABEL[s as 'pending' | 'paid'] ?? 'בוטל'}
+              {s === 'all' ? 'הכל' : statusLabel(s)}
             </button>
           ))}
         </div>
@@ -224,7 +225,7 @@ export default function WorkshopsAdminPage() {
                   <div className="flex flex-col items-end gap-2">
                     <span className="text-xs text-stone-600 whitespace-nowrap">{fmtDateTime(reg.created_at)}</span>
                     <span className={`text-xs px-2 py-1 rounded-full border ${STATUS_BADGE[reg.payment_status] ?? STATUS_BADGE.cancelled}`}>
-                      {PAYMENT_STATUS_LABEL[reg.payment_status as 'pending' | 'paid'] ?? 'בוטל'}
+                      {statusLabel(reg.payment_status)}
                     </span>
                   </div>
                 </div>

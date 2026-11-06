@@ -21,6 +21,19 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   paid:    'שולם',
 }
 
+// Teva Bike club riders register for the airbag session free of charge. The
+// public form sets this status itself (app/api/workshop-register) — it is not
+// one of the statuses a coordinator toggles between.
+export const FREE_STATUS = 'free'
+export const FREE_STATUS_LABEL = 'חינם — רוכב טבע בייק'
+
+/** Label for any stored status, including 'free' and 'cancelled'. */
+export const statusLabel = (s: string): string =>
+  s === FREE_STATUS ? FREE_STATUS_LABEL : PAYMENT_STATUS_LABEL[s as PaymentStatus] ?? 'בוטל'
+
+/** Club groups whose riders join the airbag session free. */
+export const CLUB_GROUPS = ['גרביטי', 'מיני גרביטי', 'ביריה', 'מטה אשר'] as const
+
 export const PAYMENT_METHODS = ['arbox', 'paybox', 'bit', 'bank', 'other'] as const
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
 
