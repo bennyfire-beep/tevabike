@@ -1,10 +1,11 @@
-// app/workshop-airbag/page.tsx — דף רישום סדנת איר באג (גרסה 7 — תיקון שם קובץ תמונה)
+// app/workshop-airbag/page.tsx — דף רישום סשן איר באג (גרסה 8 — סשן 13.11, פתוח לרוכבים מבחוץ, 180 ₪, בלי הנחת מותגים)
 "use client";
 
 import { useEffect, useState } from "react";
 import { WHATSAPP_OPTIN_LABEL } from "@/lib/whatsapp-optin";
 
-const PAYMENT_LINK = "https://arbox.link/IdCW6--f";
+const PAYMENT_LINK = "https://arbox.link/IdCW6--f"; // Arbox: "סשיין air bag" — 180 ₪
+const PRICE = 180;
 
 const C = {
   brand: "#D4288A",
@@ -16,24 +17,15 @@ const C = {
 };
 
 const DATES = [
-  { value: "2026-09-25", label: "שישי 25.9", sub: "רגע לפני החג · 8:00–11:00" },
-  { value: "2026-09-11", label: "שישי 11.9", sub: "ערב ראש השנה · 8:00–12:00" },
-];
-
-const BRANDS = [
-  { value: "", label: "מותג האופניים שלי (לא חובה)" },
-  { value: "whistle", label: "Whistle — ‏10% הנחה 🎁" },
-  { value: "ktm", label: "KTM — ‏10% הנחה 🎁" },
-  { value: "bh", label: "BH — ‏10% הנחה 🎁" },
-  { value: "other", label: "מותג אחר" },
+  { value: "2026-11-13", label: "שישי 13.11", sub: "9:00–13:00" },
 ];
 
 const WAIVER = [
-  "אני מאשר/ת את השתתפותי בסדנת האיר באג של טבע בייק.",
+  "אני מאשר/ת את השתתפותי בסשן האיר באג של טבע בייק.",
   "ידוע לי שרכיבת שטח וקפיצות הן פעילות אתגרית הכוללת סיכונים מהותיים, לרבות נפילה, פציעה ונזק גופני, ואני מאשר/ת את ההשתתפות מתוך בחירה מלאה ובאחריותי.",
   "ידוע לי שנדרשת יכולת רכיבה בסיסית ומעלה.",
   "אני אחראי/ת להגיע עם אופניים תקינים ובטיחותיים, קסדת פול פייס, מיגון גוף, מים וציוד אישי כנדרש.",
-  "אני מתחייב/ת לעדכן את מארגני הסדנה בכל מגבלה רפואית או רגישות רלוונטית.",
+  "אני מתחייב/ת לעדכן את מארגני הסשן בכל מגבלה רפואית או רגישות רלוונטית.",
 ];
 
 export default function WorkshopAirbagPage() {
@@ -42,8 +34,7 @@ export default function WorkshopAirbagPage() {
     phone: "",
     email: "",
     age: "",
-    workshop_date: "2026-09-25",
-    bike_brand: "",
+    workshop_date: "2026-11-13",
     notes: "",
   });
   const [waiver, setWaiver] = useState(false);
@@ -88,8 +79,6 @@ export default function WorkshopAirbagPage() {
     }
   }
 
-  const discount = ["whistle", "ktm", "bh"].includes(form.bike_brand);
-
   const input =
     "w-full rounded-lg p-3 outline-none border transition placeholder:opacity-60";
   const inputStyle = {
@@ -118,10 +107,10 @@ export default function WorkshopAirbagPage() {
             className="block w-full rounded-xl py-4 text-lg font-bold transition hover:opacity-90"
             style={{ background: C.brand, color: "#fff" }}
           >
-            לתשלום מאובטח — 200 ₪ {discount && "(10% הנחה תינתן בסדנה)"}
+            לתשלום מאובטח — {PRICE} ₪
           </a>
           <p className="text-xs" style={{ color: "#7E948A" }}>
-            ביטול עד 14 יום לפני הסדנה — החזר של 50% · פחות מ־3 ימים לפני — ללא החזר
+            ביטול עד 14 יום לפני הסשן — החזר של 50% · פחות מ־3 ימים לפני — ללא החזר
           </p>
         </div>
       </main>
@@ -140,13 +129,13 @@ export default function WorkshopAirbagPage() {
         />
         <div className="relative max-w-2xl mx-auto space-y-5">
           <img
-            src="/workshop-hero.jpg.jpg"
-            alt="רוכב באוויר מעל כרית האוויר של טבע בייק — סדנת איר באג"
+            src="/airbag-session-nov13.jpg"
+            alt="פוסטר סשן איירבג — 13 בנובמבר, 09:00–13:00, מוזמנים"
             className="w-full rounded-2xl border shadow-lg"
             style={{ borderColor: `${C.brand}55` }}
           />
           <p className="font-bold tracking-widest text-sm" style={{ color: C.brand }}>
-            טבע בייק · סדנת AIR BAG
+            טבע בייק · סשן AIR BAG · שישי 13.11
           </p>
           <h1 className="text-4xl sm:text-5xl font-black leading-tight">
             לשלוט באוויר.
@@ -158,10 +147,11 @@ export default function WorkshopAirbagPage() {
             זה לא חוסר כישרון. זו טכניקה שאף אחד לא לימד אותך.
           </p>
           <p className="leading-relaxed" style={{ color: "#D8E2DC" }}>
-            הפעם עם <b style={{ color: C.brand }}>שתי כריות אוויר</b> — אחת קטנה
-            לחימום ואחת גדולה להתקדמות — סביבה בטוחה לטעות, לתקן, ולבנות ביטחון
-            אמיתי באוויר. מתאים גם למתחילים שרוצים להתחיל בבטחה, וגם למתקדמים
-            שרוצים לדייק. תוך בוקר אחד: המראה יציבה, שליטה באוויר, נחיתה רכה.
+            סשן של ארבע שעות עם <b style={{ color: C.brand }}>שתי כריות אוויר</b> —
+            ארבג קטנה לחימום וארבג גדולה להתקדמות — סביבה בטוחה לטעות, לתקן,
+            ולבנות ביטחון אמיתי באוויר. <b style={{ color: C.brand }}>פתוח לכל
+            הרוכבים — גם מחוץ לטבע בייק.</b> מתאים גם למתחילים שרוצים להתחיל
+            בבטחה, וגם למתקדמים שרוצים לדייק.
           </p>
         </div>
       </section>
@@ -171,11 +161,11 @@ export default function WorkshopAirbagPage() {
         <div className="max-w-2xl mx-auto grid grid-cols-2 gap-3 text-sm">
           {[
             ["📍 איפה", "משגב, פארק אוסטרליה (בוויז)"],
-            ["🕗 מתי", "שישי 25.9 (8:00–11:00) או 11.9 (8:00–12:00)"],
-            ["🎯 למי", "מתחילים ומתקדמים"],
-            ["💰 עלות", "200 ₪ · Whistle/KTM/BH — ‏10% הנחה"],
+            ["🕗 מתי", "שישי 13.11 · 9:00–13:00"],
+            ["🎯 למי", "פתוח לכולם — גם לרוכבים מבחוץ"],
+            ["💰 עלות", `${PRICE} ₪`],
             ["🚲 להביא", "אופניים תקינים, קסדת פול פייס, מיגון"],
-            ["👥 מקומות", "מספר מקומות מוגבל לכל תאריך"],
+            ["👥 מקומות", "מספר מקומות מוגבל"],
           ].map(([k, v]) => (
             <div
               key={k}
@@ -197,10 +187,10 @@ export default function WorkshopAirbagPage() {
         >
           <h2 className="font-bold text-lg mb-3">הלו״ז</h2>
           <ul className="space-y-2 text-sm" style={{ color: "#D8E2DC" }}>
-            <li><b style={{ color: C.brand }}>8:00</b> — קפה קטן והיכרות</li>
-            <li><b style={{ color: C.brand }}>8:30</b> — חימום על כרית האוויר הקטנה</li>
-            <li><b style={{ color: C.brand }}>9:00</b> — קפיצות על כרית האוויר הגדולה</li>
-            <li><b style={{ color: C.brand }}>סיום</b> — לפי השעה שנבחרה למעלה, סיכום והתארגנות</li>
+            <li><b style={{ color: C.brand }}>9:00</b> — התכנסות, היכרות ותדריך</li>
+            <li><b style={{ color: C.brand }}>9:30</b> — חימום על הארבג הקטנה</li>
+            <li><b style={{ color: C.brand }}>10:30</b> — קפיצות על הארבג הגדולה</li>
+            <li><b style={{ color: C.brand }}>13:00</b> — סיום וסיכום</li>
           </ul>
         </div>
       </section>
@@ -211,10 +201,10 @@ export default function WorkshopAirbagPage() {
           className="max-w-2xl mx-auto rounded-2xl p-6 space-y-4 border"
           style={{ background: C.green, borderColor: `${C.brand}55` }}
         >
-          <h2 className="text-2xl font-black">הרשמה לסדנה</h2>
+          <h2 className="text-2xl font-black">הרשמה לסשן</h2>
 
           {/* Date picker */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             {DATES.map((d) => {
               const active = form.workshop_date === d.value;
               return (
@@ -269,16 +259,6 @@ export default function WorkshopAirbagPage() {
             value={form.email}
             onChange={(e) => set("email", e.target.value)}
           />
-          <select
-            className={input}
-            style={inputStyle}
-            value={form.bike_brand}
-            onChange={(e) => set("bike_brand", e.target.value)}
-          >
-            {BRANDS.map((b) => (
-              <option key={b.value} value={b.value}>{b.label}</option>
-            ))}
-          </select>
           <textarea
             className={input}
             style={inputStyle}
@@ -287,12 +267,6 @@ export default function WorkshopAirbagPage() {
             value={form.notes}
             onChange={(e) => set("notes", e.target.value)}
           />
-
-          {discount && (
-            <p className="text-sm font-bold" style={{ color: C.brand }}>
-              🎁 מגיעה לך 10% הנחה! ההנחה תינתן בסדנה עם הצגת האופניים.
-            </p>
-          )}
 
           {/* תנאי השתתפות ואחריות */}
           <div
@@ -306,8 +280,8 @@ export default function WorkshopAirbagPage() {
               <p key={line} className="mb-1">{line}</p>
             ))}
             <p className="mt-2" style={{ color: "#7E948A" }}>
-              תנאי ביטול: ביטול עד 14 יום לפני הסדנה — החזר של 50%. פחות מ־3 ימים
-              לפני הסדנה — ללא החזר.
+              תנאי ביטול: ביטול עד 14 יום לפני הסשן — החזר של 50%. פחות מ־3 ימים
+              לפני הסשן — ללא החזר.
             </p>
             <label className="flex items-start gap-2 mt-3 cursor-pointer select-none">
               <input
@@ -343,8 +317,7 @@ export default function WorkshopAirbagPage() {
 
           {status === "full" && (
             <p className="text-sm font-bold" style={{ color: "#FF8FA3" }}>
-              הסדנה בתאריך הזה מלאה 😢 נסה את התאריך השני, או השאר פרטים בצור קשר
-              ונעדכן אם יתפנה מקום.
+              הסשן מלא 😢 השאר פרטים בצור קשר ונעדכן אם יתפנה מקום.
             </p>
           )}
           {status === "error" && (

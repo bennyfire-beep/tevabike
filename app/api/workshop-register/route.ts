@@ -1,11 +1,12 @@
-// app/api/workshop-register/route.ts — גרסה 2: תיקון שליחת מיילים (await)
+// app/api/workshop-register/route.ts — גרסה 3: סשן איר באג 13.11 (9:00–13:00, 180 ₪, בלי הנחת מותגים)
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 
 export const dynamic = 'force-dynamic'
 
-const PAYMENT_LINK = 'https://arbox.link/IdCW6--f'
+const PAYMENT_LINK = 'https://arbox.link/IdCW6--f' // Arbox: "סשיין air bag" — 180 ₪
+const PRICE = 180
 const FROM = 'טבע בייק <info@mail.tevabike.com>'
 const REPLY_TO = 'bennyfire@gmail.com'
 const ADMIN_EMAIL = 'bennyfire@gmail.com'
@@ -16,12 +17,10 @@ const MAX_EMAIL = 150
 const MAX_NOTES = 1000
 const MAX_UTM = 120
 
-const VALID_DATES = ['2026-09-25', '2026-09-11']
+const VALID_DATES = ['2026-11-13']
 const DATE_LABEL: Record<string, string> = {
-  '2026-09-25': 'יום שישי, 25 בספטמבר 2026 (רגע לפני החג)',
-  '2026-09-11': 'יום שישי, 11 בספטמבר 2026 (ערב ראש השנה)',
+  '2026-11-13': 'יום שישי, 13 בנובמבר 2026',
 }
-const DISCOUNT_BRANDS = ['whistle', 'ktm', 'bh']
 
 function clean(v: unknown, max: number): string | null {
   if (typeof v !== 'string') return null
@@ -29,22 +28,14 @@ function clean(v: unknown, max: number): string | null {
   return s.length ? s : null
 }
 
-function confirmationHtml(name: string, dateLabel: string, discount: boolean, workshopDate: string) {
-  const isSep25 = workshopDate === '2026-09-25'
-  const endTime = isSep25 ? '11:00' : '12:00'
-  const scheduleRows = isSep25
-    ? [
-        ['8:00', 'קפה אצל טימו והתכנסות'],
-        ['8:30', 'חימום על כרית האוויר הקטנה'],
-        ['9:00', 'קפיצות על כרית האוויר הגדולה'],
-        ['11:00', 'סיום — מתארגנים לקראת החג'],
-      ]
-    : [
-        ['8:00', 'קפה קטן'],
-        ['8:30', 'תדריך ותחילת תרגול'],
-        ['10:00', "הפסקת רענון (15 דק')"],
-        ['12:00', 'סיום וסיכום'],
-      ]
+function confirmationHtml(name: string, dateLabel: string) {
+  const timeRange = '9:00–13:00'
+  const scheduleRows = [
+    ['9:00', 'התכנסות, היכרות ותדריך'],
+    ['9:30', 'חימום על הארבג הקטנה'],
+    ['10:30', 'קפיצות על הארבג הגדולה'],
+    ['13:00', 'סיום וסיכום'],
+  ]
   return `
   <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;background:#0C1814;color:#F5F2EE;padding:32px 24px;border-radius:16px;max-width:560px;margin:0 auto">
     <h1 style="color:#D4288A;font-size:26px;margin:0 0 8px">תודה על הרישום, ${name}! 🚵</h1>
@@ -54,7 +45,7 @@ function confirmationHtml(name: string, dateLabel: string, discount: boolean, wo
     </p>
 
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px;margin:20px 0">
-      <p style="margin:0 0 6px"><b style="color:#D4288A">📅 מתי:</b> ${dateLabel} · 8:00–${endTime}</p>
+      <p style="margin:0 0 6px"><b style="color:#D4288A">📅 מתי:</b> ${dateLabel} · ${timeRange}</p>
       <p style="margin:0 0 6px"><b style="color:#D4288A">📍 איפה:</b> פארק אוסטרליה, משגב (חפשו "פארק אוסטרליה" בוויז)</p>
       <p style="margin:0"><b style="color:#D4288A">🚲 להביא:</b> אופניים תקינים, קסדת פול פייס ומיגון</p>
     </div>
@@ -69,19 +60,17 @@ function confirmationHtml(name: string, dateLabel: string, discount: boolean, wo
         .join('\n      ')}
     </div>
 
-    ${discount ? `<p style="color:#D4288A;font-weight:bold">🎁 מגיעה לך 10% הנחה כרוכב Whistle / KTM / BH — תינתן בסדנה.</p>` : ''}
-
-    <p style="font-size:15px;color:#D8E2DC">כדי לשריין את מקומך, נשאר רק להשלים את התשלום (200 ₪):</p>
+    <p style="font-size:15px;color:#D8E2DC">כדי לשריין את מקומך, נשאר רק להשלים את התשלום (${PRICE} ₪):</p>
     <a href="${PAYMENT_LINK}" style="display:block;background:#D4288A;color:#ffffff;text-decoration:none;text-align:center;padding:14px;border-radius:12px;font-size:17px;font-weight:bold;margin:12px 0 20px">
       לתשלום מאובטח 💳
     </a>
 
     <p style="font-size:12px;color:#7E948A;line-height:1.7">
-      תנאי ביטול: ביטול עד 14 יום לפני הסדנה — החזר של 50%. פחות מ־3 ימים לפני הסדנה — ללא החזר.
+      תנאי ביטול: ביטול עד 14 יום לפני הסשן — החזר של 50%. פחות מ־3 ימים לפני הסשן — ללא החזר.
     </p>
 
     <p style="font-size:16px;color:#F5F2EE;margin-top:24px">
-      נתראה בסדנה!<br/>
+      נתראה בסשן!<br/>
       <b>בני וצוות טבע בייק</b> 💚
     </p>
   </div>`
@@ -161,23 +150,21 @@ export async function POST(req: NextRequest) {
   }
 
   const dateLabel = DATE_LABEL[workshop_date] ?? workshop_date
-  const discount = !!bike_brand && DISCOUNT_BRANDS.includes(bike_brand)
 
   await sendEmail(
     email,
-    'הרישום לסדנת האיר באג התקבל! 🚵 טבע בייק',
-    confirmationHtml(full_name, dateLabel, discount, workshop_date)
+    'הרישום לסשן האיר באג התקבל! 🚵 טבע בייק',
+    confirmationHtml(full_name, dateLabel)
   )
   await sendEmail(
     ADMIN_EMAIL,
-    `🆕 רישום לסדנת איר באג: ${full_name} (${dateLabel})`,
+    `🆕 רישום לסשן איר באג: ${full_name} (${dateLabel})`,
     `<div dir="rtl" style="font-family:Arial,sans-serif">
       <p><b>שם:</b> ${full_name}</p>
       <p><b>טלפון:</b> ${phone}</p>
       <p><b>מייל:</b> ${email}</p>
       <p><b>גיל:</b> ${age ?? '—'}</p>
       <p><b>תאריך:</b> ${dateLabel}</p>
-      <p><b>מותג אופניים:</b> ${bike_brand ?? '—'} ${discount ? '(זכאי ל־10% הנחה)' : ''}</p>
       <p><b>הערות:</b> ${notes ?? '—'}</p>
       <p><b>מקור:</b> ${clean(body.utm_source, MAX_UTM) ?? 'אורגני'}</p>
     </div>`
