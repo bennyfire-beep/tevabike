@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
+import { CLUB_GROUPS, FREE_STATUS } from '@/lib/workshop-payment'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +29,7 @@ function clean(v: unknown, max: number): string | null {
   return s.length ? s : null
 }
 
-function confirmationHtml(name: string, dateLabel: string) {
+function confirmationHtml(name: string, dateLabel: string, free: boolean) {
   const timeRange = '9:00–13:00'
   const scheduleRows = [
     ['9:00', 'התכנסות, היכרות ותדריך'],
@@ -60,10 +61,12 @@ function confirmationHtml(name: string, dateLabel: string) {
         .join('\n      ')}
     </div>
 
-    <p style="font-size:15px;color:#D8E2DC">כדי לשריין את מקומך, נשאר רק להשלים את התשלום (${PRICE} ₪):</p>
+    ${free
+      ? `<p style="font-size:15px;color:#D8E2DC">המקום שלך שמור — כרוכב/ת טבע בייק ההשתתפות ללא עלות. 💚</p>`
+      : `<p style="font-size:15px;color:#D8E2DC">כדי לשריין את מקומך, נשאר רק להשלים את התשלום (${PRICE} ₪):</p>
     <a href="${PAYMENT_LINK}" style="display:block;background:#D4288A;color:#ffffff;text-decoration:none;text-align:center;padding:14px;border-radius:12px;font-size:17px;font-weight:bold;margin:12px 0 20px">
       לתשלום מאובטח 💳
-    </a>
+    </a>`}
 
     <p style="font-size:12px;color:#7E948A;line-height:1.7">
       תנאי ביטול: ביטול עד 14 יום לפני הסשן — החזר של 50%. פחות מ־3 ימים לפני הסשן — ללא החזר.
@@ -107,6 +110,9 @@ export async function POST(req: NextRequest) {
   const ageRaw = clean(body.age, 5)
   const age = ageRaw && /^\d{1,3}$/.test(ageRaw) ? parseInt(ageRaw, 10) : null
   const waiver_accepted = body.waiver_accepted === true
+  const groupRaw = clean(body.club_group, 40)
+  const club_group = groupRaw && (CLUB_GROUPS as readonly string[]).includes(groupRaw) ? groupRaw : null
+  const free = club_group !== null
 
   if (!full_name || !phone || !email || !workshop_date) {
     return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
@@ -132,7 +138,8 @@ export async function POST(req: NextRequest) {
     age,
     workshop_date,
     bike_brand,
-    notes,
+    notes: free ? [`רוכב/ת טבע בייק — ${club_group} · ללא חיוב`, notes].filter(Boolean).join(' | ') : notes,
+    payment_status: free ? FREE_STATUS : 'pending',
     waiver_accepted: true,
     waiver_accepted_at: new Date().toISOString(),
     utm_source: clean(body.utm_source, MAX_UTM),
@@ -154,7 +161,7 @@ export async function POST(req: NextRequest) {
   await sendEmail(
     email,
     'הרישום לסשן האיר באג התקבל! 🚵 טבע בייק',
-    confirmationHtml(full_name, dateLabel)
+    confirmationHtml(full_name, dateLabel, free)
   )
   await sendEmail(
     ADMIN_EMAIL,
@@ -165,10 +172,11 @@ export async function POST(req: NextRequest) {
       <p><b>מייל:</b> ${email}</p>
       <p><b>גיל:</b> ${age ?? '—'}</p>
       <p><b>תאריך:</b> ${dateLabel}</p>
+      <p><b>קבוצה:</b> ${free ? `${club_group} — רוכב/ת טבע בייק, ללא חיוב` : 'רוכב/ת מבחוץ — 180 ₪'}</p>
       <p><b>הערות:</b> ${notes ?? '—'}</p>
       <p><b>מקור:</b> ${clean(body.utm_source, MAX_UTM) ?? 'אורגני'}</p>
     </div>`
   )
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, free })
 }

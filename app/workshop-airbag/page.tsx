@@ -3,6 +3,9 @@
 
 import { useEffect, useState } from "react";
 import { WHATSAPP_OPTIN_LABEL } from "@/lib/whatsapp-optin";
+import { CLUB_GROUPS } from "@/lib/workshop-payment";
+
+const OUTSIDE = "outside";
 
 const PAYMENT_LINK = "https://arbox.link/IdCW6--f"; // Arbox: "סשיין air bag" — 180 ₪
 const PRICE = 180;
@@ -35,12 +38,14 @@ export default function WorkshopAirbagPage() {
     email: "",
     age: "",
     workshop_date: "2026-11-13",
+    club_group: "",
     notes: "",
   });
   const [waiver, setWaiver] = useState(false);
   const [whatsappOptin, setWhatsappOptin] = useState(false);
   const [utm, setUtm] = useState({ utm_source: "", utm_medium: "", utm_campaign: "" });
   const [status, setStatus] = useState<"idle" | "sending" | "done" | "full" | "error">("idle");
+  const [free, setFree] = useState(false);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -58,6 +63,10 @@ export default function WorkshopAirbagPage() {
       alert("נא למלא שם, טלפון ומייל");
       return;
     }
+    if (!form.club_group) {
+      alert("נא לבחור קבוצה");
+      return;
+    }
     if (!waiver) {
       alert("כדי להירשם יש לאשר את תנאי ההשתתפות והאחריות");
       return;
@@ -69,7 +78,11 @@ export default function WorkshopAirbagPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, ...utm, waiver_accepted: true, whatsapp_optin: whatsappOptin }),
       });
-      if (res.ok) setStatus("done");
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setFree(data?.free === true);
+        setStatus("done");
+      }
       else {
         const data = await res.json().catch(() => ({}));
         setStatus(data?.error === "workshop_full" ? "full" : "error");
@@ -97,6 +110,14 @@ export default function WorkshopAirbagPage() {
         <div className="max-w-md w-full text-center space-y-6">
           <div className="text-6xl">🚵</div>
           <h1 className="text-3xl font-black">נרשמת! עכשיו נשאר רק לעוף</h1>
+          {free ? (
+            <p style={{ color: "#BFD0C5" }}>
+              שלחנו לך מייל אישור עם כל הפרטים.
+              <br />
+              המקום שלך שמור — נתראה בשישי! 💚
+            </p>
+          ) : (
+          <>
           <p style={{ color: "#BFD0C5" }}>
             שלחנו לך מייל אישור עם כל הפרטים.
             <br />
@@ -112,6 +133,8 @@ export default function WorkshopAirbagPage() {
           <p className="text-xs" style={{ color: "#7E948A" }}>
             ביטול עד 14 יום לפני הסשן — החזר של 50% · פחות מ־3 ימים לפני — ללא החזר
           </p>
+          </>
+          )}
         </div>
       </main>
     );
@@ -259,6 +282,18 @@ export default function WorkshopAirbagPage() {
             value={form.email}
             onChange={(e) => set("email", e.target.value)}
           />
+          <select
+            className={input}
+            style={inputStyle}
+            value={form.club_group}
+            onChange={(e) => set("club_group", e.target.value)}
+          >
+            <option value="" disabled>קבוצה *</option>
+            {CLUB_GROUPS.map((g) => (
+              <option key={g} value={g}>רוכב/ת טבע בייק — {g}</option>
+            ))}
+            <option value={OUTSIDE}>לא רוכב/ת בטבע בייק</option>
+          </select>
           <textarea
             className={input}
             style={inputStyle}
