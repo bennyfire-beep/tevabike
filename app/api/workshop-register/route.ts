@@ -1,13 +1,12 @@
-// app/api/workshop-register/route.ts — גרסה 3: סשן איר באג 13.11 (9:00–13:00, 150 ₪)
+// app/api/workshop-register/route.ts — גרסה 3: סשן איר באג 13.11 (9:00–13:00, 180 ₪, בלי הנחת מותגים)
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 
 export const dynamic = 'force-dynamic'
 
-// TODO: קישור תשלום Arbox לסשן 13.11 (150 ₪)
-const PAYMENT_LINK = 'https://arbox.link/IdCW6--f'
-const PRICE = 150
+const PAYMENT_LINK = 'https://arbox.link/IdCW6--f' // Arbox: "סשיין air bag" — 180 ₪
+const PRICE = 180
 const FROM = 'טבע בייק <info@mail.tevabike.com>'
 const REPLY_TO = 'bennyfire@gmail.com'
 const ADMIN_EMAIL = 'bennyfire@gmail.com'
@@ -22,7 +21,6 @@ const VALID_DATES = ['2026-11-13']
 const DATE_LABEL: Record<string, string> = {
   '2026-11-13': 'יום שישי, 13 בנובמבר 2026',
 }
-const DISCOUNT_BRANDS = ['whistle', 'ktm', 'bh']
 
 function clean(v: unknown, max: number): string | null {
   if (typeof v !== 'string') return null
@@ -30,7 +28,7 @@ function clean(v: unknown, max: number): string | null {
   return s.length ? s : null
 }
 
-function confirmationHtml(name: string, dateLabel: string, discount: boolean) {
+function confirmationHtml(name: string, dateLabel: string) {
   const timeRange = '9:00–13:00'
   const scheduleRows = [
     ['9:00', 'התכנסות, היכרות ותדריך'],
@@ -61,8 +59,6 @@ function confirmationHtml(name: string, dateLabel: string, discount: boolean) {
         )
         .join('\n      ')}
     </div>
-
-    ${discount ? `<p style="color:#D4288A;font-weight:bold">🎁 מגיעה לך 10% הנחה כרוכב Whistle / KTM / BH — תינתן בסשן.</p>` : ''}
 
     <p style="font-size:15px;color:#D8E2DC">כדי לשריין את מקומך, נשאר רק להשלים את התשלום (${PRICE} ₪):</p>
     <a href="${PAYMENT_LINK}" style="display:block;background:#D4288A;color:#ffffff;text-decoration:none;text-align:center;padding:14px;border-radius:12px;font-size:17px;font-weight:bold;margin:12px 0 20px">
@@ -154,12 +150,11 @@ export async function POST(req: NextRequest) {
   }
 
   const dateLabel = DATE_LABEL[workshop_date] ?? workshop_date
-  const discount = !!bike_brand && DISCOUNT_BRANDS.includes(bike_brand)
 
   await sendEmail(
     email,
     'הרישום לסשן האיר באג התקבל! 🚵 טבע בייק',
-    confirmationHtml(full_name, dateLabel, discount)
+    confirmationHtml(full_name, dateLabel)
   )
   await sendEmail(
     ADMIN_EMAIL,
@@ -170,7 +165,6 @@ export async function POST(req: NextRequest) {
       <p><b>מייל:</b> ${email}</p>
       <p><b>גיל:</b> ${age ?? '—'}</p>
       <p><b>תאריך:</b> ${dateLabel}</p>
-      <p><b>מותג אופניים:</b> ${bike_brand ?? '—'} ${discount ? '(זכאי ל־10% הנחה)' : ''}</p>
       <p><b>הערות:</b> ${notes ?? '—'}</p>
       <p><b>מקור:</b> ${clean(body.utm_source, MAX_UTM) ?? 'אורגני'}</p>
     </div>`

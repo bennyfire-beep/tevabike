@@ -1,12 +1,11 @@
-// app/workshop-airbag/page.tsx — דף רישום סשן איר באג (גרסה 8 — סשן 13.11, פתוח לרוכבים מבחוץ, 150 ₪)
+// app/workshop-airbag/page.tsx — דף רישום סשן איר באג (גרסה 8 — סשן 13.11, פתוח לרוכבים מבחוץ, 180 ₪, בלי הנחת מותגים)
 "use client";
 
 import { useEffect, useState } from "react";
 import { WHATSAPP_OPTIN_LABEL } from "@/lib/whatsapp-optin";
 
-// TODO: קישור תשלום Arbox לסשן 13.11 (150 ₪) — יתעדכן כשבני ישלח
-const PAYMENT_LINK = "https://arbox.link/IdCW6--f";
-const PRICE = 150;
+const PAYMENT_LINK = "https://arbox.link/IdCW6--f"; // Arbox: "סשיין air bag" — 180 ₪
+const PRICE = 180;
 
 const C = {
   brand: "#D4288A",
@@ -19,14 +18,6 @@ const C = {
 
 const DATES = [
   { value: "2026-11-13", label: "שישי 13.11", sub: "9:00–13:00" },
-];
-
-const BRANDS = [
-  { value: "", label: "מותג האופניים שלי (לא חובה)" },
-  { value: "whistle", label: "Whistle — ‏10% הנחה 🎁" },
-  { value: "ktm", label: "KTM — ‏10% הנחה 🎁" },
-  { value: "bh", label: "BH — ‏10% הנחה 🎁" },
-  { value: "other", label: "מותג אחר" },
 ];
 
 const WAIVER = [
@@ -44,7 +35,6 @@ export default function WorkshopAirbagPage() {
     email: "",
     age: "",
     workshop_date: "2026-11-13",
-    bike_brand: "",
     notes: "",
   });
   const [waiver, setWaiver] = useState(false);
@@ -89,8 +79,6 @@ export default function WorkshopAirbagPage() {
     }
   }
 
-  const discount = ["whistle", "ktm", "bh"].includes(form.bike_brand);
-
   const input =
     "w-full rounded-lg p-3 outline-none border transition placeholder:opacity-60";
   const inputStyle = {
@@ -119,7 +107,7 @@ export default function WorkshopAirbagPage() {
             className="block w-full rounded-xl py-4 text-lg font-bold transition hover:opacity-90"
             style={{ background: C.brand, color: "#fff" }}
           >
-            לתשלום מאובטח — {PRICE} ₪ {discount && "(10% הנחה תינתן בסשן)"}
+            לתשלום מאובטח — {PRICE} ₪
           </a>
           <p className="text-xs" style={{ color: "#7E948A" }}>
             ביטול עד 14 יום לפני הסשן — החזר של 50% · פחות מ־3 ימים לפני — ללא החזר
@@ -175,7 +163,7 @@ export default function WorkshopAirbagPage() {
             ["📍 איפה", "משגב, פארק אוסטרליה (בוויז)"],
             ["🕗 מתי", "שישי 13.11 · 9:00–13:00"],
             ["🎯 למי", "פתוח לכולם — גם לרוכבים מבחוץ"],
-            ["💰 עלות", `${PRICE} ₪ · Whistle/KTM/BH — ‏10% הנחה`],
+            ["💰 עלות", `${PRICE} ₪`],
             ["🚲 להביא", "אופניים תקינים, קסדת פול פייס, מיגון"],
             ["👥 מקומות", "מספר מקומות מוגבל"],
           ].map(([k, v]) => (
@@ -271,16 +259,6 @@ export default function WorkshopAirbagPage() {
             value={form.email}
             onChange={(e) => set("email", e.target.value)}
           />
-          <select
-            className={input}
-            style={inputStyle}
-            value={form.bike_brand}
-            onChange={(e) => set("bike_brand", e.target.value)}
-          >
-            {BRANDS.map((b) => (
-              <option key={b.value} value={b.value}>{b.label}</option>
-            ))}
-          </select>
           <textarea
             className={input}
             style={inputStyle}
@@ -289,12 +267,6 @@ export default function WorkshopAirbagPage() {
             value={form.notes}
             onChange={(e) => set("notes", e.target.value)}
           />
-
-          {discount && (
-            <p className="text-sm font-bold" style={{ color: C.brand }}>
-              🎁 מגיעה לך 10% הנחה! ההנחה תינתן בסשן עם הצגת האופניים.
-            </p>
-          )}
 
           {/* תנאי השתתפות ואחריות */}
           <div
