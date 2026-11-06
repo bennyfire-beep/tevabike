@@ -17,7 +17,7 @@ export const WHATSAPP_OPTIN_SOURCES = {
   camp_gravity: 'ימי שיא',
   camp_sukkot: 'מחנה סוכות',
   camp_hanukkah: 'מחנה חנוכה',
-  workshop_airbag: 'סדנת איר באג',
+  workshop_airbag: 'סשן איר באג',
   hakpatzot: 'הקפצות',
   hashlama: 'אימון השלמה',
   instructors_course: 'קורס מדריכים',
