@@ -40,9 +40,9 @@ export const slotPrice = (slot: SlotId) => PRICE[SLOT_BY_ID[slot].duration]
 // exact total — when that lands, only paymentLinks() changes.
 // null → the confirmation screen says a payment link will be sent on WhatsApp.
 export const PAY_LINKS: { half: string | null; full: string | null; protection: string | null } = {
-  half: null,
-  full: null,
-  protection: null,
+  half: 'https://arbox.link/7wLVYG7G', // "השכרת אופניים 4 שעות" · 250 ₪
+  full: 'https://arbox.link/afej9_OH', // "השכרת אופניים חשמליות" · 390 ₪
+  protection: 'https://arbox.link/O0nb5pPX', // 90 ₪
 }
 
 export type PayLine = { label: string; qty: number; unit: number; url: string | null }
