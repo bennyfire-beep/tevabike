@@ -10,6 +10,9 @@ const OUTSIDE = "outside";
 const PAYMENT_LINK = "https://arbox.link/IdCW6--f"; // Arbox: "סשיין air bag" — 180 ₪
 const PRICE = 180;
 const MIN_AGE = 11;
+const PLACE = "פארק אוסטרליה";
+const WAZE_URL = `https://waze.com/ul?q=${encodeURIComponent(PLACE)}&navigate=yes`;
+const MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${PLACE} משגב`)}`;
 
 const C = {
   brand: "#D4288A",
@@ -211,6 +214,42 @@ export default function WorkshopAirbagPage() {
               <div style={{ color: "#D8E2DC" }}>{v}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Directions */}
+      <section className="px-6 pb-10">
+        <div
+          className="max-w-2xl mx-auto rounded-xl p-5 border"
+          style={{ background: C.green, borderColor: C.greenMid }}
+        >
+          <h2 className="font-bold text-lg mb-3">📍 איך מגיעים</h2>
+          <p className="text-sm leading-relaxed mb-4" style={{ color: "#D8E2DC" }}>
+            הסשן מתקיים ב<b style={{ color: C.offWhite }}>פארק אוסטרליה, משגב</b>.
+            מחפשים בוויז <b style={{ color: C.brand }}>&quot;פארק אוסטרליה&quot;</b> ונוסעים
+            עד הפארק — כריות האוויר מחכות שם. מומלץ להגיע כמה דקות לפני 9:00
+            כדי להתארגן ולהתמגן.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <a
+              href={WAZE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-xl py-3 text-center font-bold transition hover:opacity-90"
+              style={{ background: "#33CCFF", color: "#0C1814" }}
+            >
+              ניווט ב־Waze
+            </a>
+            <a
+              href={MAPS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-xl py-3 text-center font-bold border transition hover:opacity-90"
+              style={{ background: C.dark, borderColor: C.greenMid, color: C.offWhite }}
+            >
+              Google Maps
+            </a>
+          </div>
         </div>
       </section>
 
