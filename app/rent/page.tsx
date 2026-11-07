@@ -171,7 +171,7 @@ export default function RentPage() {
                   <p className="text-stone-400 text-sm bg-stone-900 rounded-xl p-4">התמונות והאופניים יעלו כאן בקרוב.</p>
                 ) : (
                   <div className="grid sm:grid-cols-2 gap-3">
-                    {bikes.map((b) => <BikeCard key={b.id} bike={b} />)}
+                    {groupByModel(bikes).map((g) => <ModelCard key={g.key} group={g} />)}
                   </div>
                 )}
               </section>
@@ -255,21 +255,25 @@ export default function RentPage() {
                               <p className="text-sm text-amber-300">אין אופניים פנויים בגודל המתאים במועד הזה. נסו מועד אחר או כתבו לנו.</p>
                             ) : (
                               <div className="grid grid-cols-2 gap-2">
-                                {options.map((b) => (
-                                  <button
-                                    key={b.id}
-                                    type="button"
-                                    onClick={() => setRider(i, { bike_id: b.id })}
-                                    className="text-right rounded-lg border overflow-hidden transition"
-                                    style={r.bike_id === b.id ? { borderColor: ACCENT, background: '#1a2414' } : { borderColor: '#44403c', background: '#1c1917' }}
-                                  >
-                                    {b.photos[0] && (
-                                      // eslint-disable-next-line @next/next/no-img-element
-                                      <img src={b.photos[0]} alt={b.name} className="w-full h-24 object-cover" />
-                                    )}
-                                    <span className="block px-2 py-1.5 text-sm font-semibold">{b.name} · {b.size}</span>
-                                  </button>
-                                ))}
+                                {groupOptions(options).map((g) => {
+                                  const selected = g.bikes.some((b) => b.id === r.bike_id)
+                                  return (
+                                    <button
+                                      key={g.key}
+                                      type="button"
+                                      onClick={() => setRider(i, { bike_id: g.bikes[0].id })}
+                                      className="text-right rounded-lg border overflow-hidden transition"
+                                      style={selected ? { borderColor: ACCENT, background: '#1a2414' } : { borderColor: '#44403c', background: '#1c1917' }}
+                                    >
+                                      {g.photo && (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={g.photo} alt={g.model} className="w-full h-24 object-contain bg-white" />
+                                      )}
+                                      <span className="block px-2 pt-1.5 text-sm font-semibold">{g.model} · {g.size}</span>
+                                      <span className="block px-2 pb-1.5 text-xs text-stone-400">{g.bikes.length === 1 ? 'נשאר זוג אחד' : `${g.bikes.length} זוגות פנויים`}</span>
+                                    </button>
+                                  )
+                                })}
                               </div>
                             ))}
                             <label className="flex items-start gap-2.5 cursor-pointer text-sm text-stone-300 select-none">
@@ -395,26 +399,61 @@ function Done({ total, lines }: { total: number; lines: PayLine[] }) {
   )
 }
 
-function BikeCard({ bike }: { bike: Bike }) {
+// Identical bikes (same model) are shown as one card listing the sizes and how
+// many of each, rather than one card per bike.
+type ModelGroup = { key: string; model: string; photos: string[]; description: string | null; sizes: { size: Bike['size']; count: number }[] }
+
+const modelOf = (b: Bike) => b.model || b.name
+
+function groupByModel(bikes: Bike[]): ModelGroup[] {
+  const groups = new Map<string, ModelGroup>()
+  for (const b of bikes) {
+    const key = modelOf(b)
+    const g = groups.get(key) ?? { key, model: key, photos: [], description: b.description, sizes: [] }
+    for (const p of b.photos) if (!g.photos.includes(p)) g.photos.push(p)
+    const s = g.sizes.find((x) => x.size === b.size)
+    if (s) s.count++
+    else g.sizes.push({ size: b.size, count: 1 })
+    groups.set(key, g)
+  }
+  const order = SIZES.map((s) => s.id)
+  for (const g of groups.values()) g.sizes.sort((a, b) => order.indexOf(a.size) - order.indexOf(b.size))
+  return [...groups.values()]
+}
+
+/** Free bikes for one rider, one choice per model+size (the first free bike of that kind is booked). */
+function groupOptions(bikes: Bike[]) {
+  const groups = new Map<string, { key: string; model: string; size: Bike['size']; photo: string | null; bikes: Bike[] }>()
+  for (const b of bikes) {
+    const key = `${modelOf(b)}|${b.size}`
+    const g = groups.get(key) ?? { key, model: modelOf(b), size: b.size, photo: b.photos[0] ?? null, bikes: [] }
+    g.bikes.push(b)
+    groups.set(key, g)
+  }
+  return [...groups.values()]
+}
+
+function ModelCard({ group }: { group: ModelGroup }) {
   return (
     <div className="bg-stone-900 rounded-xl overflow-hidden">
-      {bike.photos.length > 0 && (
-        <div className="flex overflow-x-auto snap-x snap-mandatory">
-          {bike.photos.map((src, k) => (
+      {group.photos.length > 0 && (
+        <div className="flex overflow-x-auto snap-x snap-mandatory bg-white">
+          {group.photos.map((src, k) => (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={k} src={src} alt={`${bike.name} ${k + 1}`} className="w-full h-48 object-cover shrink-0 snap-center" />
+            <img key={k} src={src} alt={`${group.model} ${k + 1}`} className="w-full h-48 object-contain shrink-0 snap-center" />
           ))}
         </div>
       )}
       <div className="p-3">
-        <div className="flex items-center justify-between">
-          <span className="font-bold">{bike.name}</span>
-          <span className="text-xs font-bold rounded-full px-2.5 py-1" style={{ background: `${ACCENT}22`, color: ACCENT }}>
-            {SIZE_LABEL[bike.size]}
-          </span>
+        <span className="font-bold">{group.model}</span>
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {group.sizes.map((s) => (
+            <span key={s.size} className="text-xs font-bold rounded-full px-2.5 py-1" style={{ background: `${ACCENT}22`, color: ACCENT }}>
+              {SIZE_LABEL[s.size]} × {s.count}
+            </span>
+          ))}
         </div>
-        {bike.model && <p className="text-xs text-stone-400">{bike.model}</p>}
-        {bike.description && <p className="text-sm text-stone-300 mt-1">{bike.description}</p>}
+        {group.description && <p className="text-sm text-stone-300 mt-2">{group.description}</p>}
       </div>
     </div>
   )
