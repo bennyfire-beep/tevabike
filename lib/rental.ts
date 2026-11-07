@@ -110,8 +110,8 @@ export function bikeFits(bike: Pick<Bike, 'size' | 'height_min' | 'height_max'>,
 export const DEPOSIT_PER_BIKE = 0
 // Theft or loss: the renter pays the price of a NEW bike of the same model
 // (decided Nov 2026). This is the default when a bike has no agreed_value set
-// in the admin screen; "at least 16,000, maybe more" — confirm with Timo.
-export const AGREED_VALUE_DEFAULT = 16000
+// in the admin screen. Set to 25,000 by Benny (Nov 2026).
+export const AGREED_VALUE_DEFAULT = 25000
 export const LATE_RETURN_HOURS = 24 // after this a bike not returned counts as lost
 export const DISPUTE_DAYS = 3 // business days the customer has to dispute a damage charge
 
