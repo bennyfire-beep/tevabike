@@ -111,6 +111,11 @@ export const AGREED_VALUE_DEFAULT = 16000 // full value if a bike is lost or sto
 export const LATE_RETURN_HOURS = 24 // after this a bike not returned counts as lost
 export const DISPUTE_DAYS = 3 // business days the customer has to dispute a damage charge
 
+// Agreed (business plan, Nov 2026): a bike returned dirty beyond reasonable
+// trail dirt and not washed is charged this, per bike, after the return
+// condition is documented. Not covered by the protection plan.
+export const CLEANING_FEE = 40
+
 // ── Rider rules ──
 export const MIN_RENTER_AGE = 18
 export const MIN_RIDER_AGE = 16 // placeholder — check the Ralbad rules for the exact model

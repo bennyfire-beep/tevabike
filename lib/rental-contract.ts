@@ -1,6 +1,6 @@
 import {
   PROTECTION_PRICE, PROTECTION_CAP, DEPOSIT_PER_BIKE, THEFT_EXCESS, AGREED_VALUE_DEFAULT,
-  LATE_RETURN_HOURS, DISPUTE_DAYS, MIN_RIDER_AGE,
+  LATE_RETURN_HOURS, DISPUTE_DAYS, MIN_RIDER_AGE, CLEANING_FEE,
 } from './rental'
 
 // The rental agreement the customer signs on /rent. Both the page (to show it)
@@ -13,7 +13,7 @@ import {
 // DRAFT — must be reviewed by a lawyer and the insurance agent before launch
 // (docs/rental/PLAN.md §5 stage 1).
 
-export const CONTRACT_VERSION = '2026-11-07-draft1'
+export const CONTRACT_VERSION = '2026-11-07-draft2'
 
 export type ContractSection = { title: string; items: string[] }
 
@@ -61,17 +61,19 @@ export function contractSections(): ContractSection[] {
       ],
     },
     {
-      title: '5. החזרה ואיחור',
+      title: '5. החזרה, איחור וניקיון',
       items: [
         'יש להחזיר את האופניים במועד שנקבע בהזמנה, לנקודת המסירה של טבע בייק.',
         'איחור של יותר משעה יחויב בדמי השכרה נוספים לפי המחירון: 4 שעות או יום מלא, הסכום הנמוך מבין השניים שמכסה את האיחור.',
+        'יש להחזיר את האופניים נקיים במידה סבירה. אפשר לנקות אותם בעמדת הניקיון בחנות טימו פאן, לפי הנחיות הצוות.',
+        `אופניים שיוחזרו מלוכלכים מעבר ללכלוך סביר ולא נוקו יחויבו בדמי ניקיון של ${ils(CLEANING_FEE)} לאופניים, לאחר תיעוד מצבם בהחזרה. דמי הניקיון אינם חלק ממסלול ההגנה.`,
       ],
     },
     {
       title: '6. הרשאה לחיוב כרטיס האשראי',
       items: [
         `השוכר מאשר לטבע בייק לתפוס במסגרת כרטיס האשראי שלו פיקדון של עד ${ils(DEPOSIT_PER_BIKE)} לאופניים בעת המסירה. בהחזרה תקינה הפיקדון ישוחרר.`,
-        'השוכר מאשר לטבע בייק לחייב את כרטיס האשראי ששימש לתשלום, או את הפיקדון, בסכומים שהוא חייב לפי סעיפים 3–5, ועד הסכומים הקבועים בהם.',
+        'השוכר מאשר לטבע בייק לחייב את כרטיס האשראי ששימש לתשלום, או את הפיקדון, בסכומים שהוא חייב לפי סעיפים 3–5 (נזק, גניבה, איחור וניקיון), ועד הסכומים הקבועים בהם.',
         `לפני כל חיוב כזה תשלח טבע בייק לשוכר בוואטסאפ או במייל את פירוט החיוב, תמונות ואסמכתה מהחנות. לשוכר יהיו ${DISPUTE_DAYS} ימי עסקים להשיג על החיוב לפני ביצועו.`,
         'פרטי כרטיס האשראי נשמרים אצל חברת הסליקה בלבד, ולא אצל טבע בייק.',
       ],
@@ -93,7 +95,7 @@ export function contractSections(): ContractSection[] {
 
 // The four things the customer ticks separately, each tied to a section above.
 export const CONSENTS = [
-  { id: 'terms', label: 'קראתי ואני מסכים/ה לתנאי ההשכרה והבטיחות (סעיפים 1–2, 5, 7–8)' },
+  { id: 'terms', label: `קראתי ואני מסכים/ה לתנאי ההשכרה, הבטיחות וההחזרה, כולל דמי ניקיון של ${ils(CLEANING_FEE)} לאופניים שיוחזרו מלוכלכים (סעיפים 1–2, 5, 7–8)` },
   { id: 'damage', label: `ידוע לי שמסלול ההגנה מכסה נזק פיזי עד ${ils(PROTECTION_CAP)} בלבד, אינו ביטוח, ומה לא נכלל בו (סעיף 3)` },
   { id: 'theft', label: `ידוע לי שמסלול ההגנה לא מכסה גניבה ואובדן, ושבגניבה אשלם ${ils(THEFT_EXCESS)} לאופניים, או את הערך המלא אם לא נעלתי או לא הגשתי תלונה (סעיף 4)` },
   { id: 'card', label: `אני מאשר/ת תפיסת פיקדון של עד ${ils(DEPOSIT_PER_BIKE)} לאופניים וחיוב הכרטיס בסכומים לפי ההסכם, אחרי הודעה מראש (סעיף 6)` },
