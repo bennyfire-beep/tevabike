@@ -1,4 +1,4 @@
-// app/workshop-airbag/page.tsx — דף רישום סשן איר באג (גרסה 8 — סשן 13.11, פתוח לרוכבים מבחוץ, 180 ₪, בלי הנחת מותגים)
+// app/workshop-airbag/page.tsx — דף רישום סשן איר באג (גרסה 9 — סשן 13.11 לילדים מגיל 11, קפיצה חופשית עם מדריך בשטח, עד 25 משתתפים)
 "use client";
 
 import { useEffect, useState } from "react";
@@ -9,6 +9,7 @@ const OUTSIDE = "outside";
 
 const PAYMENT_LINK = "https://arbox.link/IdCW6--f"; // Arbox: "סשיין air bag" — 180 ₪
 const PRICE = 180;
+const MIN_AGE = 11;
 
 const C = {
   brand: "#D4288A",
@@ -26,7 +27,9 @@ const DATES = [
 const WAIVER = [
   "אני מאשר/ת את השתתפותי בסשן האיר באג של טבע בייק.",
   "ידוע לי שרכיבת שטח וקפיצות הן פעילות אתגרית הכוללת סיכונים מהותיים, לרבות נפילה, פציעה ונזק גופני, ואני מאשר/ת את ההשתתפות מתוך בחירה מלאה ובאחריותי.",
-  "ידוע לי שנדרשת יכולת רכיבה בסיסית ומעלה.",
+  "ידוע לי שהסשן מיועד לרוכבים מגיל 11 ומעלה ושנדרשת יכולת רכיבה בסיסית ומעלה.",
+  "ידוע לי שזהו סשן קפיצה חופשי: מדריך נמצא בשטח לאורך כל הסשן, אך הסשן אינו כולל הדרכה.",
+  "אם הרוכב/ת קטין/ה — ההרשמה והאישור נעשים על ידי הורה או אפוטרופוס.",
   "אני אחראי/ת להגיע עם אופניים תקינים ובטיחותיים, קסדת פול פייס, מיגון גוף, מים וציוד אישי כנדרש.",
   "אני מתחייב/ת לעדכן את מארגני הסשן בכל מגבלה רפואית או רגישות רלוונטית.",
 ];
@@ -65,6 +68,15 @@ export default function WorkshopAirbagPage() {
     }
     if (!form.club_group) {
       alert("נא לבחור קבוצה");
+      return;
+    }
+    const ageNum = parseInt(form.age, 10);
+    if (!form.age.trim() || Number.isNaN(ageNum)) {
+      alert("נא למלא גיל");
+      return;
+    }
+    if (ageNum < MIN_AGE) {
+      alert(`הסשן מיועד לרוכבים מגיל ${MIN_AGE} ומעלה`);
       return;
     }
     if (!waiver) {
@@ -158,7 +170,7 @@ export default function WorkshopAirbagPage() {
             style={{ borderColor: `${C.brand}55` }}
           />
           <p className="font-bold tracking-widest text-sm" style={{ color: C.brand }}>
-            טבע בייק · סשן AIR BAG · שישי 13.11
+            טבע בייק · סשן AIR BAG · שישי 13.11 · מגיל 11
           </p>
           <h1 className="text-4xl sm:text-5xl font-black leading-tight">
             לשלוט באוויר.
@@ -166,15 +178,14 @@ export default function WorkshopAirbagPage() {
             <span style={{ color: C.brand }}>לא לפחד ממנו.</span>
           </h1>
           <p className="text-lg leading-relaxed" style={{ color: "#D8E2DC" }}>
-            מכיר את הרגע? אתה מגיע לקפיצה, החברים כבר באוויר — ואתה על הבלמים.
-            זה לא חוסר כישרון. זו טכניקה שאף אחד לא לימד אותך.
+            ארבע שעות של קפיצות חופשיות על שתי כריות אוויר — לצבור עוד ועוד
+            זמן אוויר, לנסות, ליפול רך ולחזור לרמפה.
           </p>
           <p className="leading-relaxed" style={{ color: "#D8E2DC" }}>
-            סשן של ארבע שעות עם <b style={{ color: C.brand }}>שתי כריות אוויר</b> —
-            ארבג קטנה לחימום וארבג גדולה להתקדמות — סביבה בטוחה לטעות, לתקן,
-            ולבנות ביטחון אמיתי באוויר. <b style={{ color: C.brand }}>פתוח לכל
-            הרוכבים — גם מחוץ לטבע בייק.</b> מתאים גם למתחילים שרוצים להתחיל
-            בבטחה, וגם למתקדמים שרוצים לדייק.
+            <b style={{ color: C.brand }}>שתי כריות אוויר</b> — ארבג קטנה וארבג
+            גדולה. <b style={{ color: C.brand }}>מגיל 11 ומעלה, פתוח לכל הרוכבים —
+            גם מחוץ לטבע בייק.</b> מדריך נמצא בשטח לאורך כל הסשן לשמירה על
+            הסדר והבטיחות — זהו סשן קפיצה חופשי, ללא הדרכה.
           </p>
         </div>
       </section>
@@ -185,10 +196,10 @@ export default function WorkshopAirbagPage() {
           {[
             ["📍 איפה", "משגב, פארק אוסטרליה (בוויז)"],
             ["🕗 מתי", "שישי 13.11 · 9:00–13:00"],
-            ["🎯 למי", "פתוח לכולם — גם לרוכבים מבחוץ"],
+            ["🎯 למי", "מגיל 11 ומעלה · פתוח גם לרוכבים מבחוץ"],
             ["💰 עלות", `${PRICE} ₪`],
             ["🚲 להביא", "אופניים תקינים, קסדת פול פייס, מיגון"],
-            ["👥 מקומות", "מספר מקומות מוגבל"],
+            ["👥 מקומות", "עד 25 רוכבים · מדריך בשטח, ללא הדרכה"],
           ].map(([k, v]) => (
             <div
               key={k}
@@ -210,10 +221,9 @@ export default function WorkshopAirbagPage() {
         >
           <h2 className="font-bold text-lg mb-3">הלו״ז</h2>
           <ul className="space-y-2 text-sm" style={{ color: "#D8E2DC" }}>
-            <li><b style={{ color: C.brand }}>9:00</b> — התכנסות, היכרות ותדריך</li>
-            <li><b style={{ color: C.brand }}>9:30</b> — חימום על הארבג הקטנה</li>
-            <li><b style={{ color: C.brand }}>10:30</b> — קפיצות על הארבג הגדולה</li>
-            <li><b style={{ color: C.brand }}>13:00</b> — סיום וסיכום</li>
+            <li><b style={{ color: C.brand }}>9:00</b> — התכנסות וכללי בטיחות בשטח</li>
+            <li><b style={{ color: C.brand }}>9:15</b> — קפיצה חופשית על הארבג הקטנה והגדולה</li>
+            <li><b style={{ color: C.brand }}>13:00</b> — סיום</li>
           </ul>
         </div>
       </section>
@@ -252,7 +262,7 @@ export default function WorkshopAirbagPage() {
           <input
             className={input}
             style={inputStyle}
-            placeholder="שם מלא *"
+            placeholder="שם הרוכב/ת *"
             value={form.full_name}
             onChange={(e) => set("full_name", e.target.value)}
           />
@@ -268,7 +278,7 @@ export default function WorkshopAirbagPage() {
             <input
               className={input}
               style={inputStyle}
-              placeholder="גיל"
+              placeholder="גיל * (מגיל 11)"
               inputMode="numeric"
               value={form.age}
               onChange={(e) => set("age", e.target.value)}

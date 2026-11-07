@@ -1,4 +1,4 @@
-// app/api/workshop-register/route.ts — גרסה 3: סשן איר באג 13.11 (9:00–13:00, 180 ₪, בלי הנחת מותגים)
+// app/api/workshop-register/route.ts — גרסה 3: סשן איר באג 13.11 (9:00–13:00, 180 ₪, מגיל 11, קפיצה חופשית — מדריך בשטח ללא הדרכה, עד 25)
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic'
 
 const PAYMENT_LINK = 'https://arbox.link/IdCW6--f' // Arbox: "סשיין air bag" — 180 ₪
 const PRICE = 180
+const MIN_AGE = 11
 const FROM = 'טבע בייק <info@mail.tevabike.com>'
 const REPLY_TO = 'bennyfire@gmail.com'
 const ADMIN_EMAIL = 'bennyfire@gmail.com'
@@ -32,10 +33,9 @@ function clean(v: unknown, max: number): string | null {
 function confirmationHtml(name: string, dateLabel: string, free: boolean) {
   const timeRange = '9:00–13:00'
   const scheduleRows = [
-    ['9:00', 'התכנסות, היכרות ותדריך'],
-    ['9:30', 'חימום על הארבג הקטנה'],
-    ['10:30', 'קפיצות על הארבג הגדולה'],
-    ['13:00', 'סיום וסיכום'],
+    ['9:00', 'התכנסות וכללי בטיחות בשטח'],
+    ['9:15', 'קפיצה חופשית על הארבג הקטנה והגדולה'],
+    ['13:00', 'סיום'],
   ]
   return `
   <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;background:#0C1814;color:#F5F2EE;padding:32px 24px;border-radius:16px;max-width:560px;margin:0 auto">
@@ -48,7 +48,8 @@ function confirmationHtml(name: string, dateLabel: string, free: boolean) {
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px;margin:20px 0">
       <p style="margin:0 0 6px"><b style="color:#D4288A">📅 מתי:</b> ${dateLabel} · ${timeRange}</p>
       <p style="margin:0 0 6px"><b style="color:#D4288A">📍 איפה:</b> פארק אוסטרליה, משגב (חפשו "פארק אוסטרליה" בוויז)</p>
-      <p style="margin:0"><b style="color:#D4288A">🚲 להביא:</b> אופניים תקינים, קסדת פול פייס ומיגון</p>
+      <p style="margin:0 0 6px"><b style="color:#D4288A">🚲 להביא:</b> אופניים תקינים, קסדת פול פייס ומיגון</p>
+      <p style="margin:0"><b style="color:#D4288A">ℹ️ חשוב:</b> סשן קפיצה חופשי מגיל 11 — מדריך נמצא בשטח לאורך כל הסשן, ללא הדרכה.</p>
     </div>
 
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px;margin:20px 0">
@@ -116,6 +117,12 @@ export async function POST(req: NextRequest) {
 
   if (!full_name || !phone || !email || !workshop_date) {
     return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
+  }
+  if (age === null) {
+    return NextResponse.json({ error: 'missing_fields' }, { status: 400 })
+  }
+  if (age < MIN_AGE) {
+    return NextResponse.json({ error: 'too_young' }, { status: 400 })
   }
   if (!VALID_DATES.includes(workshop_date)) {
     return NextResponse.json({ error: 'bad_date' }, { status: 400 })
