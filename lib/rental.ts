@@ -124,6 +124,13 @@ export const CLEANING_FEE = 40
 // the shop at the same site.
 export const RETURN_LOCATION = 'מתחם השכרת האופניים של טבע בייק ברקפת'
 
+// ── ID photo ──
+// Required to book. Deleted automatically this many days after the rental
+// date once the booking is closed (app/api/cron/rental-id-cleanup).
+export const ID_PHOTO_RETENTION_DAYS = 90
+// Longest side after the browser shrinks the photo; enough to read an ID card.
+export const ID_PHOTO_MAX_PX = 1600
+
 // ── Rider rules ──
 export const MIN_RENTER_AGE = 18
 export const MIN_RIDER_AGE = 16 // placeholder — check the Ralbad rules for the exact model

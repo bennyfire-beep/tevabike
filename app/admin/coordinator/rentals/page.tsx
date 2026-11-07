@@ -45,6 +45,8 @@ type Booking = {
   signed_at: string
   signer_ip: string | null
   signature_path: string | null
+  id_photo_path: string | null
+  id_photo_deleted_at: string | null
   rental_booking_items: Item[]
 }
 
@@ -94,6 +96,7 @@ function Bookings() {
   const [showPast, setShowPast] = useState(false)
   const [open, setOpen] = useState<string | null>(null)
   const [sigUrl, setSigUrl] = useState<Record<string, string>>({})
+  const [idUrl, setIdUrl] = useState<Record<string, string>>({})
 
   // No setLoading(true) here: `loading` starts true, and a refresh keeps the
   // current list on screen until the new one arrives.
@@ -121,6 +124,10 @@ function Bookings() {
     if (b.signature_path && !sigUrl[b.id]) {
       const { data } = await supabase.storage.from('rental-contracts').createSignedUrl(b.signature_path, 600)
       if (data?.signedUrl) setSigUrl((s) => ({ ...s, [b.id]: data.signedUrl }))
+    }
+    if (b.id_photo_path && !idUrl[b.id]) {
+      const { data } = await supabase.storage.from('rental-contracts').createSignedUrl(b.id_photo_path, 600)
+      if (data?.signedUrl) setIdUrl((s) => ({ ...s, [b.id]: data.signedUrl }))
     }
   }
 
@@ -183,6 +190,22 @@ function Bookings() {
                   נחתם {new Date(b.signed_at).toLocaleString('he-IL')} · IP {b.signer_ip ?? '—'} · גרסה {b.contract_version} · ת״ז {b.renter_id_number}
                   <br />SHA-256: <span dir="ltr" style={{ fontFamily: 'monospace' }}>{b.contract_sha256}</span>
                 </div>
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ color: C.muted, marginBottom: 4 }}>צילום תעודת זהות:</div>
+                  {idUrl[b.id] ? (
+                    <a href={idUrl[b.id]} target="_blank" rel="noopener noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={idUrl[b.id]} alt="תעודת זהות" style={{ maxWidth: 320, maxHeight: 220, objectFit: 'contain', background: '#fff', borderRadius: 8 }} />
+                    </a>
+                  ) : b.id_photo_deleted_at ? (
+                    <span style={{ color: C.muted }}>נמחק אוטומטית ב-{new Date(b.id_photo_deleted_at).toLocaleDateString('he-IL')}</span>
+                  ) : b.id_photo_path ? (
+                    <span style={{ color: C.muted }}>טוען…</span>
+                  ) : (
+                    <span style={{ color: '#f87171' }}>אין צילום</span>
+                  )}
+                </div>
+                <div style={{ color: C.muted, marginBottom: 4 }}>חתימה:</div>
                 {sigUrl[b.id] && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={sigUrl[b.id]} alt="חתימה" style={{ background: '#fff', borderRadius: 8, maxWidth: 320, marginBottom: 8 }} />

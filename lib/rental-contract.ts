@@ -1,6 +1,6 @@
 import {
   PROTECTION_PRICE, PROTECTION_CAP, DEPOSIT_PER_BIKE, AGREED_VALUE_DEFAULT, RETURN_LOCATION,
-  LATE_RETURN_HOURS, DISPUTE_DAYS, MIN_RIDER_AGE, CLEANING_FEE,
+  LATE_RETURN_HOURS, DISPUTE_DAYS, MIN_RIDER_AGE, CLEANING_FEE, ID_PHOTO_RETENTION_DAYS,
 } from './rental'
 
 // The rental agreement the customer signs on /rent. Both the page (to show it)
@@ -13,7 +13,7 @@ import {
 // DRAFT — must be reviewed by a lawyer and the insurance agent before launch
 // (docs/rental/PLAN.md §5 stage 1).
 
-export const CONTRACT_VERSION = '2026-11-07-draft4'
+export const CONTRACT_VERSION = '2026-11-07-draft5'
 
 export type ContractSection = { title: string; items: string[] }
 
@@ -93,6 +93,7 @@ export function contractSections(): ContractSection[] {
       title: '8. פרטיות',
       items: [
         'פרטי השוכר והרוכבים נשמרים לצורך ההשכרה, הזיהוי, התשלום והבטיחות בלבד, ונגישים לצוות טבע בייק בלבד. טימו פאן מקבלת רק נתונים כספיים ללא פרטים אישיים.',
+        `צילום תעודת הזהות של השוכר נדרש לצורך זיהוי בלבד. הוא נשמר בתיקייה מאובטחת הנגישה לצוות טבע בייק בלבד, ונמחק ${ID_PHOTO_RETENTION_DAYS} יום אחרי מועד ההשכרה, לאחר שההשכרה נסגרה (האופניים הוחזרו או ההזמנה בוטלה).`,
       ],
     },
   ]
@@ -100,7 +101,7 @@ export function contractSections(): ContractSection[] {
 
 // The four things the customer ticks separately, each tied to a section above.
 export const CONSENTS = [
-  { id: 'terms', label: `קראתי ואני מסכים/ה לתנאי ההשכרה, הבטיחות וההחזרה, כולל דמי ניקיון של ${ils(CLEANING_FEE)} לאופניים שיוחזרו מלוכלכים (סעיפים 1–2, 5, 7–8)` },
+  { id: 'terms', label: `קראתי ואני מסכים/ה לתנאי ההשכרה, הבטיחות וההחזרה, כולל דמי ניקיון של ${ils(CLEANING_FEE)} לאופניים שיוחזרו מלוכלכים, ולשמירת צילום תעודת הזהות לצורך זיהוי (סעיפים 1–2, 5, 7–8)` },
   { id: 'damage', label: `ידוע לי שמסלול ההגנה מכסה נזק פיזי עד ${ils(PROTECTION_CAP)} בלבד, אינו ביטוח, ומה לא נכלל בו (סעיף 3)` },
   { id: 'theft', label: `ידוע לי שמסלול ההגנה לא מכסה גניבה ואובדן, ושבגניבה או באובדן אשלם את מלוא המחיר של אופניים חדשים, כמפורט בהזמנה (סעיף 4)` },
   {

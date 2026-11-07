@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import SignaturePad from '@/components/SignaturePad'
+import IdPhotoInput from '@/components/IdPhotoInput'
 import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 import {
   RENTAL_OPEN, PRICE, PROTECTION_PRICE, PROTECTION_CAP, SLOTS, SLOT_BY_ID, SIZES, SIZE_LABEL, MAX_BIKES_PER_BOOKING,
@@ -36,6 +37,7 @@ export default function RentPage() {
   const [consents, setConsents] = useState<Record<ConsentId, boolean>>({ terms: false, damage: false, theft: false, card: false })
   const [signedName, setSignedName] = useState('')
   const [signature, setSignature] = useState<string | null>(null)
+  const [idPhoto, setIdPhoto] = useState<string | null>(null)
   const [whatsappOptin, setWhatsappOptin] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
@@ -62,6 +64,16 @@ export default function RentPage() {
   const items = riders.map((r) => ({ slot: (slot || 'full') as SlotId, protection: r.protection }))
   const total = slot ? bookingTotal(items) : 0
 
+  // The contract step opens only once the renter is fully identified —
+  // including the ID photo, which is mandatory.
+  const renterReady =
+    renter.name.trim().length >= 2 &&
+    renter.id.replace(/\D/g, '').length >= 5 &&
+    renter.phone.replace(/\D/g, '').length >= 9 &&
+    renter.email.includes('@') &&
+    adult &&
+    !!idPhoto
+
   const setRider = (i: number, patch: Partial<Rider>) =>
     setRiders((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)))
 
@@ -78,6 +90,7 @@ export default function RentPage() {
     if (renter.id.replace(/\D/g, '').length < 5) return setError('חסר מספר תעודת זהות')
     if (renter.phone.replace(/\D/g, '').length < 9) return setError('מספר טלפון לא תקין')
     if (!renter.email.includes('@')) return setError('חסרה כתובת מייל (לשם יישלח עותק ההסכם)')
+    if (!idPhoto) return setError('יש להעלות צילום של תעודת הזהות')
     if (!adult) return setError(`יש לאשר שהשוכר בן ${MIN_RENTER_AGE} ומעלה`)
     if (!CONSENTS.every((c) => consents[c.id])) return setError('יש לסמן את כל האישורים בהסכם')
     if (signedName.trim() !== renter.name.trim()) return setError('השם בחתימה חייב להיות זהה לשם השוכר')
@@ -102,6 +115,7 @@ export default function RentPage() {
           consents,
           signed_name: signedName.trim(),
           signature,
+          id_photo: idPhoto,
           whatsapp_optin: whatsappOptin,
         }),
       })
@@ -310,12 +324,18 @@ export default function RentPage() {
                       <Field label="תעודת זהות *" type="tel" value={renter.id} onChange={(v) => setRenter((x) => ({ ...x, id: v }))} />
                       <Field label="טלפון *" type="tel" value={renter.phone} onChange={(v) => setRenter((x) => ({ ...x, phone: v }))} />
                       <Field label="מייל * (לשם יישלח עותק ההסכם)" type="email" value={renter.email} onChange={(v) => setRenter((x) => ({ ...x, email: v }))} />
+                      <IdPhotoInput value={idPhoto} onChange={setIdPhoto} />
                       <Check checked={adult} onChange={setAdult}>אני בן/בת {MIN_RENTER_AGE} ומעלה ואחראי/ת על כל הרוכבים בהזמנה</Check>
                     </section>
                   )}
 
                   {/* 4. contract */}
-                  {date && slot && (
+                  {date && slot && !renterReady && (
+                    <p className="bg-stone-900 rounded-xl p-4 text-sm text-stone-400 text-center">
+                      🔒 כדי להמשיך להסכם ולחתימה יש למלא את כל פרטי השוכר ולהעלות צילום של תעודת הזהות.
+                    </p>
+                  )}
+                  {date && slot && renterReady && (
                     <section className="space-y-4">
                       <h2 className="text-lg font-bold">4. הסכם השכרה וחתימה</h2>
                       <div className="bg-stone-900 rounded-xl p-4 max-h-80 overflow-y-auto text-[13.5px] leading-relaxed text-stone-300 space-y-3">

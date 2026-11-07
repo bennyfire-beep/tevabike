@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 import {
   RENTAL_OPEN, SLOT_BY_ID, isSlot, slotPrice, PROTECTION_PRICE, bookingTotal, paymentLines,
@@ -155,6 +155,7 @@ export async function POST(req: NextRequest) {
     const renter_email = String(body.renter_email ?? '').trim().slice(0, 120)
     const signed_name = String(body.signed_name ?? '').trim().slice(0, 80)
     const signature = String(body.signature ?? '')
+    const idPhoto = String(body.id_photo ?? '')
     const rawItems: ItemIn[] = Array.isArray(body.items) ? body.items : []
     const consents = (body.consents ?? {}) as Record<string, unknown>
 
@@ -172,6 +173,11 @@ export async function POST(req: NextRequest) {
     }
     if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(signature) || signature.length > 400_000) {
       return bad('חסרה חתימה')
+    }
+    // The browser shrinks the ID photo to a JPEG before sending (app/rent);
+    // ~3 MB of base64 is far above that and well under Vercel's body limit.
+    if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(idPhoto) || idPhoto.length > 3_000_000) {
+      return bad('חסר צילום תעודת זהות')
     }
 
     const items = rawItems.map((i) => ({
@@ -230,12 +236,26 @@ export async function POST(req: NextRequest) {
     const signer_ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || null
     const signer_user_agent = (req.headers.get('user-agent') ?? '').slice(0, 300) || null
     const sigBytes = Buffer.from(signature.split(',')[1], 'base64')
+    const idBytes = Buffer.from(idPhoto.split(',')[1], 'base64')
+    const idHash = createHash('sha256').update(idBytes).digest('hex')
     const hash = createHash('sha256')
       .update(text)
       .update('\n--\n')
-      .update(`${signed_name}|${signed_at}|${signer_ip ?? ''}|`)
+      .update(`${signed_name}|${signed_at}|${signer_ip ?? ''}|${idHash}|`)
       .update(sigBytes)
       .digest('hex')
+
+    // ── ID photo first: no booking may exist without one. The path is random
+    // (the booking id doesn't exist yet) and is removed again if booking fails.
+    const idPath = `id/${rent_date}/${randomUUID()}.jpg`
+    const { error: idUpErr } = await db.storage
+      .from('rental-contracts')
+      .upload(idPath, idBytes, { contentType: 'image/jpeg', upsert: false })
+    if (idUpErr) {
+      console.error('[rent] ID photo upload failed:', idUpErr)
+      return bad('לא הצלחנו לשמור את צילום תעודת הזהות. נסו שוב.', 500)
+    }
+    const dropIdPhoto = () => db.storage.from('rental-contracts').remove([idPath])
 
     const { data: bookingId, error: rpcErr } = await db.rpc('rental_book', {
       p_booking: {
@@ -248,12 +268,19 @@ export async function POST(req: NextRequest) {
       p_items: priced,
     })
     if (rpcErr) {
+      await dropIdPhoto()
       if (/bike_taken|bike_unavailable/.test(rpcErr.message)) {
         return bad('אחד האופניים נתפס ממש עכשיו. רעננו ובחרו אופניים אחרים.', 409)
       }
       throw rpcErr
     }
     const id = String(bookingId)
+
+    const { error: idRowErr } = await db
+      .from('rental_bookings')
+      .update({ id_photo_path: idPath, id_photo_sha256: idHash })
+      .eq('id', id)
+    if (idRowErr) console.error('[rent] could not link ID photo to booking', id, idPath, idRowErr)
 
     // ── Signature image (private bucket). The hash above already covers it. ──
     const path = `${rent_date}/${id}.png`
