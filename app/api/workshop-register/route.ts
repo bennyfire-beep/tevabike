@@ -47,7 +47,7 @@ function confirmationHtml(name: string, dateLabel: string, free: boolean) {
 
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px;margin:20px 0">
       <p style="margin:0 0 6px"><b style="color:#D4288A">📅 מתי:</b> ${dateLabel} · ${timeRange}</p>
-      <p style="margin:0 0 6px"><b style="color:#D4288A">📍 איפה:</b> פארק אוסטרליה, משגב (חפשו "פארק אוסטרליה" בוויז)</p>
+      <p style="margin:0 0 6px"><b style="color:#D4288A">📍 איפה:</b> פארק אוסטרליה, משגב — <a href="https://waze.com/ul?q=${encodeURIComponent('פארק אוסטרליה')}&navigate=yes" style="color:#33CCFF">ניווט ב־Waze</a> (או חפשו "פארק אוסטרליה" בוויז). מומלץ להגיע כמה דקות לפני 9:00.</p>
       <p style="margin:0 0 6px"><b style="color:#D4288A">⛑️ חובה:</b> קסדת פול פייס וצב — בלי פול פייס וצב לא קופצים!</p>
       <p style="margin:0 0 6px"><b style="color:#D4288A">🚲 להביא:</b> אופניים תקינים ומים</p>
       <p style="margin:0"><b style="color:#D4288A">ℹ️ חשוב:</b> סשן קפיצה חופשי מגיל 11 — מדריך נמצא בשטח לאורך כל הסשן, ללא הדרכה.</p>
