@@ -24,6 +24,7 @@ export const WHATSAPP_OPTIN_SOURCES = {
   ride_sessions: 'טיולי רכיבה',
   parent_meeting: 'אסיפת הורים',
   sovev_ramon: 'סובב מצפה רמון',
+  rental: 'השכרת אופניים',
 } as const
 
 export type WhatsappOptinSource = keyof typeof WHATSAPP_OPTIN_SOURCES
