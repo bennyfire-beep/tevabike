@@ -40,9 +40,9 @@ export const slotPrice = (slot: SlotId) => PRICE[SLOT_BY_ID[slot].duration]
 // exact total — when that lands, only paymentLinks() changes.
 // null → the confirmation screen says a payment link will be sent on WhatsApp.
 export const PAY_LINKS: { half: string | null; full: string | null; protection: string | null } = {
-  half: null,
-  full: null,
-  protection: null,
+  half: 'https://arbox.link/7wLVYG7G', // "השכרת אופניים 4 שעות" · 250 ₪
+  full: 'https://arbox.link/afej9_OH', // "השכרת אופניים חשמליות" · 390 ₪
+  protection: 'https://arbox.link/O0nb5pPX', // 90 ₪
 }
 
 export type PayLine = { label: string; qty: number; unit: number; url: string | null }
@@ -110,8 +110,8 @@ export function bikeFits(bike: Pick<Bike, 'size' | 'height_min' | 'height_max'>,
 export const DEPOSIT_PER_BIKE = 0
 // Theft or loss: the renter pays the price of a NEW bike of the same model
 // (decided Nov 2026). This is the default when a bike has no agreed_value set
-// in the admin screen; "at least 16,000, maybe more" — confirm with Timo.
-export const AGREED_VALUE_DEFAULT = 16000
+// in the admin screen. Set to 25,000 by Benny (Nov 2026).
+export const AGREED_VALUE_DEFAULT = 25000
 export const LATE_RETURN_HOURS = 24 // after this a bike not returned counts as lost
 export const DISPUTE_DAYS = 3 // business days the customer has to dispute a damage charge
 

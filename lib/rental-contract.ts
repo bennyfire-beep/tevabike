@@ -13,7 +13,7 @@ import {
 // DRAFT — must be reviewed by a lawyer and the insurance agent before launch
 // (docs/rental/PLAN.md §5 stage 1).
 
-export const CONTRACT_VERSION = '2026-11-07-draft3'
+export const CONTRACT_VERSION = '2026-11-07-draft4'
 
 export type ContractSection = { title: string; items: string[] }
 
