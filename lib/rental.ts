@@ -105,9 +105,13 @@ export function bikeFits(bike: Pick<Bike, 'size' | 'height_min' | 'height_max'>,
 }
 
 // ── Policy amounts (placeholders — PLAN.md §6, to be decided with Timo) ──
-export const DEPOSIT_PER_BIKE = 1500 // card hold at pickup
-export const THEFT_EXCESS = 4000 // theft when every lock/police rule was kept
-export const AGREED_VALUE_DEFAULT = 16000 // full value if a bike is lost or stolen through negligence
+// Card hold at pickup. 0 = no deposit (decided Nov 2026: none until the
+// Rivhit gateway can hold a card); the contract drops the deposit clause.
+export const DEPOSIT_PER_BIKE = 0
+// Theft or loss: the renter pays the price of a NEW bike of the same model
+// (decided Nov 2026). This is the default when a bike has no agreed_value set
+// in the admin screen; "at least 16,000, maybe more" — confirm with Timo.
+export const AGREED_VALUE_DEFAULT = 16000
 export const LATE_RETURN_HOURS = 24 // after this a bike not returned counts as lost
 export const DISPUTE_DAYS = 3 // business days the customer has to dispute a damage charge
 
@@ -115,6 +119,10 @@ export const DISPUTE_DAYS = 3 // business days the customer has to dispute a dam
 // trail dirt and not washed is charged this, per bike, after the return
 // condition is documented. Not covered by the protection plan.
 export const CLEANING_FEE = 40
+
+// Where bikes are picked up and returned. The wash station is downstairs in
+// the shop at the same site.
+export const RETURN_LOCATION = 'מתחם השכרת האופניים של טבע בייק ברקפת'
 
 // ── Rider rules ──
 export const MIN_RENTER_AGE = 18

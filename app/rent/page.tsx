@@ -5,7 +5,7 @@ import SignaturePad from '@/components/SignaturePad'
 import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 import {
   RENTAL_OPEN, PRICE, PROTECTION_PRICE, PROTECTION_CAP, SLOTS, SLOT_BY_ID, SIZES, SIZE_LABEL, MAX_BIKES_PER_BOOKING,
-  MIN_RIDER_AGE, MIN_RENTER_AGE, recommendSize, bikeFits, slotsClash, slotPrice, bookingTotal,
+  MIN_RIDER_AGE, MIN_RENTER_AGE, RETURN_LOCATION, recommendSize, bikeFits, slotsClash, slotPrice, bookingTotal,
   type Bike, type SlotId, type PayLine,
 } from '@/lib/rental'
 import { CONSENTS, contractSections, type ConsentId } from '@/lib/rental-contract'
@@ -138,6 +138,7 @@ export default function RentPage() {
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">⏱️ 4 שעות · {PRICE.half} ₪</li>
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">☀️ יום מלא · {PRICE.full} ₪</li>
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">🛡️ מסלול הגנה · {PROTECTION_PRICE} ₪</li>
+            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">📍 {RETURN_LOCATION}</li>
           </ul>
         </header>
 

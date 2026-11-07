@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { downloadCsv } from '@/lib/csv-export'
-import { SIZES, SIZE_LABEL, SLOT_BY_ID, STATUS_LABEL, isSize, type BikeSize, type SlotId } from '@/lib/rental'
+import { SIZES, SIZE_LABEL, SLOT_BY_ID, STATUS_LABEL, AGREED_VALUE_DEFAULT, isSize, type BikeSize, type SlotId } from '@/lib/rental'
 
 // ============================================================
 // השכרת אופניים — צי (תמונות, מידות) והזמנות עם ההסכם החתום
@@ -281,7 +281,7 @@ function Bikes() {
         <L label="תיאור קצר (מוצג ללקוחות)"><textarea style={{ ...input, minHeight: 60 }} value={edit.description ?? ''} onChange={(e) => setEdit({ ...edit, description: e.target.value })} /></L>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
           <L label="מספר שלדה (פנימי)"><input style={input} value={edit.frame_number ?? ''} onChange={(e) => setEdit({ ...edit, frame_number: e.target.value })} /></L>
-          <L label="ערך מוסכם ₪ (פנימי)"><input style={input} type="number" value={edit.agreed_value ?? ''} onChange={(e) => setEdit({ ...edit, agreed_value: num(e.target.value) })} /></L>
+          <L label={`מחיר אופניים חדשים ₪ (לגניבה/אובדן; ריק = ${AGREED_VALUE_DEFAULT.toLocaleString('he-IL')})`}><input style={input} type="number" value={edit.agreed_value ?? ''} onChange={(e) => setEdit({ ...edit, agreed_value: num(e.target.value) })} /></L>
           <L label="סדר הצגה"><input style={input} type="number" value={edit.sort_order} onChange={(e) => setEdit({ ...edit, sort_order: Number(e.target.value) || 0 })} /></L>
         </div>
         <L label="תמונות">

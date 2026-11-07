@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 import {
   RENTAL_OPEN, SLOT_BY_ID, isSlot, slotPrice, PROTECTION_PRICE, bookingTotal, paymentLines,
-  bikeFits, MAX_BIKES_PER_BOOKING, type Bike, type SlotId,
+  bikeFits, MAX_BIKES_PER_BOOKING, AGREED_VALUE_DEFAULT, type Bike, type SlotId,
 } from '@/lib/rental'
 import { CONTRACT_VERSION, CONSENTS, contractText } from '@/lib/rental-contract'
 
@@ -195,6 +195,15 @@ export async function POST(req: NextRequest) {
       .in('id', items.map((i) => i.bike_id))
     if (bikeErr) throw bikeErr
     const bikeById = new Map((bikeRows as Bike[]).map((b) => [b.id, b]))
+
+    // Replacement value per bike for the contract snapshot (staff-set column,
+    // so it is read here rather than sent to the public GET).
+    const { data: valueRows, error: valueErr } = await db
+      .from('rental_bikes')
+      .select('id, agreed_value')
+      .in('id', items.map((i) => i.bike_id))
+    if (valueErr) throw valueErr
+    const valueById = new Map((valueRows ?? []).map((v) => [v.id as string, (v.agreed_value as number | null) ?? AGREED_VALUE_DEFAULT]))
     for (const i of items) {
       const b = bikeById.get(i.bike_id)
       if (!b || !b.active) return bad('אחד האופניים כבר לא זמין. רעננו את הדף ובחרו שוב.', 409)
@@ -213,7 +222,8 @@ export async function POST(req: NextRequest) {
     const text = contractText({
       renter_name, renter_id_number, renter_phone, rent_date, slot_label: slotLabel, total,
       items: priced.map((i) => ({
-        rider_name: i.rider_name, bike_name: bikeById.get(i.bike_id)!.name, protection: i.protection, price: i.price,
+        rider_name: i.rider_name, bike_name: bikeById.get(i.bike_id)!.name, bike_value: valueById.get(i.bike_id) ?? AGREED_VALUE_DEFAULT,
+        protection: i.protection, price: i.price,
       })),
     })
     const signed_at = new Date().toISOString()
