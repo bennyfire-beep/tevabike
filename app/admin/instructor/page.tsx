@@ -670,6 +670,9 @@ function WorkHoursSection() {
   const [formError, setFormError] = useState('')
   const [busyId, setBusyId]   = useState<string | null>(null)
   const [savedMsg, setSavedMsg] = useState('')
+  // Last month's reports stay listed (they can still be fixed) but collapsed,
+  // so they don't read as part of this month's pay.
+  const [showLast, setShowLast] = useState(false)
 
   // Returns the list or an error message; callers decide when to set state,
   // so the mount effect only sets state from the resolved promise.
@@ -918,8 +921,20 @@ function WorkHoursSection() {
 
       {lastMonth.length > 0 && (
         <>
-          <h3 style={{ fontSize: 15, fontWeight: 800, color: C.muted, margin: '16px 0 8px' }}>החודש הקודם — עדיין אפשר לתקן</h3>
-          {rows(lastMonth)}
+          <button
+            type="button"
+            onClick={() => setShowLast(v => !v)}
+            aria-expanded={showLast}
+            style={{ minHeight: 44, marginTop: 16, marginBottom: showLast ? 8 : 0, background: 'transparent', border: `1px solid ${C.border}`, color: C.muted, borderRadius: 12, padding: '0 16px', fontFamily: FONT, fontSize: 15, fontWeight: 800, cursor: 'pointer' }}
+          >
+            {showLast ? '▲ הסתר חודש קודם' : `▼ חודש קודם (${lastMonth.length})`}
+          </button>
+          {showLast && (
+            <>
+              <p style={{ color: C.muted, fontSize: 13.5, margin: '0 0 8px' }}>דיווחים מהחודש הקודם — עדיין אפשר לתקן. לא נכללים במשכורת של החודש.</p>
+              {rows(lastMonth)}
+            </>
+          )}
         </>
       )}
     </section>

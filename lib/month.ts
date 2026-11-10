@@ -24,10 +24,14 @@ export function toYmd(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-/** The month we are in, as YYYY-MM. */
+/**
+ * The month we are in, as YYYY-MM — in Israel time. Server routes run on
+ * Vercel in UTC, where for the first 2–3 hours of a month (Israel time) the
+ * server's own clock is still in the previous month, so "המשכורת שלי" showed
+ * last month's pay right after midnight on the 1st.
+ */
 export function currentMonth(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()).slice(0, 7)
 }
 
 /** Today, as YYYY-MM-DD. */
