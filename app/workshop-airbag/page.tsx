@@ -12,8 +12,8 @@ const PRICE = 180;
 const MIN_AGE = 11;
 // סשן 13.11 מלא (25/25) — ההרשמה נסגרה
 const REGISTRATION_CLOSED = true;
-const PLACE = "פארק אוסטרליה";
-const WAZE_URL = `https://waze.com/ul?q=${encodeURIComponent(PLACE)}&navigate=yes`;
+const PLACE = "אתגר משגב";
+const WAZE_URL = "https://waze.com/ul/hsvc4fmbtz";
 const MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${PLACE} משגב`)}`;
 
 const C = {
@@ -200,7 +200,7 @@ export default function WorkshopAirbagPage() {
       <section className="px-6 pb-10">
         <div className="max-w-2xl mx-auto grid grid-cols-2 gap-3 text-sm">
           {[
-            ["📍 איפה", "משגב, פארק אוסטרליה (בוויז)"],
+            ["📍 איפה", "אתגר, משגב (בוויז: אתגר)"],
             ["🕗 מתי", "שישי 13.11 · 9:00–13:00"],
             ["🎯 למי", "מגיל 11 ומעלה · פתוח גם לרוכבים מבחוץ"],
             ["💰 עלות", `${PRICE} ₪`],
@@ -227,8 +227,8 @@ export default function WorkshopAirbagPage() {
         >
           <h2 className="font-bold text-lg mb-3">📍 איך מגיעים</h2>
           <p className="text-sm leading-relaxed mb-4" style={{ color: "#D8E2DC" }}>
-            הסשן מתקיים ב<b style={{ color: C.offWhite }}>פארק אוסטרליה, משגב</b>.
-            מחפשים בוויז <b style={{ color: C.brand }}>&quot;פארק אוסטרליה&quot;</b> ונוסעים
+            הסשן מתקיים ב<b style={{ color: C.offWhite }}>אתגר, משגב</b>.
+            לוחצים על כפתור ה־Waze למטה (או מחפשים בוויז <b style={{ color: C.brand }}>&quot;אתגר&quot;</b>) ונוסעים
             עד הפארק — כריות האוויר מחכות שם. מומלץ להגיע כמה דקות לפני 9:00
             כדי להתארגן ולהתמגן.
           </p>
