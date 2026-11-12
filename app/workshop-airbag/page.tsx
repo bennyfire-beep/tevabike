@@ -10,6 +10,8 @@ const OUTSIDE = "outside";
 const PAYMENT_LINK = "https://arbox.link/IdCW6--f"; // Arbox: "סשיין air bag" — 180 ₪
 const PRICE = 180;
 const MIN_AGE = 11;
+// סשן 13.11 מלא (25/25) — ההרשמה נסגרה
+const REGISTRATION_CLOSED = true;
 const PLACE = "פארק אוסטרליה";
 const WAZE_URL = `https://waze.com/ul?q=${encodeURIComponent(PLACE)}&navigate=yes`;
 const MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${PLACE} משגב`)}`;
@@ -268,6 +270,20 @@ export default function WorkshopAirbagPage() {
         </div>
       </section>
 
+      {REGISTRATION_CLOSED ? (
+      <section className="px-6 pb-16">
+        <div
+          className="max-w-2xl mx-auto rounded-2xl p-6 text-center space-y-3 border"
+          style={{ background: C.green, borderColor: `${C.brand}55` }}
+        >
+          <h2 className="text-2xl font-black">ההרשמה נסגרה</h2>
+          <p style={{ color: "#D8E2DC" }}>
+            כל המקומות לסשן נתפסו — תודה לכל מי שנרשם! נתראה בשישי באוויר 🤘
+          </p>
+        </div>
+      </section>
+      ) : (
+      <>
       {/* Form */}
       <section className="px-6 pb-16">
         <div
@@ -412,6 +428,8 @@ export default function WorkshopAirbagPage() {
           )}
         </div>
       </section>
+      </>
+      )}
     </main>
   );
 }

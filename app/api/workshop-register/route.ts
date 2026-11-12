@@ -9,6 +9,8 @@ export const dynamic = 'force-dynamic'
 const PAYMENT_LINK = 'https://arbox.link/IdCW6--f' // Arbox: "סשיין air bag" — 180 ₪
 const PRICE = 180
 const MIN_AGE = 11
+// סשן 13.11 מלא — ההרשמה נסגרה
+const REGISTRATION_CLOSED = true
 const FROM = 'טבע בייק <info@mail.tevabike.com>'
 const REPLY_TO = 'bennyfire@gmail.com'
 const ADMIN_EMAIL = 'bennyfire@gmail.com'
@@ -124,6 +126,9 @@ export async function POST(req: NextRequest) {
   }
   if (age < MIN_AGE) {
     return NextResponse.json({ error: 'too_young' }, { status: 400 })
+  }
+  if (REGISTRATION_CLOSED) {
+    return NextResponse.json({ error: 'workshop_full' }, { status: 409 })
   }
   if (!VALID_DATES.includes(workshop_date)) {
     return NextResponse.json({ error: 'bad_date' }, { status: 400 })
