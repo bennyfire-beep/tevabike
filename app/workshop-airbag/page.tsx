@@ -229,7 +229,7 @@ export default function WorkshopAirbagPage() {
           <p className="text-sm leading-relaxed mb-4" style={{ color: "#D8E2DC" }}>
             הסשן מתקיים ב<b style={{ color: C.offWhite }}>אתגר, משגב</b>.
             לוחצים על כפתור ה־Waze למטה (או מחפשים בוויז <b style={{ color: C.brand }}>&quot;אתגר&quot;</b>) ונוסעים
-            עד הפארק — כריות האוויר מחכות שם. מומלץ להגיע כמה דקות לפני 9:00
+            עד המקום — כריות האוויר מחכות שם. מומלץ להגיע כמה דקות לפני 9:00
             כדי להתארגן ולהתמגן.
           </p>
           <div className="grid grid-cols-2 gap-3">
