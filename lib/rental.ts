@@ -138,6 +138,21 @@ export const MIN_RENTER_AGE = 18
 export const MIN_RIDER_AGE = 16 // placeholder — check the Ralbad rules for the exact model
 export const MAX_BIKES_PER_BOOKING = 10
 
+// ── Monthly settlement with Timo Pan (app/api/cron/rental-monthly-report) ──
+// Agreed Nov 2026: the Arbox card fee comes off first, the rest is split 50/50
+// including VAT, and Timo issues Benny a tax invoice for his half.
+export const SETTLEMENT = {
+  // Arbox clearing fee as a fraction of what customers paid. Benny: "2% or 3%" — confirm exact rate.
+  arboxFeePct: 0.03,
+  timoShare: 0.5,
+  // Whether protection-plan income (PROTECTION_PRICE per bike) is part of the split. Pending Benny's decision.
+  protectionInSplit: true,
+  // Where the report goes. null → only Benny gets it until Timo's address is set.
+  timoEmail: null as string | null,
+}
+// Bookings that count as income for the month (by rent_date).
+export const SETTLED_STATUSES = ['paid', 'picked_up', 'returned'] as const
+
 export const STATUS_LABEL: Record<string, string> = {
   pending: 'ממתין לתשלום',
   paid: 'שולם',
