@@ -5,7 +5,7 @@ import SignaturePad from '@/components/SignaturePad'
 import IdPhotoInput from '@/components/IdPhotoInput'
 import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 import {
-  RENTAL_OPEN, PRICE, PROTECTION_PRICE, PROTECTION_CAP, SLOTS, SLOT_BY_ID, SIZES, SIZE_LABEL, MAX_BIKES_PER_BOOKING,
+  RENTAL_OPEN, PRICE, HALF_DAY_PERK, PROTECTION_PRICE, PROTECTION_CAP, SLOTS, SLOT_BY_ID, SIZES, SIZE_LABEL, MAX_BIKES_PER_BOOKING,
   MIN_RIDER_AGE, MIN_RENTER_AGE, RETURN_LOCATION, recommendSize, bikeFits, slotsClash, slotPrice, bookingTotal,
   type Bike, type SlotId, type PayLine,
 } from '@/lib/rental'
@@ -137,6 +137,9 @@ export default function RentPage() {
     }
   }
 
+  // Size guide shows only the sizes the active fleet has (all sizes until bikes load).
+  const fleetSizes = bikes.length ? SIZES.filter((s) => bikes.some((b) => b.size === s.id)) : SIZES
+
   return (
     <div dir="rtl" className="min-h-screen bg-stone-950 text-stone-100">
       <div className="max-w-2xl mx-auto">
@@ -149,7 +152,7 @@ export default function RentPage() {
             אופני שטח חשמליים חדשים, מותאמים לגובה שלכם. בוחרים תאריך, אופניים ומסלול הגנה, חותמים על ההסכם בדיגיטל – ויוצאים לשביל.
           </p>
           <ul className="flex flex-wrap gap-2 text-sm">
-            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">⏱️ 4 שעות · {PRICE.half} ₪</li>
+            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">⏱️ 4 שעות · {PRICE.half} ₪ · ☕ {HALF_DAY_PERK}</li>
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">☀️ יום מלא · {PRICE.full} ₪</li>
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">🛡️ מסלול הגנה · {PROTECTION_PRICE} ₪</li>
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">📍 {RETURN_LOCATION}</li>
@@ -164,8 +167,8 @@ export default function RentPage() {
               {/* size guide */}
               <section>
                 <h2 className="text-lg font-bold mb-3">איזה גודל מתאים לי?</h2>
-                <div className="grid grid-cols-4 gap-2 text-center">
-                  {SIZES.map((s) => (
+                <div className={`grid ${fleetSizes.length === 3 ? 'grid-cols-3' : 'grid-cols-4'} gap-2 text-center`}>
+                  {fleetSizes.map((s) => (
                     <div key={s.id} className="bg-stone-900 rounded-xl p-3">
                       <div className="text-xl font-extrabold" style={{ color: ACCENT }}>{s.id}</div>
                       <div className="text-xs text-stone-400">{s.label}</div>

@@ -12,7 +12,9 @@
 export const RENTAL_OPEN = false
 
 // ── Prices (₪, incl. VAT) ──
-export const PRICE = { half: 250, full: 390 } as const
+// The 4-hour rental includes a cup of coffee at the Timo Pan shop (Nov 2026).
+export const PRICE = { half: 270, full: 390 } as const
+export const HALF_DAY_PERK = 'כולל כוס קפה בחנות טימו פאן'
 export const PROTECTION_PRICE = 90
 export const PROTECTION_CAP = 1000
 
@@ -40,7 +42,7 @@ export const slotPrice = (slot: SlotId) => PRICE[SLOT_BY_ID[slot].duration]
 // exact total — when that lands, only paymentLinks() changes.
 // null → the confirmation screen says a payment link will be sent on WhatsApp.
 export const PAY_LINKS: { half: string | null; full: string | null; protection: string | null } = {
-  half: 'https://arbox.link/7wLVYG7G', // "השכרת אופניים 4 שעות" · 250 ₪
+  half: 'https://arbox.link/7wLVYG7G', // "השכרת אופניים 4 שעות" · 270 ₪
   full: 'https://arbox.link/afej9_OH', // "השכרת אופניים חשמליות" · 390 ₪
   protection: 'https://arbox.link/O0nb5pPX', // 90 ₪
 }
