@@ -42,7 +42,6 @@ export const slotPrice = (slot: SlotId) => PRICE[SLOT_BY_ID[slot].duration]
 // exact total — when that lands, only paymentLinks() changes.
 // null → the confirmation screen says a payment link will be sent on WhatsApp.
 export const PAY_LINKS: { half: string | null; full: string | null; protection: string | null } = {
-  // TODO: Arbox product still charges 250 ₪ — update its price to 270 ₪ or replace this link.
   half: 'https://arbox.link/7wLVYG7G', // "השכרת אופניים 4 שעות" · 270 ₪
   full: 'https://arbox.link/afej9_OH', // "השכרת אופניים חשמליות" · 390 ₪
   protection: 'https://arbox.link/O0nb5pPX', // 90 ₪
