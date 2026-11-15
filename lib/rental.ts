@@ -9,7 +9,7 @@
 // true → anyone can book on /rent (opened Nov 2026). false → /rent shows the
 // bikes and a "coming soon" note; the booking form only appears with
 // ?preview=1 (for testing).
-export const RENTAL_OPEN = true
+export const RENTAL_OPEN = false
 
 // ── Prices (₪, incl. VAT) ──
 // The 4-hour rental includes a cup of coffee at the Timo Pan shop (Nov 2026).
