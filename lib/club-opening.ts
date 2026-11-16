@@ -10,7 +10,7 @@ export const EVENT_DATE = '2026-12-04'
 export const EVENT_DATE_LABEL = 'יום שישי, 4.12'
 export const LOCATION = 'אתגר'
 export const CLUB_LOCATION = 'מועדון טבע בייק, רקפת'
-export const FLYER_SRC = '/club-opening-flyer-v2.jpg'
+export const FLYER_SRC = '/club-opening-flyer-v3.jpg'
 
 export const SCHEDULE = [
   { time: '08:00', label: 'התכנסות באתגר', emoji: '👋' },
