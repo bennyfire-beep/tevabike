@@ -147,6 +147,10 @@ export default function HanukatMoadonPage() {
               🥐 <b className="text-stone-100">כל אחד מביא משהו קטן</b> — מאפים, ירקות, פיתות ולבנה, חומוס או שתייה קלה.
               בחרו בטופס מה תביאו, כדי שיהיה מכל דבר.
             </p>
+            <p>
+              🚐 <b className="text-stone-100">את הכיבוד מביאים לאתגר</b> בהתכנסות ב-08:00. אנחנו נעמיס אותו על הרכב של
+              טבע בייק, נעלה אותו למועדון ונסדר הכול לקראת החגיגה אחרי התחרות. מי שמגיע רק לכיבוד — מביא ישר למועדון ב-10:30.
+            </p>
             <p className="font-semibold" style={{ color: LIME }}>
               ⚠️ ההרשמה חובה — גם אם מגיעים רק לכיבוד — כדי שנדע לתכנן אופניים, אוכל ומקום.
             </p>
@@ -162,6 +166,9 @@ export default function HanukatMoadonPage() {
               <p className="text-stone-400 text-sm">
                 {done.activity ? `${EVENT_DATE_LABEL} · התכנסות 08:00 ב${LOCATION}, זינוקים 08:30` : `${EVENT_DATE_LABEL} · 10:30 ב${CLUB_LOCATION}`}
               </p>
+              {done.activity && (
+                <p className="text-stone-300 text-sm">🚐 את הכיבוד מביאים לאתגר — אנחנו נעלה אותו למועדון ברכב של טבע בייק</p>
+              )}
               <p className="text-lg font-bold" style={{ color: PINK }}>
                 שתפו את הקישור בקבוצה — ככה נהיה הכי הרבה! 🚵‍♀️✨
               </p>
