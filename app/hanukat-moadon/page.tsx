@@ -9,10 +9,13 @@ import {
 // ============================================================
 // הרשמה לחנוכת המועדון — הגדרות ב-lib/club-opening.ts
 // נתיב: app/hanukat-moadon/page.tsx · API: app/api/club-opening/route.ts
+// Clean, light layout: one accent colour, grouped white cards, lots of air.
 // ============================================================
 
-const PINK = '#D4288A'
-const LIME = '#b5e853'
+const ACCENT = '#D4288A'
+const INK = '#1d1d1f'
+const MUTED = '#6e6e73'
+const LINE = '#e5e5ea'
 
 type Stats = { families: number; people: number; riders: number; food: Record<string, number> }
 
@@ -40,6 +43,11 @@ export default function HanukatMoadonPage() {
 
   const toggleFood = (v: string) =>
     setBringing((b) => (b.includes(v) ? b.filter((x) => x !== v) : [...b, v]))
+
+  const changeRiders = (n: number) => {
+    setRidersCount(n)
+    if (attendees < n) setAttendees(n)
+  }
 
   async function submit() {
     setError('')
@@ -79,34 +87,33 @@ export default function HanukatMoadonPage() {
   }
 
   return (
-    <div dir="rtl" className="min-h-screen bg-stone-950 text-stone-100">
-      <div className="max-w-lg mx-auto">
+    <div dir="rtl" className="min-h-screen" style={{ background: '#f5f5f7', color: INK }}>
+      <div className="max-w-xl mx-auto px-5 pb-20">
         {/* hero */}
-        <header
-          className="px-6 pt-10 pb-9"
-          style={{ background: 'linear-gradient(160deg,#0C1814 0%, #152A1E 50%, #2E1224 100%)' }}
-        >
-          <p className="text-xs font-bold tracking-[.14em] mb-2" style={{ color: LIME }}>
+        <header className="pt-12 pb-8 text-center">
+          <p className="text-[13px] font-semibold tracking-wide mb-3" style={{ color: ACCENT }}>
             טבע בייק · {EVENT_DATE_LABEL}
           </p>
-          <h1 className="text-4xl font-extrabold mb-3 leading-tight">
-            חנוכת המועדון 🎉
-            <span className="block text-2xl mt-1" style={{ color: PINK }}>כל טבע בייק — ביחד!</span>
-          </h1>
-          <p className="text-stone-300 text-[15px] leading-relaxed mb-5">
-            אחרי חודשים של עבודה — הבית החדש של טבע בייק מוכן! בואו לחגוג איתנו בבוקר של רכיבה, צחוקים, אוכל טוב
-            וכל המשפחה. ילדים, הורים, מבוגרים — כל הקבוצות מוזמנות 💜
+          <h1 className="text-[40px] leading-[1.1] font-extrabold tracking-tight">חנוכת המועדון</h1>
+          <p className="text-[21px] font-semibold mt-1" style={{ color: MUTED }}>
+            בוקר אחד. כל טבע בייק.
           </p>
-          <ul className="flex flex-wrap gap-2 text-sm">
-            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">📅 {EVENT_DATE_LABEL}</li>
-            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">⏰ 08:00</li>
-            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">📍 {LOCATION} ← המועדון ברקפת</li>
-          </ul>
+          <p className="text-[16px] leading-relaxed mt-5 max-w-md mx-auto" style={{ color: MUTED }}>
+            הבית החדש של טבע בייק מוכן. בואו לחגוג איתנו בבוקר של רכיבה, צחוקים ואוכל טוב — ילדים, הורים ומבוגרים,
+            כל הקבוצות מוזמנות.
+          </p>
           {stats && stats.families > 0 && (
-            <p className="mt-5 text-sm font-semibold" style={{ color: LIME }}>
-              🔥 כבר {stats.people} נרשמו{stats.riders > 0 ? ` · ${stats.riders} רוכבים בתחרות` : ''} — אל תישארו בחוץ!
+            <p className="mt-5 text-[14px] font-semibold" style={{ color: INK }}>
+              כבר {stats.people} נרשמו{stats.riders > 0 ? ` · ${stats.riders} רוכבים בתחרות` : ''}
             </p>
           )}
+          <a
+            href="#register"
+            className="inline-block mt-6 text-white text-[16px] font-semibold rounded-full px-7 py-3"
+            style={{ background: ACCENT }}
+          >
+            להרשמה
+          </a>
         </header>
 
         {/* flyer */}
@@ -115,232 +122,301 @@ export default function HanukatMoadonPage() {
           alt="חוגגים חנוכה — חנוכת מועדון טבע בייק: מיני בייק, מסלול מדידת זמנים לפי קטגוריות לילדים ולמבוגרים"
           width={1024}
           height={1536}
-          className="w-full h-auto block"
+          className="w-full h-auto block rounded-[28px] shadow-[0_8px_30px_rgba(0,0,0,0.08)]"
         />
 
-        <main className="px-5 py-7 space-y-6">
-          {/* schedule */}
-          <section>
-            <h2 className="text-lg font-bold mb-3">🗓️ התוכנית</h2>
-            <ol className="space-y-2">
-              {SCHEDULE.map((s) => (
-                <li key={s.time} className="flex items-center gap-3 bg-stone-900 rounded-lg px-4 py-3 text-sm">
-                  <span className="text-xl">{s.emoji}</span>
-                  <span className="font-semibold flex-1">{s.label}</span>
-                  <span className="font-bold whitespace-nowrap" dir="ltr" style={{ color: PINK }}>
-                    {s.time}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </section>
+        {/* schedule */}
+        <SectionTitle>התוכנית</SectionTitle>
+        <Card>
+          {SCHEDULE.map((s, i) => (
+            <div
+              key={s.time}
+              className="flex items-baseline gap-4 px-5 py-4"
+              style={i ? { borderTop: `1px solid ${LINE}` } : undefined}
+            >
+              <span className="text-[17px] font-bold tabular-nums w-14 shrink-0" dir="ltr" style={{ color: ACCENT }}>
+                {s.time}
+              </span>
+              <span className="text-[16px] leading-snug">{s.label}</span>
+            </div>
+          ))}
+        </Card>
 
-          <div className="bg-stone-900 rounded-xl p-4 space-y-3 text-[14.5px] text-stone-300 leading-relaxed">
-            <p>
-              🚲 <b className="text-stone-100">מיני בייק • כיף גדול</b> — תחרות היתולית על אופני 20 אינץ׳, גם הגדולים!
-              מסלול מדידת זמנים לפי קטגוריות, לילדים ולמבוגרים. לא צריך להיות אלוף כדי לנצח.
-            </p>
-            <p>
-              ⛰️ ב-10:30 נטפס יחד למעלה אל {CLUB_LOCATION}, נגזור סרט ונחנוך את הבית החדש עם כיבוד משותף. חוגגים חנוכה! 🕎
-            </p>
-            <p>
-              🥐 <b className="text-stone-100">כל אחד מביא משהו קטן</b> — מאפים, ירקות, פיתות ולבנה, חומוס או שתייה קלה.
-              בחרו בטופס מה תביאו, כדי שיהיה מכל דבר.
-            </p>
-            <p>
-              🚐 <b className="text-stone-100">את הכיבוד מביאים לאתגר</b> בהתכנסות ב-08:00. אנחנו נעמיס אותו על הרכב של
-              טבע בייק, נעלה אותו למועדון ונסדר הכול לקראת החגיגה אחרי התחרות. מי שמגיע רק לכיבוד — מביא ישר למועדון ב-10:30.
-            </p>
-            <p className="font-semibold" style={{ color: LIME }}>
-              ⚠️ ההרשמה חובה — גם אם מגיעים רק לכיבוד — כדי שנדע לתכנן אופניים, אוכל ומקום.
-            </p>
-          </div>
+        {/* details */}
+        <SectionTitle>מה מחכה לכם</SectionTitle>
+        <Card>
+          <Detail title="מיני בייק, כיף גדול">
+            תחרות היתולית על אופני 20 אינץ׳ — גם לגדולים. מסלול מדידת זמנים לפי קטגוריות, לילדים ולמבוגרים. לא צריך
+            להיות אלוף כדי לנצח.
+          </Detail>
+          <Detail title="חוגגים במועדון" line>
+            ב-10:30 עולים יחד אל {CLUB_LOCATION}, גוזרים סרט וחונכים את הבית החדש עם כיבוד משותף.
+          </Detail>
+          <Detail title="כל אחד מביא משהו קטן" line>
+            מאפים, ירקות, פיתות ולבנה, חומוס או שתייה קלה — בחרו בטופס, כדי שיהיה מכל דבר.
+          </Detail>
+          <Detail title={`את הכיבוד מביאים ל${LOCATION}`} line>
+            בהתכנסות ב-08:00. נעמיס אותו על הרכב של טבע בייק, נעלה למועדון ונסדר הכול לאחרי התחרות. מי שמגיע רק לכיבוד —
+            מביא ישר למועדון ב-10:30.
+          </Detail>
+        </Card>
+        <p className="text-[14px] text-center mt-4 font-medium" style={{ color: INK }}>
+          ההרשמה חובה, גם אם מגיעים רק לכיבוד.
+        </p>
 
-          {done ? (
-            <section className="text-center space-y-4 py-4 bg-stone-900 rounded-xl px-4">
-              <div className="text-5xl">🎉</div>
-              <h2 className="text-2xl font-bold">נרשמתם! מתרגשים לראות אתכם</h2>
-              <p className="text-stone-300">
-                {done.name} · {done.attendees === 1 ? 'מגיע/ה לבד' : `${done.attendees} מגיעים`}
-              </p>
-              <p className="text-stone-400 text-sm">
-                {done.activity ? `${EVENT_DATE_LABEL} · התכנסות 08:00 ב${LOCATION}, זינוקים 08:30` : `${EVENT_DATE_LABEL} · 10:30 ב${CLUB_LOCATION}`}
-              </p>
-              {done.activity && (
-                <p className="text-stone-300 text-sm">🚐 את הכיבוד מביאים לאתגר — אנחנו נעלה אותו למועדון ברכב של טבע בייק</p>
-              )}
-              <p className="text-lg font-bold" style={{ color: PINK }}>
-                שתפו את הקישור בקבוצה — ככה נהיה הכי הרבה! 🚵‍♀️✨
-              </p>
-            </section>
-          ) : (
-            <section className="space-y-5">
-              <h2 className="text-lg font-bold">📝 הרשמה</h2>
-              <Field label="שם מלא *" value={form.contact_name} onChange={(v) => set('contact_name', v)} />
-              <Field label="טלפון *" type="tel" value={form.phone} onChange={(v) => set('phone', v)} />
-
-              <div>
-                <label className="block text-sm text-stone-400 mb-1.5">מאיזו קבוצה? *</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {GROUPS.map((g) => (
-                    <Pill key={g} active={form.group_name === g} onClick={() => set('group_name', g)}>
-                      {g}
-                    </Pill>
-                  ))}
+        {/* form */}
+        <div id="register" className="scroll-mt-20" />
+        {done ? (
+          <>
+            <SectionTitle>נרשמתם</SectionTitle>
+            <Card>
+              <div className="px-6 py-10 text-center">
+                <div
+                  className="w-14 h-14 rounded-full mx-auto mb-5 flex items-center justify-center text-white text-2xl"
+                  style={{ background: ACCENT }}
+                >
+                  ✓
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm text-stone-400 mb-1.5">למה מגיעים? *</label>
-                <div className="grid gap-2">
-                  {PARTICIPATION.map((p) => (
-                    <Pill key={p.value} active={form.participation === p.value} onClick={() => set('participation', p.value)}>
-                      <span className="block">{p.label}</span>
-                      <span className="block text-xs font-normal opacity-80 mt-0.5">{p.sub}</span>
-                    </Pill>
-                  ))}
-                </div>
-              </div>
-
-              {isActivity && (
-                <>
-                  <div>
-                    <label className="block text-sm text-stone-400 mb-1.5">כמה רוכבים משתתפים בתחרות? *</label>
-                    <div className="grid grid-cols-6 gap-2">
-                      {Array.from({ length: MAX_RIDERS }, (_, i) => i + 1).map((n) => (
-                        <Pill key={n} active={ridersCount === n} onClick={() => { setRidersCount(n); if (attendees < n) setAttendees(n) }}>
-                          {n}
-                        </Pill>
-                      ))}
-                    </div>
-                  </div>
-                  <Field
-                    label="שמות הרוכבים בתחרות *"
-                    value={form.rider_names}
-                    onChange={(v) => set('rider_names', v)}
-                    max={200}
-                  />
-                </>
-              )}
-
-              <div>
-                <label className="block text-sm text-stone-400 mb-1.5">כמה מגיעים בסך הכול (כולל הורים ואחים)? *</label>
-                <div className="grid grid-cols-5 gap-2">
-                  {Array.from({ length: MAX_ATTENDEES }, (_, i) => i + 1).map((n) => (
-                    <Pill key={n} active={attendees === n} onClick={() => setAttendees(n)}>
-                      {n}
-                    </Pill>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm text-stone-400 mb-1.5">מה תביאו לכיבוד? (אפשר לבחור כמה)</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {FOOD.map((f) => {
-                    const n = stats?.food?.[f.value] ?? 0
-                    return (
-                      <Pill key={f.value} active={bringing.includes(f.value)} onClick={() => toggleFood(f.value)}>
-                        <span className="block">{f.emoji} {f.label}</span>
-                        <span className="block text-[11px] font-normal opacity-75 mt-0.5">
-                          {n === 0 ? 'עוד אף אחד — תהיו ראשונים!' : `כבר ${n} מביאים`}
-                        </span>
-                      </Pill>
-                    )
-                  })}
-                </div>
-                {bringing.includes('other') && (
-                  <div className="mt-2">
-                    <Field label="מה תביאו?" value={form.bringing_other} onChange={(v) => set('bringing_other', v)} max={120} />
-                  </div>
+                <h2 className="text-[24px] font-bold">מתרגשים לראות אתכם</h2>
+                <p className="text-[16px] mt-2" style={{ color: MUTED }}>
+                  {done.name} · {done.attendees === 1 ? 'מגיע/ה לבד' : `${done.attendees} מגיעים`}
+                </p>
+                <p className="text-[15px] mt-1" style={{ color: MUTED }}>
+                  {done.activity
+                    ? `${EVENT_DATE_LABEL} · התכנסות 08:00 ב${LOCATION}, זינוקים 08:30`
+                    : `${EVENT_DATE_LABEL} · 10:30 ב${CLUB_LOCATION}`}
+                </p>
+                {done.activity && (
+                  <p className="text-[14px] mt-4" style={{ color: MUTED }}>
+                    את הכיבוד מביאים ל{LOCATION} — אנחנו נעלה אותו למועדון.
+                  </p>
                 )}
+                <p className="text-[15px] font-semibold mt-6" style={{ color: ACCENT }}>
+                  שתפו את הקישור בקבוצה — ככה נהיה הכי הרבה.
+                </p>
               </div>
-
-              <div>
-                <label className="block text-sm text-stone-400 mb-1.5">הערות (לא חובה)</label>
-                <textarea
-                  value={form.notes}
-                  onChange={(e) => set('notes', e.target.value)}
-                  maxLength={500}
-                  rows={2}
-                  className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#D4288A]"
-                />
-              </div>
-
-              <label className="flex items-start gap-2.5 cursor-pointer text-sm text-stone-300 select-none">
-                <input
-                  type="checkbox"
-                  checked={whatsappOptin}
-                  onChange={(e) => setWhatsappOptin(e.target.checked)}
-                  className="mt-0.5 w-[18px] h-[18px] cursor-pointer shrink-0"
-                  style={{ accentColor: PINK }}
-                />
-                <span>{WHATSAPP_OPTIN_LABEL}</span>
+            </Card>
+          </>
+        ) : (
+          <>
+            <SectionTitle>הרשמה</SectionTitle>
+            <Card>
+              <Input label="שם מלא" value={form.contact_name} onChange={(v) => set('contact_name', v)} />
+              <Input label="טלפון" type="tel" value={form.phone} onChange={(v) => set('phone', v)} line />
+              <label className="flex items-center justify-between gap-3 px-5 py-3.5" style={{ borderTop: `1px solid ${LINE}` }}>
+                <span className="text-[16px] shrink-0">קבוצה</span>
+                <select
+                  value={form.group_name}
+                  onChange={(e) => set('group_name', e.target.value)}
+                  className="bg-transparent text-[16px] text-left outline-none max-w-[65%] truncate"
+                  style={{ color: form.group_name ? INK : MUTED }}
+                >
+                  <option value="">בחירה</option>
+                  {GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
               </label>
+            </Card>
 
-              {error && (
-                <div className="bg-red-950 border border-red-800 text-red-200 rounded-lg p-3 text-sm">{error}</div>
+            <Label>למה מגיעים?</Label>
+            <div className="grid gap-3">
+              {PARTICIPATION.map((p) => {
+                const active = form.participation === p.value
+                return (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => set('participation', p.value)}
+                    className="text-right bg-white rounded-2xl px-5 py-4 transition flex items-center justify-between gap-3"
+                    style={{ boxShadow: active ? `0 0 0 2px ${ACCENT}` : `0 0 0 1px ${LINE}` }}
+                  >
+                    <span>
+                      <span className="block text-[16px] font-semibold">{p.label}</span>
+                      <span className="block text-[14px] mt-0.5" style={{ color: MUTED }}>{p.sub}</span>
+                    </span>
+                    <Radio on={active} />
+                  </button>
+                )
+              })}
+            </div>
+
+            <Label>כמה מגיעים?</Label>
+            <Card>
+              {isActivity && (
+                <Stepper label="רוכבים בתחרות" value={ridersCount} min={1} max={MAX_RIDERS} onChange={changeRiders} />
               )}
+              <Stepper
+                label="סך הכול, כולל הורים ואחים"
+                value={attendees}
+                min={isActivity ? ridersCount : 1}
+                max={MAX_ATTENDEES}
+                onChange={setAttendees}
+                line={isActivity}
+              />
+              {isActivity && (
+                <Input
+                  label="שמות הרוכבים"
+                  value={form.rider_names}
+                  onChange={(v) => set('rider_names', v)}
+                  max={200}
+                  line
+                />
+              )}
+            </Card>
 
-              <button
-                onClick={submit}
-                disabled={sending}
-                className="w-full text-white font-bold py-4 rounded-xl text-lg disabled:opacity-50 transition"
-                style={{ background: PINK }}
-              >
-                {sending ? 'שולח…' : 'אני בפנים! 🎉'}
-              </button>
-            </section>
-          )}
+            <Label>מה תביאו לכיבוד?</Label>
+            <Card>
+              {FOOD.map((f, i) => {
+                const on = bringing.includes(f.value)
+                const n = stats?.food?.[f.value] ?? 0
+                return (
+                  <button
+                    key={f.value}
+                    type="button"
+                    onClick={() => toggleFood(f.value)}
+                    className="w-full flex items-center justify-between gap-3 px-5 py-3.5 text-right"
+                    style={i ? { borderTop: `1px solid ${LINE}` } : undefined}
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className="text-[20px] w-7 text-center">{f.emoji}</span>
+                      <span>
+                        <span className="block text-[16px]">{f.label}</span>
+                        <span className="block text-[13px]" style={{ color: MUTED }}>
+                          {n === 0 ? 'עוד אף אחד' : `${n} כבר מביאים`}
+                        </span>
+                      </span>
+                    </span>
+                    <Check on={on} />
+                  </button>
+                )
+              })}
+              {bringing.includes('other') && (
+                <Input label="מה תביאו?" value={form.bringing_other} onChange={(v) => set('bringing_other', v)} max={120} line />
+              )}
+            </Card>
 
-          <p className="text-center text-sm text-stone-500 pt-2">נתראה בחנוכת המועדון! 🚵‍♀️✨</p>
-        </main>
+            <Label>הערות</Label>
+            <Card>
+              <textarea
+                value={form.notes}
+                onChange={(e) => set('notes', e.target.value)}
+                maxLength={500}
+                rows={2}
+                placeholder="לא חובה"
+                className="w-full bg-transparent px-5 py-4 text-[16px] outline-none resize-none placeholder:text-[#a1a1a6]"
+              />
+            </Card>
+
+            <label className="flex items-start gap-3 cursor-pointer text-[14px] mt-6 px-1 select-none" style={{ color: MUTED }}>
+              <input
+                type="checkbox"
+                checked={whatsappOptin}
+                onChange={(e) => setWhatsappOptin(e.target.checked)}
+                className="mt-0.5 w-[18px] h-[18px] cursor-pointer shrink-0"
+                style={{ accentColor: ACCENT }}
+              />
+              <span>{WHATSAPP_OPTIN_LABEL}</span>
+            </label>
+
+            {error && (
+              <p className="mt-5 text-[15px] text-center font-medium" style={{ color: '#d70015' }}>{error}</p>
+            )}
+
+            <button
+              onClick={submit}
+              disabled={sending}
+              className="w-full text-white font-semibold py-4 rounded-2xl text-[17px] mt-6 disabled:opacity-50 transition active:scale-[0.99]"
+              style={{ background: ACCENT }}
+            >
+              {sending ? 'שולח…' : 'הרשמה'}
+            </button>
+          </>
+        )}
+
+        <p className="text-center text-[13px] mt-10" style={{ color: MUTED }}>
+          טבע בייק · {EVENT_DATE_LABEL} · {LOCATION} ← {CLUB_LOCATION}
+        </p>
       </div>
     </div>
   )
 }
 
-function Field({
-  label,
-  value,
-  onChange,
-  type = 'text',
-  max,
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h2 className="text-[24px] font-bold tracking-tight mt-12 mb-4 px-1">{children}</h2>
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return <p className="text-[13px] font-semibold mt-7 mb-2 px-1" style={{ color: MUTED }}>{children}</p>
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  return <div className="bg-white rounded-2xl overflow-hidden" style={{ boxShadow: `0 0 0 1px ${LINE}` }}>{children}</div>
+}
+
+function Detail({ title, children, line }: { title: string; children: React.ReactNode; line?: boolean }) {
+  return (
+    <div className="px-5 py-4" style={line ? { borderTop: `1px solid ${LINE}` } : undefined}>
+      <p className="text-[16px] font-semibold">{title}</p>
+      <p className="text-[15px] leading-relaxed mt-1" style={{ color: MUTED }}>{children}</p>
+    </div>
+  )
+}
+
+function Input({
+  label, value, onChange, type = 'text', max, line,
 }: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-  type?: string
-  max?: number
+  label: string; value: string; onChange: (v: string) => void; type?: string; max?: number; line?: boolean
 }) {
   return (
-    <div>
-      <label className="block text-sm text-stone-400 mb-1.5">{label}</label>
+    <label className="flex items-center gap-3 px-5 py-3.5" style={line ? { borderTop: `1px solid ${LINE}` } : undefined}>
+      <span className="text-[16px] shrink-0 w-24">{label}</span>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         maxLength={max ?? (type === 'tel' ? 20 : 80)}
         dir={type === 'tel' ? 'ltr' : undefined}
-        className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#D4288A]"
+        inputMode={type === 'tel' ? 'tel' : undefined}
+        className="flex-1 min-w-0 bg-transparent text-[16px] outline-none text-left"
+        style={type === 'tel' ? undefined : { textAlign: 'right' }}
       />
+    </label>
+  )
+}
+
+function Stepper({
+  label, value, min, max, onChange, line,
+}: {
+  label: string; value: number; min: number; max: number; onChange: (n: number) => void; line?: boolean
+}) {
+  const btn = 'w-9 h-9 rounded-full text-[20px] leading-none flex items-center justify-center disabled:opacity-30'
+  return (
+    <div className="flex items-center justify-between gap-3 px-5 py-3" style={line ? { borderTop: `1px solid ${LINE}` } : undefined}>
+      <span className="text-[16px]">{label}</span>
+      <div className="flex items-center gap-3" dir="ltr">
+        <button type="button" aria-label="פחות" className={btn} style={{ background: '#f2f2f7' }} disabled={value <= min} onClick={() => onChange(value - 1)}>−</button>
+        <span className="text-[17px] font-semibold tabular-nums w-6 text-center">{value}</span>
+        <button type="button" aria-label="יותר" className={btn} style={{ background: '#f2f2f7' }} disabled={value >= max} onClick={() => onChange(value + 1)}>+</button>
+      </div>
     </div>
   )
 }
 
-function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function Radio({ on }: { on: boolean }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="py-3 px-2 rounded-lg border text-sm font-semibold transition"
-      style={
-        active
-          ? { background: PINK, borderColor: PINK, color: '#fff' }
-          : { background: '#1c1917', borderColor: '#44403c', color: '#d6d3d1' }
-      }
+    <span
+      className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center"
+      style={{ border: on ? `7px solid ${ACCENT}` : `1.5px solid #c7c7cc` }}
+    />
+  )
+}
+
+function Check({ on }: { on: boolean }) {
+  return (
+    <span
+      className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-white text-[13px] font-bold"
+      style={on ? { background: ACCENT } : { border: '1.5px solid #c7c7cc' }}
     >
-      {children}
-    </button>
+      {on ? '✓' : ''}
+    </span>
   )
 }
