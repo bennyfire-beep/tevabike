@@ -40,6 +40,7 @@ const NAV: NavGroup[] = [
     { href: '/admin/coordinator/hakpatzot', label: 'הקפצות', icon: '🚐' },
     { href: '/admin/coordinator/hashlama', label: 'אימון השלמה', icon: '🌲' },
     { href: '/admin/coordinator/parent-meeting', label: 'אסיפת הורים', icon: '💜' },
+    { href: '/admin/coordinator/club-opening', label: 'חנוכת מועדון', icon: '🎉' },
     { href: '/admin/coordinator/rides', label: 'טיולי רכיבה', icon: '🚵' },
     { href: '/admin/coordinator/rentals', label: 'השכרת אופניים', icon: '🚲' },
     { href: '/admin/coordinator/calendar', label: 'לוח שנה', icon: '📅' },
