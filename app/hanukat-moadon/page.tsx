@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 import {
-  EVENT_DATE_LABEL, LOCATION, SCHEDULE, PARTICIPATION, GROUPS, FOOD, MAX_RIDERS, MAX_ATTENDEES,
+  EVENT_DATE_LABEL, LOCATION, CLUB_LOCATION, FLYER_SRC, SCHEDULE, PARTICIPATION, GROUPS, FOOD, MAX_RIDERS, MAX_ATTENDEES,
 } from '@/lib/club-opening'
 
 // ============================================================
@@ -100,7 +100,7 @@ export default function HanukatMoadonPage() {
           <ul className="flex flex-wrap gap-2 text-sm">
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">📅 {EVENT_DATE_LABEL}</li>
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">⏰ 08:00</li>
-            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">📍 {LOCATION} ← המועדון</li>
+            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">📍 {LOCATION} ← המועדון ברקפת</li>
           </ul>
           {stats && stats.families > 0 && (
             <p className="mt-5 text-sm font-semibold" style={{ color: LIME }}>
@@ -108,6 +108,15 @@ export default function HanukatMoadonPage() {
             </p>
           )}
         </header>
+
+        {/* flyer */}
+        <img
+          src={FLYER_SRC}
+          alt="חוגגים חנוכה — חנוכת מועדון טבע בייק: מיני בייק, מסלול מדידת זמנים לפי קטגוריות לילדים ולמבוגרים"
+          width={1024}
+          height={1536}
+          className="w-full h-auto block"
+        />
 
         <main className="px-5 py-7 space-y-6">
           {/* schedule */}
@@ -128,11 +137,11 @@ export default function HanukatMoadonPage() {
 
           <div className="bg-stone-900 rounded-xl p-4 space-y-3 text-[14.5px] text-stone-300 leading-relaxed">
             <p>
-              🚲 <b className="text-stone-100">התחרות ההיתולית</b> — כולם על אופני 20 אינץ׳, גם הגדולים! מקצים מצחיקים,
-              הרבה צחוק ופרסים. לא צריך להיות אלוף כדי לנצח.
+              🚲 <b className="text-stone-100">מיני בייק • כיף גדול</b> — תחרות היתולית על אופני 20 אינץ׳, גם הגדולים!
+              מסלול מדידת זמנים לפי קטגוריות, לילדים ולמבוגרים. לא צריך להיות אלוף כדי לנצח.
             </p>
             <p>
-              ⛰️ בסיום נטפס יחד למעלה אל המועדון, נגזור סרט ונחנוך את הבית החדש עם כיבוד משותף.
+              ⛰️ ב-10:30 נטפס יחד למעלה אל {CLUB_LOCATION}, נגזור סרט ונחנוך את הבית החדש עם כיבוד משותף. חוגגים חנוכה! 🕎
             </p>
             <p>
               🥐 <b className="text-stone-100">כל אחד מביא משהו קטן</b> — מאפים, ירקות, פיתות ולבנה, חומוס או שתייה קלה.
@@ -151,7 +160,7 @@ export default function HanukatMoadonPage() {
                 {done.name} · {done.attendees === 1 ? 'מגיע/ה לבד' : `${done.attendees} מגיעים`}
               </p>
               <p className="text-stone-400 text-sm">
-                {done.activity ? `${EVENT_DATE_LABEL} · התכנסות 08:00 ב${LOCATION}` : `${EVENT_DATE_LABEL} · 10:30 במועדון`}
+                {done.activity ? `${EVENT_DATE_LABEL} · התכנסות 08:00 ב${LOCATION}, זינוקים 08:30` : `${EVENT_DATE_LABEL} · 10:30 ב${CLUB_LOCATION}`}
               </p>
               <p className="text-lg font-bold" style={{ color: PINK }}>
                 שתפו את הקישור בקבוצה — ככה נהיה הכי הרבה! 🚵‍♀️✨

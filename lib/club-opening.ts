@@ -9,17 +9,19 @@
 export const EVENT_DATE = '2026-12-04'
 export const EVENT_DATE_LABEL = 'יום שישי, 4.12'
 export const LOCATION = 'אתגר'
+export const CLUB_LOCATION = 'מועדון טבע בייק, רקפת'
+export const FLYER_SRC = '/club-opening-flyer.jpg'
 
 export const SCHEDULE = [
-  { time: '08:00', label: 'התכנסות', emoji: '👋' },
-  { time: '08:30–10:30', label: 'תחרות היתולית על אופני 20 אינץ׳', emoji: '🚲' },
-  { time: '10:30', label: 'עולים למועדון — כיבוד וחנוכת המועדון', emoji: '🎉' },
+  { time: '08:00', label: 'התכנסות באתגר', emoji: '👋' },
+  { time: '08:30', label: 'תחילת זינוקים — מיני בייק, מדידת זמנים לפי קטגוריות', emoji: '🏁' },
+  { time: '10:30', label: 'סיום, עולים למועדון — כיבוד וחנוכת המועדון', emoji: '🎉' },
 ] as const
 
 // What kind of attendance — the activity (competition + party) or only the
 // party at the club at 10:30.
 export const PARTICIPATION = [
-  { value: 'activity', label: 'פעילות + חנוכת מועדון', sub: '08:00 באתגר — תחרות, ואז עולים למועדון' },
+  { value: 'activity', label: 'פעילות + חנוכת מועדון', sub: 'התכנסות 08:00 באתגר, זינוקים מ-08:30' },
   { value: 'party_only', label: 'רק כיבוד וחנוכת מועדון', sub: '10:30 במועדון' },
 ] as const
 export const PARTICIPATION_VALUES: string[] = PARTICIPATION.map((p) => p.value)
