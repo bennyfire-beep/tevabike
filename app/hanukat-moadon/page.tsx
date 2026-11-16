@@ -100,6 +100,7 @@ export default function HanukatMoadonPage() {
           <ul className="flex flex-wrap gap-2 text-sm">
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">📅 {EVENT_DATE_LABEL}</li>
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">⏰ 08:00</li>
+            <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">🎧 DJ AB</li>
             <li className="bg-white/10 border border-white/15 rounded-full px-3.5 py-1.5">📍 {LOCATION} ← המועדון ברקפת</li>
           </ul>
           {stats && stats.families > 0 && (
@@ -142,6 +143,10 @@ export default function HanukatMoadonPage() {
             </p>
             <p>
               ⛰️ ב-10:30 נטפס יחד למעלה אל {CLUB_LOCATION}, נגזור סרט ונחנוך את הבית החדש עם כיבוד משותף. חוגגים חנוכה! 🕎
+            </p>
+            <p>
+              🎧 <b className="text-stone-100">DJ AB — אמיר בורשטיין</b> מגיע לתקלט ולתת את הקצב לחגיגה! מוזיקה, אווירה
+              וחוגגים ביחד.
             </p>
             <p>
               🥐 <b className="text-stone-100">כל אחד מביא משהו קטן</b> — מאפים, ירקות, פיתות ולבנה, חומוס או שתייה קלה.
