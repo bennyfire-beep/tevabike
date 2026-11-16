@@ -32,13 +32,12 @@ export const PARTICIPATION_LABEL: Record<string, string> = Object.fromEntries(
 // Every Teva Bike group, plus a catch-all for family and friends. Branch names
 // match groups.branch (see app/register/page.tsx BRANCHES).
 export const GROUPS = [
-  'משגב — ילדים',
+  'מיני משגב',
   'ביריה',
   'מטה אשר',
   'פרוד-אמירים',
   'צורית-גילון',
   'גרביטי מתחילים',
-  'גרביטי מיני',
   'גרביטי פרו / תחרותי',
   'מבוגרים',
   'צוות טבע בייק',
