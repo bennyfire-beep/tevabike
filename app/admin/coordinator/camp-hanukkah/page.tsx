@@ -29,7 +29,7 @@ type Reg = {
   whatsapp_optin_at: string | null
 }
 
-const CAPACITY = 24            // ← חייב להיות זהה למספר שב-app/api/hanukkah-register/route.ts
+const CAPACITY = 22            // ← חייב להיות זהה למספר שב-app/api/hanukkah-register/route.ts
 const MIN_PARTICIPANTS = 12
 
 const STATUS_LABEL: Record<string, string> = { pending: 'ממתין לתשלום', paid: 'שולם', cancelled: 'בוטל' }

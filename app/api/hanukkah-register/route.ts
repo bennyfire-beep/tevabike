@@ -13,7 +13,7 @@ const ADMIN_EMAILS = ['bennyfire@gmail.com', 'talmatoki@gmail.com']
 const FROM = 'טבע בייק <info@mail.tevabike.com>'
 
 const PRICE = 2490
-const CAPACITY = 24            // ← שנה כאן את מספר המקומות במחנה
+const CAPACITY = 22            // ← שנה כאן את מספר המקומות במחנה
 const MIN_PARTICIPANTS = 12
 const PAY_URL = 'https://arbox.link/Tfe42iL1'
 
