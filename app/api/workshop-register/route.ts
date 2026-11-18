@@ -41,18 +41,18 @@ function confirmationHtml(name: string, dateLabel: string, free: boolean) {
   ]
   return `
   <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;background:#0C1814;color:#F5F2EE;padding:32px 24px;border-radius:16px;max-width:560px;margin:0 auto">
-    <h1 style="color:#D4288A;font-size:26px;margin:0 0 8px">תודה על הרישום, ${name}! 🚵</h1>
+    <h1 style="color:#7C3AED;font-size:26px;margin:0 0 8px">תודה על הרישום, ${name}! 🚵</h1>
     <p style="font-size:16px;line-height:1.8;color:#D8E2DC">
       כמה כיף שאתה איתנו!<br/>
       אנחנו שמחים לעזור לך לקבל ביטחון בזמן אוויר.
     </p>
 
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px;margin:20px 0">
-      <p style="margin:0 0 6px"><b style="color:#D4288A">📅 מתי:</b> ${dateLabel} · ${timeRange}</p>
-      <p style="margin:0 0 6px"><b style="color:#D4288A">📍 איפה:</b> פארק אוסטרליה, משגב — <a href="https://waze.com/ul?q=${encodeURIComponent('פארק אוסטרליה')}&navigate=yes" style="color:#33CCFF">ניווט ב־Waze</a> (או חפשו "פארק אוסטרליה" בוויז). מומלץ להגיע כמה דקות לפני 9:00.</p>
-      <p style="margin:0 0 6px"><b style="color:#D4288A">⛑️ חובה:</b> קסדת פול פייס וצב — בלי פול פייס וצב לא קופצים!</p>
-      <p style="margin:0 0 6px"><b style="color:#D4288A">🚲 להביא:</b> אופניים תקינים ומים</p>
-      <p style="margin:0"><b style="color:#D4288A">ℹ️ חשוב:</b> סשן קפיצה חופשי מגיל 11 — מדריך נמצא בשטח לאורך כל הסשן, ללא הדרכה.</p>
+      <p style="margin:0 0 6px"><b style="color:#7C3AED">📅 מתי:</b> ${dateLabel} · ${timeRange}</p>
+      <p style="margin:0 0 6px"><b style="color:#7C3AED">📍 איפה:</b> פארק אוסטרליה, משגב — <a href="https://waze.com/ul?q=${encodeURIComponent('פארק אוסטרליה')}&navigate=yes" style="color:#33CCFF">ניווט ב־Waze</a> (או חפשו "פארק אוסטרליה" בוויז). מומלץ להגיע כמה דקות לפני 9:00.</p>
+      <p style="margin:0 0 6px"><b style="color:#7C3AED">⛑️ חובה:</b> קסדת פול פייס וצב — בלי פול פייס וצב לא קופצים!</p>
+      <p style="margin:0 0 6px"><b style="color:#7C3AED">🚲 להביא:</b> אופניים תקינים ומים</p>
+      <p style="margin:0"><b style="color:#7C3AED">ℹ️ חשוב:</b> סשן קפיצה חופשי מגיל 11 — מדריך נמצא בשטח לאורך כל הסשן, ללא הדרכה.</p>
     </div>
 
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px;margin:20px 0">
@@ -60,7 +60,7 @@ function confirmationHtml(name: string, dateLabel: string, free: boolean) {
       ${scheduleRows
         .map(
           ([time, label]) =>
-            `<p style="margin:0 0 4px;color:#D8E2DC"><b style="color:#D4288A">${time}</b> — ${label}</p>`
+            `<p style="margin:0 0 4px;color:#D8E2DC"><b style="color:#7C3AED">${time}</b> — ${label}</p>`
         )
         .join('\n      ')}
     </div>
@@ -68,7 +68,7 @@ function confirmationHtml(name: string, dateLabel: string, free: boolean) {
     ${free
       ? `<p style="font-size:15px;color:#D8E2DC">המקום שלך שמור — כרוכב/ת טבע בייק ההשתתפות ללא עלות. 💚</p>`
       : `<p style="font-size:15px;color:#D8E2DC">כדי לשריין את מקומך, נשאר רק להשלים את התשלום (${PRICE} ₪):</p>
-    <a href="${PAYMENT_LINK}" style="display:block;background:#D4288A;color:#ffffff;text-decoration:none;text-align:center;padding:14px;border-radius:12px;font-size:17px;font-weight:bold;margin:12px 0 20px">
+    <a href="${PAYMENT_LINK}" style="display:block;background:#7C3AED;color:#ffffff;text-decoration:none;text-align:center;padding:14px;border-radius:12px;font-size:17px;font-weight:bold;margin:12px 0 20px">
       לתשלום מאובטח 💳
     </a>`}
 

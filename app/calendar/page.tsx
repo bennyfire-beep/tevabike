@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   description: 'לוח הפעילות השנתי של טבע בייק: חגים, ימים ללא פעילות, מחנות ותחרויות.',
 }
 
-const PINK = '#D4288A'
+const PINK = '#7C3AED'
 const DARK = '#0C1814'
 const OFF_WHITE = '#F5F2EE'
 

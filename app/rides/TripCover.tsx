@@ -11,7 +11,7 @@ export default function TripCover({ image, title, className = '' }: { image: str
       role="img"
       aria-label={title}
       className={`relative w-full h-full overflow-hidden ${className}`}
-      style={{ background: 'linear-gradient(180deg,#2E1224 0%, #4A1A3A 45%, #D4288A 100%)' }}
+      style={{ background: 'linear-gradient(180deg,#1E1238 0%, #3B1D6E 45%, #7C3AED 100%)' }}
     >
       <svg viewBox="0 0 400 225" preserveAspectRatio="xMidYMax slice" className="absolute inset-0 w-full h-full" aria-hidden="true">
         <circle cx="300" cy="78" r="26" fill="#F9C6E0" opacity=".55" />

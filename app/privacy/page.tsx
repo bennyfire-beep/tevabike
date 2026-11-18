@@ -11,7 +11,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 const C = {
-  brand: "#D4288A",
+  brand: "#7C3AED",
   dark: "#0C1814",
   green: "#152A1E",
   greenMid: "#1F3D2A",

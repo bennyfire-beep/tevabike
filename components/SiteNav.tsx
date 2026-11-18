@@ -28,7 +28,7 @@ export default function SiteNav() {
         background: scrolled ? 'rgba(12,24,20,0.97)' : 'rgba(12,24,20,0.72)',
         backdropFilter: 'blur(18px)',
         WebkitBackdropFilter: 'blur(18px)',
-        borderBottom: `1px solid rgba(212,40,138,${scrolled ? '.3' : '.12'})`,
+        borderBottom: `1px solid rgba(124,58,237,${scrolled ? '.3' : '.12'})`,
         transition: 'background .35s, border-color .35s',
       }}>
         <div style={{ maxWidth: 1160, margin: '0 auto', padding: '0 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 66 }}>
@@ -43,10 +43,10 @@ export default function SiteNav() {
             <a href="/#classes" className="nav-link">חוגים</a>
             <a href="/calendar" className="nav-link">לוח שנה</a>
             <a href="/terms" className="nav-link">תקנון</a>
-            <a href="/morzine-2027" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מורזין נוער 2027</a>
-            <a href="/camp-hanukkah" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מחנה חנוכה</a>
-            <a href="/workshop-airbag" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>סשן איר באג 13.11</a>
-            <a href="/rides" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>טיולי רכיבה</a>
+            <a href="/morzine-2027" className="nav-link" style={{ color: '#A78BFA', fontWeight: 700 }}>מורזין נוער 2027</a>
+            <a href="/camp-hanukkah" className="nav-link" style={{ color: '#A78BFA', fontWeight: 700 }}>מחנה חנוכה</a>
+            <a href="/workshop-airbag" className="nav-link" style={{ color: '#A78BFA', fontWeight: 700 }}>סשן איר באג 13.11</a>
+            <a href="/rides" className="nav-link" style={{ color: '#A78BFA', fontWeight: 700 }}>טיולי רכיבה</a>
             <a href="/instructors-course" className="nav-link" style={{ color: '#f0b90b', fontWeight: 700 }}>טבע בייק אקדמי</a>
             <a href="/#why" className="nav-link">למה אנחנו</a>
             <a href="/shop" className="nav-link">חנות</a>

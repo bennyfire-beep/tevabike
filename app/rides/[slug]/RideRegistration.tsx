@@ -12,7 +12,7 @@ import {
 // רוכבי טבע בייק מאומתים מול riders, ולמנוי הטיול השני בחודש כלול.
 // ============================================================
 
-const PINK = '#D4288A'
+const PINK = '#7C3AED'
 
 type Props = {
   slug: string
@@ -248,7 +248,7 @@ export default function RideRegistration({ slug, title, dateLabel, capacity, mon
               onChange={(e) => set('notes', e.target.value)}
               maxLength={500}
               rows={2}
-              className="w-full bg-stone-950 border border-stone-700 rounded-lg px-3 py-2.5 text-stone-100 focus:outline-none focus:border-[#D4288A]"
+              className="w-full bg-stone-950 border border-stone-700 rounded-lg px-3 py-2.5 text-stone-100 focus:outline-none focus:border-[#7C3AED]"
             />
           </div>
 
@@ -343,7 +343,7 @@ function Field({ label, value, onChange, type = 'text' }: {
         maxLength={type === 'email' ? 120 : 40}
         dir={type === 'tel' || type === 'email' || type === 'number' ? 'ltr' : undefined}
         inputMode={type === 'number' ? 'numeric' : undefined}
-        className="w-full bg-stone-950 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 focus:outline-none focus:border-[#D4288A]"
+        className="w-full bg-stone-950 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 focus:outline-none focus:border-[#7C3AED]"
       />
     </div>
   )

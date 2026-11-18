@@ -5,8 +5,8 @@ import { useState, useSyncExternalStore } from "react";
 import TshirtSection from "./TshirtSection";
 
 const C = {
-  brand: "#D4288A",
-  brandHover: "#B51E77",
+  brand: "#7C3AED",
+  brandHover: "#6D28D9",
   dark: "#0C1814",
   green: "#152A1E",
   greenMid: "#1F3D2A",

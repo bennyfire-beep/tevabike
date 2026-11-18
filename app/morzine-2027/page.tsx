@@ -12,7 +12,7 @@ const PANEL = '#232a26'
 const BORDER = '#38443d'
 const TEXT = '#e8efe9'
 const MUTED = '#7a8f7d'
-const PINK = '#ec4899'
+const PINK = '#A78BFA'
 
 const DEPOSIT = 1800
 
@@ -212,7 +212,7 @@ export default function MorzineYouthPage() {
         <div style={card}>
           {earlyBirdSlotsLeft > 0 && (
             <div style={{
-              background: 'rgba(236,72,153,0.12)', border: `1px solid ${PINK}`, borderRadius: 12,
+              background: 'rgba(167,139,250,0.12)', border: `1px solid ${PINK}`, borderRadius: 12,
               padding: '12px 16px', marginBottom: 14, fontSize: 14, fontWeight: 700, textAlign: 'center',
             }}>
               🔥 רק 8 הנרשמים הראשונים נהנים ממחיר השקה: {earlyBirdPrice.toLocaleString()} ₪ במקום {regularPrice.toLocaleString()} ₪!

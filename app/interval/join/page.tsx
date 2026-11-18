@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 // the live workout screen. Styled like the other public pages (app/register,
 // app/student) — same brand palette, plain inline styles, no component lib.
 
-const PINK  = '#D4288A'
+const PINK  = '#7C3AED'
 const DARK  = '#0C1814'
 const GREEN = '#152A1E'
 const BG    = '#F5F2EE'

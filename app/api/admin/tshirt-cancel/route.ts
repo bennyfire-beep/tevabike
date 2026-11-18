@@ -29,12 +29,12 @@ function escape(s: string) {
 
 function cancelHtml(rows: Row[]) {
   const items = rows
-    .map((r) => `<p style="margin:0 0 6px"><b style="color:#D4288A">${escape(r.product_name)}</b> — מידה ${escape(r.size)} × ${r.quantity}</p>`)
+    .map((r) => `<p style="margin:0 0 6px"><b style="color:#7C3AED">${escape(r.product_name)}</b> — מידה ${escape(r.size)} × ${r.quantity}</p>`)
     .join('')
   const paid = rows.some((r) => r.payment_status === 'confirmed')
   return `
   <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;background:#0C1814;color:#F5F2EE;padding:32px 24px;border-radius:16px;max-width:520px;margin:0 auto">
-    <h1 style="color:#D4288A;font-size:22px;margin:0 0 16px">ההזמנה שלך בוטלה</h1>
+    <h1 style="color:#7C3AED;font-size:22px;margin:0 0 16px">ההזמנה שלך בוטלה</h1>
     <p style="margin:0 0 14px">היי ${escape(rows[0].customer_name)},</p>
     <p style="line-height:1.8;margin:0 0 14px">הזמנת הביגוד שלך מטבע בייק בוטלה.</p>
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px;margin:0 0 16px">

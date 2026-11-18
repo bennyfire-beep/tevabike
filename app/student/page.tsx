@@ -5,7 +5,7 @@ import { riderGroupIds } from '@/lib/rider-groups'
 import { checkRateLimit, resetRateLimit } from '@/lib/auth-actions'
 
 // ─── Brand ────────────────────────────────────────────────────────────────────
-const PINK   = '#D4288A'
+const PINK   = '#7C3AED'
 const GREEN  = '#16A34A'
 const ORANGE = '#F97316'
 const DARK   = '#0C1814'

@@ -11,7 +11,7 @@ import {
 // נתיב: app/hanukat-moadon/page.tsx · API: app/api/club-opening/route.ts
 // ============================================================
 
-const PINK = '#D4288A'
+const PINK = '#7C3AED'
 const LIME = '#b5e853'
 
 type Stats = { families: number; people: number; riders: number; food: Record<string, number> }
@@ -84,7 +84,7 @@ export default function HanukatMoadonPage() {
         {/* hero */}
         <header
           className="px-6 pt-10 pb-9"
-          style={{ background: 'linear-gradient(160deg,#0C1814 0%, #152A1E 50%, #2E1224 100%)' }}
+          style={{ background: 'linear-gradient(160deg,#0C1814 0%, #152A1E 50%, #1E1238 100%)' }}
         >
           <p className="text-xs font-bold tracking-[.14em] mb-2" style={{ color: LIME }}>
             טבע בייק · {EVENT_DATE_LABEL}
@@ -268,7 +268,7 @@ export default function HanukatMoadonPage() {
                   onChange={(e) => set('notes', e.target.value)}
                   maxLength={500}
                   rows={2}
-                  className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#D4288A]"
+                  className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#7C3AED]"
                 />
               </div>
 
@@ -327,7 +327,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         maxLength={max ?? (type === 'tel' ? 20 : 80)}
         dir={type === 'tel' ? 'ltr' : undefined}
-        className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#D4288A]"
+        className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#7C3AED]"
       />
     </div>
   )

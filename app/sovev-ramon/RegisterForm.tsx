@@ -8,7 +8,7 @@ import { RIDE_SEATS, TRANSPORT, type Transport } from '@/lib/sovev-ramon'
 // closes once RIDE_SEATS riders hold a seat; after signing up the rider gets
 // the Arbox payment link that matches their choice.
 
-const C = { brand: '#D4288A', greenMid: '#1F3D2A', card: '#152A1E', muted: '#D8E2DC' }
+const C = { brand: '#7C3AED', greenMid: '#1F3D2A', card: '#152A1E', muted: '#D8E2DC' }
 
 type Seats = { seats: number; taken: number; full: boolean }
 
@@ -90,7 +90,7 @@ export default function RegisterForm() {
     )
   }
 
-  const input = 'w-full rounded-xl px-4 py-3 bg-black/30 border outline-none focus:border-pink-500'
+  const input = 'w-full rounded-xl px-4 py-3 bg-black/30 border outline-none focus:border-violet-500'
 
   return (
     <div className="rounded-2xl border p-5 space-y-5" style={{ background: C.card, borderColor: C.greenMid }}>
@@ -135,14 +135,14 @@ export default function RegisterForm() {
       </div>
 
       <label className="flex gap-3 items-start text-sm" style={{ color: C.muted }}>
-        <input type="checkbox" className="mt-1 accent-pink-600" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+        <input type="checkbox" className="mt-1 accent-violet-600" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
         <span>
           קראתי ואני מאשר/ת את תנאי הביטול. ידוע לי שרכיבת שטח במדבר כרוכה במאמץ ובסיכון, שאני כשיר/ה לרכיבה
           ושההשתתפות באחריותי.
         </span>
       </label>
       <label className="flex gap-3 items-start text-sm" style={{ color: C.muted }}>
-        <input type="checkbox" className="mt-1 accent-pink-600" checked={whatsappOptin} onChange={(e) => setWhatsappOptin(e.target.checked)} />
+        <input type="checkbox" className="mt-1 accent-violet-600" checked={whatsappOptin} onChange={(e) => setWhatsappOptin(e.target.checked)} />
         <span>{WHATSAPP_OPTIN_LABEL}</span>
       </label>
 

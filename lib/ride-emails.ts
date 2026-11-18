@@ -14,7 +14,7 @@ import {
 
 const FROM = 'טבע בייק <info@mail.tevabike.com>'
 const REPLY_TO = 'bennyfire@gmail.com'
-const PINK = '#D4288A'
+const PINK = '#7C3AED'
 const SITE = 'https://tevabike.com'
 
 const esc = (v: string) =>

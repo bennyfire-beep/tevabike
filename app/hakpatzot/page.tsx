@@ -9,7 +9,7 @@ import { CAPACITY, PRICE, PAY_URL, DATES, DATE_LABEL, HOURS, GROUP_LABEL, AREA_L
 // נתיב: app/hakpatzot/page.tsx · API: app/api/hakpatzot/route.ts
 // ============================================================
 
-const PINK = '#D4288A'
+const PINK = '#7C3AED'
 
 const GROUPS = [
   { value: 'mini', label: 'מיני גרביטי' },
@@ -124,7 +124,7 @@ export default function HakpatzotPage() {
         {/* hero */}
         <header
           className="px-6 pt-8 pb-9"
-          style={{ background: 'linear-gradient(160deg,#1B1220 0%, #241A28 55%, #2E1224 100%)' }}
+          style={{ background: 'linear-gradient(160deg,#1B1220 0%, #241A28 55%, #1E1238 100%)' }}
         >
           <p className="text-xs font-bold tracking-[.14em] mb-2" style={{ color: PINK }}>
             יום אימונים · לקראת אליפות ישראל
@@ -375,7 +375,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         maxLength={40}
         dir={type === 'tel' ? 'ltr' : undefined}
-        className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#D4288A]"
+        className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#7C3AED]"
       />
     </div>
   )

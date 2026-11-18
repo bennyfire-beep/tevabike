@@ -218,9 +218,9 @@ export default function RegisterPage() {
         </header>
 
         {promo && (
-          <div className="bg-gradient-to-l from-fuchsia-900/60 to-purple-900/40 border border-fuchsia-600 rounded-xl p-4 mb-6">
-            <p className="font-bold text-fuchsia-200">⚡ בוסט הרשמה — 5% הנחה</p>
-            <p className="text-sm text-fuchsia-100/80 mt-1">
+          <div className="bg-gradient-to-l from-violet-900/60 to-purple-900/40 border border-violet-600 rounded-xl p-4 mb-6">
+            <p className="font-bold text-violet-200">⚡ בוסט הרשמה — 5% הנחה</p>
+            <p className="text-sm text-violet-100/80 mt-1">
               לחברים קיימים ולמצטרפים חדשים. ההנחה תקפה להרשמות עד 31.8 ותחושב בקישור התשלום.
             </p>
           </div>

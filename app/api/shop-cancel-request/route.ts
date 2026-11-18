@@ -66,14 +66,14 @@ function alertHtml(p: {
     p.estimatedFee === null ? 'לא ידוע (אין הזמנה תואמת)' : p.estimatedFee === 0 ? 'ללא (פגם — זיכוי מלא)' : `${p.estimatedFee} ₪`
   return `
   <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;background:#0C1814;color:#F5F2EE;padding:32px 24px;border-radius:16px;max-width:520px;margin:0 auto">
-    <h1 style="color:#D4288A;font-size:22px;margin:0 0 4px">בקשת ביטול הזמנה — טבע בייק</h1>
+    <h1 style="color:#7C3AED;font-size:22px;margin:0 0 4px">בקשת ביטול הזמנה — טבע בייק</h1>
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px">
-      <p style="margin:0 0 8px"><b style="color:#D4288A">לקוח:</b> ${p.customer_name} · ${p.customer_phone}</p>
-      <p style="margin:0 0 8px"><b style="color:#D4288A">מס' הזמנה שהוזן:</b> ${p.order_reference || '—'}</p>
-      <p style="margin:0 0 8px"><b style="color:#D4288A">סיבה:</b> ${REASON_LABELS[p.reason] || p.reason}${p.reason_details ? ' — ' + p.reason_details : ''}</p>
-      <p style="margin:0 0 8px"><b style="color:#D4288A">בתוך 14 יום:</b> ${eligibleLine}</p>
-      <p style="margin:0 0 8px"><b style="color:#D4288A">דמי ביטול משוערים:</b> ${feeLine}</p>
-      ${p.matchedOrderId ? `<p style="margin:0"><b style="color:#D4288A">הזמנה תואמת:</b> ${p.matchedOrderId.slice(0, 8)} · ${p.matchedOrderCreatedAt ? new Date(p.matchedOrderCreatedAt).toLocaleDateString('he-IL') : ''} · ${p.matchedOrderTotal ?? '?'} ₪</p>` : ''}
+      <p style="margin:0 0 8px"><b style="color:#7C3AED">לקוח:</b> ${p.customer_name} · ${p.customer_phone}</p>
+      <p style="margin:0 0 8px"><b style="color:#7C3AED">מס' הזמנה שהוזן:</b> ${p.order_reference || '—'}</p>
+      <p style="margin:0 0 8px"><b style="color:#7C3AED">סיבה:</b> ${REASON_LABELS[p.reason] || p.reason}${p.reason_details ? ' — ' + p.reason_details : ''}</p>
+      <p style="margin:0 0 8px"><b style="color:#7C3AED">בתוך 14 יום:</b> ${eligibleLine}</p>
+      <p style="margin:0 0 8px"><b style="color:#7C3AED">דמי ביטול משוערים:</b> ${feeLine}</p>
+      ${p.matchedOrderId ? `<p style="margin:0"><b style="color:#7C3AED">הזמנה תואמת:</b> ${p.matchedOrderId.slice(0, 8)} · ${p.matchedOrderCreatedAt ? new Date(p.matchedOrderCreatedAt).toLocaleDateString('he-IL') : ''} · ${p.matchedOrderTotal ?? '?'} ₪</p>` : ''}
     </div>
     <p style="font-size:12px;color:#7E948A;margin-top:16px">
       זכור: אין זיכוי אוטומטי — יש לבצע את הביטול ידנית בפאנל ארבוקס אחרי אימות מול הלקוח.

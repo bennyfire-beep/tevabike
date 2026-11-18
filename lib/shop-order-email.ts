@@ -55,7 +55,7 @@ export function orderHtml(orderId: string, p: {
   const itemsHtml = p.items
     .map(
       (it) =>
-        `<p style="margin:0 0 6px"><b style="color:#D4288A">${it.product_name}</b> — ${it.variant}</p>`
+        `<p style="margin:0 0 6px"><b style="color:#7C3AED">${it.product_name}</b> — ${it.variant}</p>`
     )
     .join('')
   const noteHtml = p.internalNote
@@ -63,18 +63,18 @@ export function orderHtml(orderId: string, p: {
     : ''
   const customerLine = isCustomer
     ? ''
-    : `<p style="margin:12px 0 8px"><b style="color:#D4288A">לקוח:</b> ${p.customer_name} · ${p.customer_phone}</p>`
+    : `<p style="margin:12px 0 8px"><b style="color:#7C3AED">לקוח:</b> ${p.customer_name} · ${p.customer_phone}</p>`
   return `
   <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;background:#0C1814;color:#F5F2EE;padding:32px 24px;border-radius:16px;max-width:520px;margin:0 auto">
     ${noteHtml}
-    <h1 style="color:#D4288A;font-size:22px;margin:0 0 4px">${isCustomer ? `תודה, ${p.customer_name}! ההזמנה שלך התקבלה ✓` : 'הזמנה חדשה מטבע בייק'}</h1>
+    <h1 style="color:#7C3AED;font-size:22px;margin:0 0 4px">${isCustomer ? `תודה, ${p.customer_name}! ההזמנה שלך התקבלה ✓` : 'הזמנה חדשה מטבע בייק'}</h1>
     <p style="color:#7E948A;font-size:13px;margin:0 0 20px">מס' הזמנה: ${orderId.slice(0, 8)}</p>
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px">
       ${itemsHtml}
       ${customerLine}
-      <p style="margin:0 0 8px"><b style="color:#D4288A">אופן קבלה:</b> ${fulfillmentLabel}${p.delivery_address ? ' — ' + p.delivery_address : ''}</p>
-      <p style="margin:0 0 8px"><b style="color:#D4288A">${isCustomer ? 'סה"כ ששולם' : 'סה"כ לגבייה'}:</b> ${p.subtotal} ₪ + משלוח ${p.shipping === 0 ? 'חינם' : p.shipping + ' ₪'} = <b>${p.total} ₪</b></p>
-      <p style="margin:0"><b style="color:#D4288A">זמן אספקה משוער:</b> ${ESTIMATED_DELIVERY}</p>
+      <p style="margin:0 0 8px"><b style="color:#7C3AED">אופן קבלה:</b> ${fulfillmentLabel}${p.delivery_address ? ' — ' + p.delivery_address : ''}</p>
+      <p style="margin:0 0 8px"><b style="color:#7C3AED">${isCustomer ? 'סה"כ ששולם' : 'סה"כ לגבייה'}:</b> ${p.subtotal} ₪ + משלוח ${p.shipping === 0 ? 'חינם' : p.shipping + ' ₪'} = <b>${p.total} ₪</b></p>
+      <p style="margin:0"><b style="color:#7C3AED">זמן אספקה משוער:</b> ${ESTIMATED_DELIVERY}</p>
     </div>
     <p style="font-size:12px;color:#9FB3A8;margin-top:16px;line-height:1.6">
       האחריות על המוצרים ועל המשלוח היא באחריות פאן רייד. החלפות והחזרות בתיאום מראש מול
