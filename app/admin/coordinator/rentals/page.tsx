@@ -26,7 +26,14 @@ type BikeRow = {
   sort_order: number
 }
 
-type Item = { id: string; rider_name: string; rider_height_cm: number; protection: boolean; price: number; rental_bikes: { name: string; size: string } | null }
+type Item = {
+  id: string; rider_name: string; rider_height_cm: number; protection: boolean; price: number
+  checklist: Record<string, unknown> | null; checklist_ok: boolean | null; checklist_at: string | null
+  rental_bikes: { name: string; size: string } | null
+}
+
+// Pre-ride checklist status per bike (app/rent/checklist): ✅ ok · ⚠️ a "no" · ⏳ not done yet.
+const checkMark = (i: Item) => (i.checklist_ok === true ? ' ✅' : i.checklist_ok === false ? ' ⚠️' : ' ⏳')
 type Booking = {
   id: string
   created_at: string
@@ -103,7 +110,7 @@ function Bookings() {
   const load = useCallback(async () => {
     const { data, error } = await supabase
       .from('rental_bookings')
-      .select('*, rental_booking_items(id, rider_name, rider_height_cm, protection, price, rental_bikes(name, size))')
+      .select('*, rental_booking_items(id, rider_name, rider_height_cm, protection, price, checklist, checklist_ok, checklist_at, rental_bikes(name, size))')
       .order('rent_date', { ascending: true })
       .order('created_at', { ascending: true })
     if (error) alert(error.message)
@@ -167,7 +174,10 @@ function Bookings() {
                   {b.renter_name} · <a href={waLink(b.renter_phone)} target="_blank" style={{ color: C.accent }}>{b.renter_phone}</a>
                 </div>
                 <div style={{ fontSize: 12, color: C.muted }}>
-                  {b.rental_booking_items.map((i) => `${i.rider_name} (${i.rider_height_cm}) → ${i.rental_bikes?.name ?? '?'}${i.protection ? ' 🛡️' : ''}`).join(' · ')}
+                  {b.rental_booking_items.map((i) => `${i.rider_name} (${i.rider_height_cm}) → ${i.rental_bikes?.name ?? '?'}${i.protection ? ' 🛡️' : ''}${checkMark(i)}`).join(' · ')}
+                </div>
+                <div style={{ fontSize: 12, color: '#fbbf24' }}>
+                  {b.rental_booking_items.filter((i) => i.checklist_ok === false).map((i) => `⚠️ ${i.rental_bikes?.name ?? '?'}: ${String(i.checklist?.note ?? 'ליקוי בבדיקה')}`).join(' · ')}
                 </div>
               </div>
               <div style={{ textAlign: 'left' }}>

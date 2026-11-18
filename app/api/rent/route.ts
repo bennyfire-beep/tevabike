@@ -7,6 +7,7 @@ import {
   bikeFits, MAX_BIKES_PER_BOOKING, AGREED_VALUE_DEFAULT, type Bike, type SlotId,
 } from '@/lib/rental'
 import { CONTRACT_VERSION, CONSENTS, contractText } from '@/lib/rental-contract'
+import { checklistUrl } from '@/lib/rental-checklist'
 
 // ============================================================
 // נתיב: app/api/rent/route.ts — השכרת אופניים (lib/rental.ts)
@@ -133,7 +134,13 @@ async function sendEmails(p: {
       `<div dir="rtl" style="font-family:Arial,sans-serif">
         <h2 style="margin:0 0 12px">תודה ${esc(p.renter_name)}!</h2>
         <p>ההזמנה נקלטה ל-${esc(p.date)} · ${esc(p.slotLabel)} · סה״כ ${p.total} ₪.</p>
-        <p>ההזמנה תאושר אחרי התשלום. מצורף עותק ההסכם שחתמת עליו:</p>
+        <p>ההזמנה תאושר אחרי התשלום.</p>
+        <div style="background:#eef7e0;border-radius:10px;padding:14px;margin:16px 0">
+          <p style="margin:0 0 8px;font-weight:bold">🔧 ביום ההשכרה: בדיקת אופניים לפני יציאה</p>
+          <p style="margin:0 0 10px">כשמקבלים את האופניים, פותחים את הקישור ובודקים כל אופניים: בלמים, מנוע, גלגלים ועוד. אם משהו לא תקין, לא יוצאים: ניגשים לחנות טימו פאן ומתקנים בלי עלות.</p>
+          <a href="${checklistUrl(p.id)}" style="display:inline-block;background:#9BCB3C;color:#111;font-weight:bold;padding:10px 18px;border-radius:8px;text-decoration:none">לבדיקת האופניים</a>
+        </div>
+        <p>מצורף עותק ההסכם שחתמת עליו:</p>
         ${contractHtml}
       </div>`,
     )
