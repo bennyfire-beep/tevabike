@@ -2,7 +2,7 @@
 import type { ReactNode } from "react";
 
 const C = {
-  brand: "#7C3AED",
+  brand: "#D4288A",
   dark: "#0C1814",
   green: "#152A1E",
   greenMid: "#1F3D2A",

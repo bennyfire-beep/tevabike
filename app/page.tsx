@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react'
 
 // ─── Brand ───────────────────────────────────────────────────────────────────
-const PINK      = '#7C3AED'
-const PINK_H    = '#6D28D9'
+const PINK      = '#D4288A'
+const PINK_H    = '#B51E77'
 const DARK      = '#0C1814'
 const GREEN     = '#152A1E'
 const GREEN_M   = '#1F3D2A'
@@ -243,7 +243,7 @@ export default function Home() {
                   cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 15,
                   background: tab === t.id ? PINK : '#fff',
                   color: tab === t.id ? '#fff' : '#666',
-                  boxShadow: tab === t.id ? `0 6px 20px rgba(124,58,237,0.32)` : '0 2px 10px rgba(0,0,0,0.07)',
+                  boxShadow: tab === t.id ? `0 6px 20px rgba(212,40,138,0.32)` : '0 2px 10px rgba(0,0,0,0.07)',
                   transition: 'all .25s',
                 }}
               >
@@ -349,7 +349,7 @@ export default function Home() {
                     style={{
                       background: '#fff', borderRadius: 16, padding: '28px 24px',
                       border: t.best ? `2px solid ${PINK}` : '1px solid #EAE6E1',
-                      boxShadow: t.best ? `0 8px 28px rgba(124,58,237,0.16)` : '0 2px 14px rgba(0,0,0,0.05)',
+                      boxShadow: t.best ? `0 8px 28px rgba(212,40,138,0.16)` : '0 2px 14px rgba(0,0,0,0.05)',
                       position: 'relative', textAlign: 'center',
                     }}
                   >
@@ -565,7 +565,7 @@ export default function Home() {
           </div>
 
           {/* Bottom bar */}
-          <div style={{ borderTop: `1px solid rgba(124,58,237,0.18)`, paddingTop: 26, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ borderTop: `1px solid rgba(212,40,138,0.18)`, paddingTop: 26, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <span style={{ color: 'rgba(255,255,255,0.26)', fontSize: 12 }}>
                 © {new Date().getFullYear()} טבע בייק. כל הזכויות שמורות.

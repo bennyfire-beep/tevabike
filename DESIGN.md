@@ -18,8 +18,6 @@ The design system for the public site at **tevabike.com**. The brand is **purple
 | `--brand-hover` | `#6D28D9` | Hover/pressed state of primary buttons |
 | `--brand-soft` | `#EDE9FE` | Tinted pill/badge background behind purple text |
 | `--brand-faint` | `#F5F3FF` | Very light purple section wash (use sparingly) |
-| `--brand-light` | `#A78BFA` | Purple text/links on dark backgrounds (nav bar, dark hero), where `#7C3AED` is too dark to read |
-| `--brand-lighter` | `#C4B5FD` | Small eyebrow text on dark image overlays |
 
 `#7C3AED` on white has AA contrast with white text on top, so it is safe for button labels.
 

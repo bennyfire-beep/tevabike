@@ -10,10 +10,8 @@
 :root {
   --background: #ffffff;
   --foreground: #111c16;
-  --brand:        #7C3AED;
-  --brand-hover:  #6D28D9;
-  --brand-soft:   #EDE9FE;
-  --brand-faint:  #F5F3FF;
+  --brand:        #D4288A;
+  --brand-hover:  #B51E77;
   --dark:         #0C1814;
   --green:        #152A1E;
   --green-mid:    #1F3D2A;
@@ -57,7 +55,7 @@ body {
 }
 .card-class:hover {
   transform: translateY(-8px);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.13);
   border-color: var(--brand) !important;
 }
 
@@ -121,13 +119,13 @@ html.a11y-high-contrast.a11y-grayscale {
   cursor: pointer;
   display: inline-block;
   text-decoration: none;
-  box-shadow: none;
+  box-shadow: 0 8px 24px rgba(212,40,138,0.42);
   transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
 }
 .btn-primary:hover {
   background: var(--brand-hover);
   transform: translateY(-2px);
-  box-shadow: 0 2px 14px rgba(0,0,0,0.05);
+  box-shadow: 0 12px 32px rgba(212,40,138,0.5);
 }
 
 .btn-outline {

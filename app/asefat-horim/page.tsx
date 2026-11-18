@@ -9,7 +9,7 @@ import { MEETING_DATE_LABEL, LOCATION, SESSIONS, SESSION_LABEL, MAX_ATTENDEES } 
 // נתיב: app/asefat-horim/page.tsx · API: app/api/parent-meeting/route.ts
 // ============================================================
 
-const PINK = '#7C3AED'
+const PINK = '#D4288A'
 
 export default function AsefatHorimPage() {
   const [form, setForm] = useState({ parent_name: '', phone: '', rider_name: '', session: '', notes: '' })
@@ -67,7 +67,7 @@ export default function AsefatHorimPage() {
         {/* hero */}
         <header
           className="px-6 pt-10 pb-9"
-          style={{ background: 'linear-gradient(160deg,#1B1220 0%, #241A28 55%, #1E1238 100%)' }}
+          style={{ background: 'linear-gradient(160deg,#1B1220 0%, #241A28 55%, #2E1224 100%)' }}
         >
           <p className="text-xs font-bold tracking-[.14em] mb-2" style={{ color: PINK }}>
             טבע בייק · {MEETING_DATE_LABEL}
@@ -161,7 +161,7 @@ export default function AsefatHorimPage() {
                   onChange={(e) => set('notes', e.target.value)}
                   maxLength={500}
                   rows={3}
-                  className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#7C3AED]"
+                  className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#D4288A]"
                 />
               </div>
 
@@ -218,7 +218,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         maxLength={type === 'tel' ? 20 : 80}
         dir={type === 'tel' ? 'ltr' : undefined}
-        className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#7C3AED]"
+        className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#D4288A]"
       />
     </div>
   )

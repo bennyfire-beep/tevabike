@@ -48,7 +48,7 @@ function escape(s: string) {
 
 function arrivalHtml(rows: Row[], note: string) {
   const items = rows
-    .map((r) => `<p style="margin:0 0 6px"><b style="color:#7C3AED">${escape(r.product_name)}</b> — מידה ${escape(r.size)} × ${r.quantity}</p>`)
+    .map((r) => `<p style="margin:0 0 6px"><b style="color:#D4288A">${escape(r.product_name)}</b> — מידה ${escape(r.size)} × ${r.quantity}</p>`)
     .join('')
   const noteHtml = note.trim()
     ? escape(note.trim())
@@ -58,7 +58,7 @@ function arrivalHtml(rows: Row[], note: string) {
     : ''
   return `
   <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;background:#0C1814;color:#F5F2EE;padding:32px 24px;border-radius:16px;max-width:520px;margin:0 auto">
-    <h1 style="color:#7C3AED;font-size:22px;margin:0 0 16px">החולצות הגיעו! 🎉</h1>
+    <h1 style="color:#D4288A;font-size:22px;margin:0 0 16px">החולצות הגיעו! 🎉</h1>
     <p style="margin:0 0 14px">היי ${escape(rows[0].customer_name)},</p>
     <p style="line-height:1.8;margin:0 0 14px">${rows[0].fulfillment === 'delivery'
       ? 'הקולקציה של טבע בייק הגיעה! ההזמנה שלך יוצאת אליך במשלוח לכתובת שמסרת.'

@@ -43,7 +43,7 @@ const BORDER = '#252b27'
 const TEXT = '#e8efe9'
 const MUTED = '#7a8f7d'
 const LIME = '#b5e853'
-const PINK = '#A78BFA'
+const PINK = '#ec4899'
 
 export default function CampPage() {
   const [days, setDays] = useState<DayInfo[]>([])

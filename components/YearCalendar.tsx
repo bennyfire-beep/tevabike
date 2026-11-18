@@ -12,7 +12,7 @@ import {
 // /admin/coordinator/calendar); the table is public-read so the anon client
 // is enough here.
 
-const PINK = '#7C3AED'
+const PINK = '#D4288A'
 const DARK = '#0C1814'
 const DOW = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']
 

@@ -12,7 +12,7 @@ import TripCover from '../TripCover'
 // נתיב: app/rides/[slug]/page.tsx · API: app/api/rides/route.ts
 // ============================================================
 
-const PINK = '#7C3AED'
+const PINK = '#D4288A'
 
 export function generateStaticParams() {
   return SESSIONS.map((s) => ({ slug: s.slug }))
@@ -51,7 +51,7 @@ export default async function RidePage({ params }: { params: Promise<{ slug: str
         <div className="absolute inset-x-0 bottom-0">
           <div className="max-w-4xl mx-auto px-5 pb-6">
             <Link href="/rides" className="text-sm text-stone-300 hover:text-white">→ כל טיולי הרכיבה</Link>
-            <p className="text-xs font-bold tracking-[.14em] mt-3" style={{ color: '#C4B5FD' }}>טיול רכיבה בארץ · {s.location}</p>
+            <p className="text-xs font-bold tracking-[.14em] mt-3" style={{ color: '#F9A8D4' }}>טיול רכיבה בארץ · {s.location}</p>
             <h1 className="text-3xl md:text-4xl font-extrabold mt-1">{s.title}</h1>
           </div>
         </div>

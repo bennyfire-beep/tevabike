@@ -10,7 +10,7 @@ import { RIDE_SEATS } from '@/lib/sovev-ramon'
 const HERO = '/trips/sovev-ramon.jpg'
 
 
-const C = { dark: '#0C1814', brand: '#7C3AED', greenMid: '#1F3D2A', card: '#152A1E', offWhite: '#F5F2EE', muted: '#D8E2DC' }
+const C = { dark: '#0C1814', brand: '#D4288A', greenMid: '#1F3D2A', card: '#152A1E', offWhite: '#F5F2EE', muted: '#D8E2DC' }
 
 const TITLE = 'מצביעים ורוכבים! סובב מצפה רמון'
 const DESCRIPTION =

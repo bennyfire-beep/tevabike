@@ -13,7 +13,7 @@ import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 // timer, not a marketing page.
 
 const PURPLE = '#7c3aed'   // violet-600 — AA contrast with white text
-const PINK   = '#6D28D9'   // violet-700
+const PINK   = '#db2777'   // pink-600
 const INK    = '#1a1230'
 
 export default function ContactWidget() {

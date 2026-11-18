@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 // "today" is always today, not the build date.
 export const dynamic = 'force-dynamic'
 
-const PINK = '#7C3AED'
+const PINK = '#D4288A'
 
 // Plays when no clip is active in the admin: Benny's montage, letterbox bars
 // cropped off (landscape 576×312), framed centred on every screen.
@@ -148,7 +148,7 @@ export default async function RidesPage() {
               <li key={s.slug}>
                 <Link
                   href={`/rides/${s.slug}`}
-                  className="group block bg-stone-900 rounded-2xl overflow-hidden border border-stone-800 hover:border-[#7C3AED] transition h-full"
+                  className="group block bg-stone-900 rounded-2xl overflow-hidden border border-stone-800 hover:border-[#D4288A] transition h-full"
                 >
                   <div className="aspect-[16/9] overflow-hidden bg-stone-800">
                     <TripCover image={s.image} title={s.title} className="object-[center_35%] group-hover:scale-105 transition duration-500" />

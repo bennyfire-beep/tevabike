@@ -17,8 +17,8 @@ const WAZE_URL = "https://waze.com/ul/hsvc4fmbtz";
 const MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${PLACE} משגב`)}`;
 
 const C = {
-  brand: "#7C3AED",
-  brandHover: "#6D28D9",
+  brand: "#D4288A",
+  brandHover: "#B51E77",
   dark: "#0C1814",
   green: "#152A1E",
   greenMid: "#1F3D2A",
@@ -389,7 +389,7 @@ export default function WorkshopAirbagPage() {
                 type="checkbox"
                 checked={waiver}
                 onChange={(e) => setWaiver(e.target.checked)}
-                className="mt-1 h-4 w-4 accent-violet-600"
+                className="mt-1 h-4 w-4 accent-pink-600"
               />
               <span style={{ color: C.offWhite }}>
                 קראתי ואני מאשר/ת את תנאי ההשתתפות, האחריות והביטול *
@@ -402,7 +402,7 @@ export default function WorkshopAirbagPage() {
               type="checkbox"
               checked={whatsappOptin}
               onChange={(e) => setWhatsappOptin(e.target.checked)}
-              className="mt-1 h-4 w-4 accent-violet-600"
+              className="mt-1 h-4 w-4 accent-pink-600"
             />
             <span style={{ color: "#D8E2DC" }}>{WHATSAPP_OPTIN_LABEL}</span>
           </label>

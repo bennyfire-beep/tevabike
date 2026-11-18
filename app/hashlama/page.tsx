@@ -8,7 +8,7 @@ import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 // נתיב: app/hashlama/page.tsx · API: app/api/hashlama/route.ts
 // ============================================================
 
-const PINK = '#7C3AED'
+const PINK = '#D4288A'
 
 // אותם חמשת הסניפים/שלוחות כמו בשאר האתר (app/register/page.tsx, groups.branch ב-DB) —
 // לא רשימה מקוצרת משלנו.
@@ -101,7 +101,7 @@ export default function HashlamaPage() {
         {/* hero */}
         <header
           className="px-6 pt-8 pb-9"
-          style={{ background: 'linear-gradient(160deg,#1B1220 0%, #241A28 55%, #1E1238 100%)' }}
+          style={{ background: 'linear-gradient(160deg,#1B1220 0%, #241A28 55%, #2E1224 100%)' }}
         >
           <p className="text-xs font-bold tracking-[.14em] mb-2" style={{ color: PINK }}>
             לכל רוכבי טבע בייק — כל הסניפים מוזמנים
@@ -247,7 +247,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         maxLength={40}
         dir={type === 'tel' ? 'ltr' : undefined}
-        className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#7C3AED]"
+        className="w-full bg-stone-900 border border-stone-700 rounded-lg px-3 py-3 text-stone-100 placeholder-stone-600 focus:outline-none focus:border-[#D4288A]"
       />
     </div>
   )

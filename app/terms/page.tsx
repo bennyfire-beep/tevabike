@@ -12,7 +12,7 @@ import Link from "next/link";
 
 // Light theme, like /calendar: off-white page, white cards, dark text.
 const C = {
-  brand: "#7C3AED",
+  brand: "#D4288A",
   dark: "#0C1814",
   page: "#F5F2EE",
   card: "#FFFFFF",

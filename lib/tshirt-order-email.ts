@@ -25,7 +25,7 @@ function linesHtml(lines: TshirtLine[]) {
       const preorderTag = l.is_preorder
         ? ' <span style="color:#7ee787">(מחיר הזמנה מוקדמת)</span>'
         : ''
-      return `<p style="margin:0 0 6px"><b style="color:#7C3AED">${l.product_name}</b> — מידה ${l.size} × ${l.quantity}${nameSuffix}${preorderTag} — ${l.line_total} ₪</p>`
+      return `<p style="margin:0 0 6px"><b style="color:#D4288A">${l.product_name}</b> — מידה ${l.size} × ${l.quantity}${nameSuffix}${preorderTag} — ${l.line_total} ₪</p>`
     })
     .join('')
 }
@@ -56,23 +56,23 @@ export function tshirtOrderHtml(orderId: string, p: {
   const delivery = p.fulfillment === 'delivery'
   const address = (p.delivery_address ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const fulfillmentLine = delivery
-    ? `<p style="margin:0 0 8px"><b style="color:#7C3AED">משלוח עד הבית:</b> ${p.shipping_fee ?? 0} ₪ — ${address}</p>`
-    : `<p style="margin:0 0 8px"><b style="color:#7C3AED">איסוף:</b> עצמי מהמועדון, ללא עלות</p>`
+    ? `<p style="margin:0 0 8px"><b style="color:#D4288A">משלוח עד הבית:</b> ${p.shipping_fee ?? 0} ₪ — ${address}</p>`
+    : `<p style="margin:0 0 8px"><b style="color:#D4288A">איסוף:</b> עצמי מהמועדון, ללא עלות</p>`
   const pickupLine = p.forCustomer
     ? `${fulfillmentLine}
-      <p style="margin:0 0 8px"><b style="color:#7C3AED">חשוב:</b> ההזמנה נחשבת רק לאחר תשלום מלא.</p>
-      <p style="margin:0 0 8px"><b style="color:#7C3AED">אספקה:</b> תוך 70 יום מה-20 באוקטובר.</p>
+      <p style="margin:0 0 8px"><b style="color:#D4288A">חשוב:</b> ההזמנה נחשבת רק לאחר תשלום מלא.</p>
+      <p style="margin:0 0 8px"><b style="color:#D4288A">אספקה:</b> תוך 70 יום מה-20 באוקטובר.</p>
       <p style="margin:0">נשלח לך הודעה במייל כשהחולצות יגיעו.</p>`
     : delivery
       ? `${fulfillmentLine}<p style="margin:0">יש לשלוח ללקוח לכתובת הזו.</p>`
-      : `<p style="margin:0"><b style="color:#7C3AED">איסוף:</b> עצמי מהמועדון — יש לתאם עם הלקוח.</p>`
+      : `<p style="margin:0"><b style="color:#D4288A">איסוף:</b> עצמי מהמועדון — יש לתאם עם הלקוח.</p>`
   const hatHtml = p.hatEligible
     ? p.forCustomer
       ? `<p style="margin:12px 0 0;color:#7ee787">🧢 ההזמנה שלך זכאית לכובע טבע בייק במתנה — ל-${p.hatLimit ?? 30} ההזמנות הראשונות שמשלימות תשלום.</p>`
       : `<p style="margin:12px 0 0;color:#7ee787">🧢 מעל סף מבצע הכובע — זכאית אם תהיה בין ${p.hatLimit ?? 30} הראשונות ששילמו.</p>`
     : ''
   const referralHtml = p.referral_code
-    ? `<p style="margin:0 0 8px"><b style="color:#7C3AED">קוד הפניה:</b> ${p.referral_code}</p>`
+    ? `<p style="margin:0 0 8px"><b style="color:#D4288A">קוד הפניה:</b> ${p.referral_code}</p>`
     : ''
   const payHtml = p.paymentLinks?.length
     ? `<div style="margin-top:18px">
@@ -80,7 +80,7 @@ export function tshirtOrderHtml(orderId: string, p: {
       ${p.paymentLinks
         .map((l) =>
           l.link
-            ? `<a href="${l.link}" style="display:block;background:#7C3AED;color:#fff;text-decoration:none;text-align:center;font-weight:800;border-radius:10px;padding:12px;margin:0 0 8px">לתשלום עבור ${l.name}</a>`
+            ? `<a href="${l.link}" style="display:block;background:#D4288A;color:#fff;text-decoration:none;text-align:center;font-weight:800;border-radius:10px;padding:12px;margin:0 0 8px">לתשלום עבור ${l.name}</a>`
             : `<p style="margin:0 0 8px;color:#9FB3A8;font-size:13px">${l.name}: קישור התשלום עדיין לא זמין — ניצור איתך קשר לתיאום התשלום.</p>`
         )
         .join('')}
@@ -89,12 +89,12 @@ export function tshirtOrderHtml(orderId: string, p: {
   return `
   <div dir="rtl" style="font-family:Heebo,Arial,sans-serif;background:#0C1814;color:#F5F2EE;padding:32px 24px;border-radius:16px;max-width:520px;margin:0 auto">
     ${noteHtml}
-    <h1 style="color:#7C3AED;font-size:22px;margin:0 0 4px">${title}</h1>
+    <h1 style="color:#D4288A;font-size:22px;margin:0 0 4px">${title}</h1>
     <p style="color:#7E948A;font-size:13px;margin:0 0 20px">מס' הזמנה: ${orderId.slice(0, 8)}</p>
     <div style="background:#152A1E;border:1px solid #1F3D2A;border-radius:12px;padding:16px 18px">
       ${linesHtml(p.lines)}
-      <p style="margin:12px 0 8px"><b style="color:#7C3AED">לקוח:</b> ${p.customer_name} · ${p.customer_phone}</p>
-      <p style="margin:0 0 8px"><b style="color:#7C3AED">סה"כ לתשלום:</b> ${p.total} ₪${delivery ? ` (כולל משלוח ${p.shipping_fee ?? 0} ₪)` : ''}</p>
+      <p style="margin:12px 0 8px"><b style="color:#D4288A">לקוח:</b> ${p.customer_name} · ${p.customer_phone}</p>
+      <p style="margin:0 0 8px"><b style="color:#D4288A">סה"כ לתשלום:</b> ${p.total} ₪${delivery ? ` (כולל משלוח ${p.shipping_fee ?? 0} ₪)` : ''}</p>
       ${referralHtml}
       ${pickupLine}
       ${hatHtml}
