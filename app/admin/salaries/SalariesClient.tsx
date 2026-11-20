@@ -2,7 +2,7 @@
 // SalariesClient v4 — ק״מ ידני לחודש + שכר לפי נוכחות + ק״מ שדיווח המדריך
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON, GEFEN_HOURLY_RATE } from '@/lib/attendance'
+import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON, gefenRateOf } from '@/lib/attendance'
 import {
   computeTravel, travelConfigOf, travelDetail, TRAVEL_LABEL, type TravelType,
 } from '@/lib/travel'
@@ -23,12 +23,13 @@ type Row = {
   lessonDetail: string
   lessonPay: number
   // Special activities (camps / ימי שיא) — hours × hourly_rate. specialHours
-  // excludes גפן, which is folded into specialPay at its own fixed rate
-  // (GEFEN_HOURLY_RATE) — see gefenHours for the breakdown.
+  // excludes גפן, which is folded into specialPay at the instructor's own
+  // Gefen rate (gefenRate, from gefenRateOf) — see gefenHours for the breakdown.
   specialCount: number
   specialHours: number
   hourlyRate: number
   gefenHours: number
+  gefenRate: number
   specialPay: number
   // Travel — arrangement per instructor.
   travelType: TravelType
@@ -84,7 +85,7 @@ export default function SalariesClient() {
       // Rates and travel arrangement — never on admin_roles.
       supabase
         .from('staff_pay')
-        .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, travel_type, travel_km, travel_rate, travel_monthly_amount'),
+        .select('admin_role_id, rate_per_lesson, hourly_rate, gefen_hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, travel_type, travel_km, travel_rate, travel_monthly_amount'),
       supabase
         .from('class_sessions')
         .select('id, instructor_id, instructor_ids, type, is_gefen, duration, session_date, present_count')
@@ -155,6 +156,7 @@ export default function SalariesClient() {
         const p             = payOf.get(i.id)
         const ratePerLesson = p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson)
         const hourlyRate    = p?.hourly_rate     == null ? DEFAULT_HOURLY_RATE     : Number(p.hourly_rate)
+        const gefenRate     = gefenRateOf(p)
 
         const presents    = lessonPresents.get(i.id) ?? []
         const n           = presents.length
@@ -163,9 +165,9 @@ export default function SalariesClient() {
         const workingDays = workDays.get(i.id)?.size ?? 0
         const lessonModel = lessonPayConfigOf(p).model
         const lessonPay   = lessonPayFor(p, presents)
-        // גפן is folded in at its own fixed rate (GEFEN_HOURLY_RATE), never
+        // גפן is folded in at this instructor's Gefen rate (gefenRateOf), never
         // hourlyRate — see the label built below for the two-rate breakdown.
-        const specialPay  = hours * hourlyRate + gHours * GEFEN_HOURLY_RATE
+        const specialPay  = hours * hourlyRate + gHours * gefenRate
 
         const cfg       = travelConfigOf(p)
         const override  = overrideOf.get(i.id) ?? null
@@ -193,6 +195,7 @@ export default function SalariesClient() {
           specialHours: hours,
           hourlyRate,
           gefenHours: gHours,
+          gefenRate,
           specialPay,
           travelType: cfg.type,
           travelRate: cfg.rate,
@@ -298,7 +301,7 @@ export default function SalariesClient() {
                         {r.specialCount > 0
                           ? ` · ${r.specialCount} · ${[
                               r.specialHours > 0 ? `${r.specialHours} ש׳ × ${ils(r.hourlyRate)}` : '',
-                              r.gefenHours > 0 ? `גפן ${r.gefenHours} ש׳ × ${ils(GEFEN_HOURLY_RATE)}` : '',
+                              r.gefenHours > 0 ? `גפן ${r.gefenHours} ש׳ × ${ils(r.gefenRate)}` : '',
                             ].filter(Boolean).join(' + ')}`
                           : ' · אין'}
                       </span>

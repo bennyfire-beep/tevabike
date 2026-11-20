@@ -5,7 +5,7 @@ import { resolveGroupId, loadRegister } from '@/lib/rider-groups'
 import { saveAttendance as persistAttendance } from '@/lib/attendance'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { isBenny } from '@/lib/salary-access'
-import { isGefenUser, GEFEN_INSTRUCTOR_NAMES, createGefenSession } from '@/lib/gefen-access'
+import { isGefenUser, GEFEN_LOGGER_NAMES, GEFEN_INSTRUCTOR_NAMES, createGefenSession } from '@/lib/gefen-access'
 import RiderForm from '@/components/RiderForm'
 
 const BRANCH_COLOR: Record<string, string> = {
@@ -98,8 +98,8 @@ export default function AttendancePage() {
   const [spCreating, setSpCreating]       = useState(false)
 
   // "★ גפן" — Benny and Tal only (lib/gefen-access.ts). Same underlying
-  // session as "★ פעילות מיוחדת" (is_gefen: true, priced at the fixed
-  // GEFEN_HOURLY_RATE instead of the credited instructor's own rate), but no
+  // session as "★ פעילות מיוחדת" (is_gefen: true, priced at the credited
+  // instructor's Gefen rate — gefenRateOf — instead of their hourly_rate), but no
   // participant roster — a school class isn't in `riders`.
   const [showGefen, setShowGefen]     = useState(false)
   const [gfSchool, setGfSchool]       = useState('')
@@ -413,7 +413,7 @@ export default function AttendancePage() {
                 setShowGefen(p => !p); setShowNew(false); setShowSpecial(false)
                 // Default to the button-opener's own instructor row, if it's on the list.
                 if (!gfInstructorId) {
-                  const mine = instructors.find(i => i.name === user?.name && GEFEN_INSTRUCTOR_NAMES.includes(i.name as typeof GEFEN_INSTRUCTOR_NAMES[number]))
+                  const mine = instructors.find(i => i.name === user?.name && (GEFEN_LOGGER_NAMES as readonly string[]).includes(i.name))
                   if (mine) setGfInst(mine.id)
                 }
               }}
@@ -574,15 +574,15 @@ export default function AttendancePage() {
       {showGefen && (
         <div style={{ background: '#0f1f16', border: '1px solid #4cdb7a44', borderRadius: 12, padding: 20, marginBottom: 20 }}>
           <h3 style={{ margin: '0 0 4px', fontSize: 15, color: '#4cdb7a' }}>★ גפן — דיווח שעות</h3>
-          <p style={{ margin: '0 0 16px', fontSize: 12, color: '#7aa58f' }}>בית ספר + שעות — תשלום קבוע של ₪90 לשעה, ללא קשר לתעריף הרגיל של המדריך</p>
+          <p style={{ margin: '0 0 16px', fontSize: 12, color: '#7aa58f' }}>בית ספר + שעות — לפי תעריף הגפן של המדריך (ברירת מחדל ₪90 לשעה), ללא קשר לתעריף הרגיל שלו</p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 16 }}>
             <div>
-              <label htmlFor="gf-instructor" style={{ fontSize: 11, color: '#7aa58f', display: 'block', marginBottom: 4 }}>מי מדווח *</label>
+              <label htmlFor="gf-instructor" style={{ fontSize: 11, color: '#7aa58f', display: 'block', marginBottom: 4 }}>על שם מי *</label>
               <select id="gf-instructor" value={gfInstructorId} onChange={e => setGfInst(e.target.value)} style={{ ...inp, borderColor: '#2f4a3a' }}>
                 <option value="">בחר...</option>
                 {instructors
-                  .filter(i => GEFEN_INSTRUCTOR_NAMES.includes(i.name as typeof GEFEN_INSTRUCTOR_NAMES[number]))
+                  .filter(i => GEFEN_INSTRUCTOR_NAMES.includes(i.name))
                   .map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>
             </div>

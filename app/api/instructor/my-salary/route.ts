@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveCaller, currentMonth, monthBounds } from '@/lib/instructor-identity'
-import { DEFAULT_HOURLY_RATE, GEFEN_HOURLY_RATE } from '@/lib/attendance'
+import { DEFAULT_HOURLY_RATE, gefenRateOf } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
 import { lessonPayConfigOf, lessonRateFor, coTaughtPresent } from '@/lib/lesson-pay'
 
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
 
   const [payRes, sessRes, travelRes, daysRes] = await Promise.all([
     db.from('staff_pay')
-      .select('hourly_rate, rate_per_lesson, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, monthly_base, travel_type, travel_km, travel_rate, travel_monthly_amount')
+      .select('hourly_rate, gefen_hourly_rate, rate_per_lesson, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, monthly_base, travel_type, travel_km, travel_rate, travel_monthly_amount')
       .eq('admin_role_id', adminRoleId)
       .maybeSingle(),
     db.from('class_sessions')
@@ -130,6 +130,7 @@ export async function GET(req: NextRequest) {
   }
 
   const hourly   = pay.hourly_rate == null ? DEFAULT_HOURLY_RATE : Number(pay.hourly_rate)
+  const gefen    = gefenRateOf(pay)
   const banded   = lessonPayConfigOf(pay).model === 'by_attendance'
 
   const items: LineItem[] = []
@@ -152,10 +153,11 @@ export async function GET(req: NextRequest) {
     if (s.type === 'special') {
       specialCount++
       const hours = Number(s.duration ?? 0)
-      // "גפן" is priced at a fixed rate, unrelated to this instructor's own
-      // hourly_rate — the same person can also teach ordinary special
-      // activities (camps) at a different rate.
-      const rate  = s.is_gefen ? GEFEN_HOURLY_RATE : hourly
+      // "גפן" is priced at this instructor's Gefen rate (gefen_hourly_rate,
+      // else the global default), unrelated to their own hourly_rate — the
+      // same person can also teach ordinary special activities (camps) at a
+      // different rate.
+      const rate  = s.is_gefen ? gefen : hourly
       const label = s.is_gefen
         ? `גפן · ${s.branch ?? '—'} · ${hours} ש׳ × ₪${rate}`
         : `${s.activity_name ?? s.class_name ?? 'פעילות מיוחדת'} · ${hours} ש׳ × ₪${rate}`
@@ -235,5 +237,8 @@ export async function GET(req: NextRequest) {
     // Enough for the screen to explain the by_attendance bands; no other
     // instructor's numbers are involved.
     payModel: lessonPayConfigOf(pay),
+    // This instructor's own גפן rate per hour — for the "★ גפן" tab, which
+    // cannot read staff_pay itself.
+    gefenRate: gefen,
   })
 }

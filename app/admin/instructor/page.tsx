@@ -43,7 +43,8 @@ import { isBenny } from '@/lib/salary-access'
 //   ★ גפן          — Benny and Tal only (lib/gefen-access.ts). Logs a special
 //                    activity session per school/date, exactly like the
 //                    coordinator's "★ פעילות מיוחדת" but with no roster to
-//                    pick and a fixed ₪90/h rate (class_sessions.is_gefen)
+//                    pick and the instructor's Gefen rate (class_sessions.
+//                    is_gefen; staff_pay.gefen_hourly_rate, else ₪90/h)
 //                    instead of the instructor's own staff_pay.hourly_rate.
 //                    Benny's own entries record the same way but are never
 //                    priced — he has no staff_pay row, so they fall into the
@@ -172,6 +173,8 @@ type PayReport = {
   workDays: number
   total: number
   payModel: { model: string; flat: number; low: number; high: number; threshold: number }
+  /** This instructor's own גפן rate per hour (absent when hasPay is false). */
+  gefenRate?: number
 }
 
 // ── Formatting ──────────────────────────────────────────────────────────────
@@ -526,14 +529,16 @@ const fmtClock = (iso: string) =>
 // coordinator's "★ פעילות מיוחדת": a school class isn't in `riders`, so this
 // just logs the session itself — school, hours, and (from the row) the day and
 // time it was filed. `payable` decides whether this signed-in person's own
-// entries show a computed wage: true for Tal (₪90/h, fixed — see
-// GEFEN_HOURLY_RATE), false for Benny, who logs the same hours for the record
+// entries show a computed wage: true for Tal (at `rate` — the signed-in
+// instructor's own Gefen rate from /api/instructor/my-salary, falling back to
+// GEFEN_HOURLY_RATE until that loads), false for Benny, who logs the same hours for the record
 // but draws no salary from the club he owns.
 function GefenSection({
-  payable, entries, loading, error,
+  payable, rate, entries, loading, error,
   school, setSchool, hours, setHours, saving, formError, onSave,
 }: {
   payable: boolean
+  rate: number
   entries: GefenEntry[]
   loading: boolean
   error: string
@@ -546,7 +551,7 @@ function GefenSection({
   onSave: () => void
 }) {
   const monthTotal = payable
-    ? entries.reduce((sum, e) => sum + (Number(e.duration) || 0) * GEFEN_HOURLY_RATE, 0)
+    ? entries.reduce((sum, e) => sum + (Number(e.duration) || 0) * rate, 0)
     : 0
 
   return (
@@ -554,7 +559,7 @@ function GefenSection({
       <h1 style={{ fontSize: 24, fontWeight: 900, margin: '0 0 4px' }}>★ גפן</h1>
       <p style={{ color: C.muted, fontSize: 15, margin: '0 0 20px', lineHeight: 1.7 }}>
         {payable
-          ? `דיווח שעות בבתי ספר בפרויקט גפן — כל שעה ₪${GEFEN_HOURLY_RATE}, נוסף כשורה נפרדת "גפן" לדוח השכר.`
+          ? `דיווח שעות בבתי ספר בפרויקט גפן — כל שעה ₪${rate}, נוסף כשורה נפרדת "גפן" לדוח השכר.`
           : 'דיווח שעות בבתי ספר בפרויקט גפן, לרישום בלבד — ללא תשלום.'}
       </p>
 
@@ -615,7 +620,7 @@ function GefenSection({
               <span style={{ fontSize: 14, color: C.muted }}>{e.duration ?? 0} ש׳</span>
               {payable && (
                 <span style={{ fontSize: 17, fontWeight: 900, color: C.present }}>
-                  {fmtMoney((Number(e.duration) || 0) * GEFEN_HOURLY_RATE)}
+                  {fmtMoney((Number(e.duration) || 0) * rate)}
                 </span>
               )}
             </div>
@@ -1442,6 +1447,9 @@ export default function InstructorPage() {
     if (t === 'students' && students === null && !studentsLoading) loadStudents()
     if (t === 'salary'   && payReport === null && !payLoading)     loadSalary()
     if (t === 'gefen'    && gefenEntries === null && !gefenLoading) loadGefen()
+    // The Gefen tab prices entries at this instructor's own rate, which only
+    // the salary route can read.
+    if (t === 'gefen'    && payReport === null && !payLoading)     loadSalary()
   }, [students, studentsLoading, loadStudents, payReport, payLoading, loadSalary, gefenEntries, gefenLoading, loadGefen])
 
   const presentCount = riders.filter(r => attendance[r.id] !== false).length
@@ -1554,6 +1562,7 @@ export default function InstructorPage() {
         {tab === 'gefen' && (
           <GefenSection
             payable={!isBenny(account.email)}
+            rate={payReport?.gefenRate ?? GEFEN_HOURLY_RATE}
             entries={gefenEntries ?? []}
             loading={gefenLoading}
             error={gefenError}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON, GEFEN_HOURLY_RATE } from '@/lib/attendance'
+import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON, gefenRateOf } from '@/lib/attendance'
 import { computeTravel, TRAVEL_LABEL, travelConfigOf } from '@/lib/travel'
 import { lessonPayFor, coTaughtPresent } from '@/lib/lesson-pay'
 
@@ -44,7 +44,7 @@ function buildHtml(report: ReportRow[], ym: string, totalHours: number, totalSal
       <td style="padding:8px 12px;border-bottom:1px solid #ddd">${r.name}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center">${r.lessons} × ₪${r.ratePerLesson}<br><b>₪${r.lessonPay.toLocaleString()}</b></td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center">${r.totalHours > 0 ? `${r.totalHours}ש' × ₪${r.hourlyRate}<br><b>₪${r.specialPay.toLocaleString()}</b>` : '—'}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center">${r.gefenHours > 0 ? `${r.gefenHours}ש' × ₪${GEFEN_HOURLY_RATE}<br><b>₪${r.gefenPay.toLocaleString()}</b>` : '—'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center">${r.gefenHours > 0 ? `${r.gefenHours}ש' × ₪${r.gefenRate}<br><b>₪${r.gefenPay.toLocaleString()}</b>` : '—'}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;text-align:center">${r.travelPay > 0 ? `₪${r.travelPay.toLocaleString()}<br><span style="font-size:11px;color:#6b7a72">${r.travelLabel}</span>` : '—'}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-weight:700;color:#16A34A;text-align:center">₪${r.totalSalary.toLocaleString()}</td>
     </tr>`).join('')
@@ -107,7 +107,8 @@ type ReportRow = {
   totalHours:    number   // hours across special activities other than גפן
   hourlyRate:    number
   specialPay:    number
-  gefenHours:    number   // גפן — always priced at GEFEN_HOURLY_RATE, never hourlyRate
+  gefenHours:    number   // גפן — priced at gefenRate, never hourlyRate
+  gefenRate:     number   // this instructor's גפן rate per hour (gefenRateOf)
   gefenPay:      number
   travelPay:     number
   travelLabel:   string
@@ -149,7 +150,7 @@ export async function GET(request: NextRequest) {
   const [{ data: instructors }, { data: pay }, { data: sessions }, { data: travelRows }, { data: travelDays }] = await Promise.all([
     db.from('admin_roles').select('id, name').eq('role', 'instructor').order('name'),
     db.from('staff_pay')
-      .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, travel_type, travel_km, travel_rate, travel_monthly_amount'),
+      .select('admin_role_id, rate_per_lesson, hourly_rate, gefen_hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, travel_type, travel_km, travel_rate, travel_monthly_amount'),
     db.from('class_sessions')
       .select('instructor_id, instructor_ids, type, is_gefen, duration, session_date, present_count')
       .gte('session_date', first).lte('session_date', last),
@@ -174,7 +175,7 @@ export async function GET(request: NextRequest) {
       if (!workDays.has(id)) workDays.set(id, new Set())
       workDays.get(id)!.add(s.session_date)
       if (s.type === 'special') {
-        // גפן has its own fixed rate (GEFEN_HOURLY_RATE) and must never be
+        // גפן has its own rate (gefenRateOf) and must never be
         // summed together with hours priced at this instructor's own
         // hourly_rate — one person can teach both kinds in the same month.
         const bucket = s.is_gefen ? gefenHours : specialHours
@@ -200,6 +201,7 @@ export async function GET(request: NextRequest) {
     const p             = payOf.get(inst.id)
     const ratePerLesson = p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson)
     const hourlyRate    = p?.hourly_rate     == null ? DEFAULT_HOURLY_RATE     : Number(p.hourly_rate)
+    const gefenRate     = gefenRateOf(p)
 
     const presents    = lessonPresents.get(inst.id) ?? []
     const n           = presents.length
@@ -208,7 +210,7 @@ export async function GET(request: NextRequest) {
     const workingDays = workDays.get(inst.id)?.size ?? 0
     const lessonPay   = lessonPayFor(p, presents)
     const specialPay  = hours * hourlyRate
-    const gefenPay    = gHours * GEFEN_HOURLY_RATE
+    const gefenPay    = gHours * gefenRate
     const reportedKm  = reportedOf.has(inst.id) ? Math.round(reportedOf.get(inst.id)! * 100) / 100 : null
     const travelPay   = computeTravel(p, workingDays, overrideOf.has(inst.id) ? overrideOf.get(inst.id)! : null, reportedKm)
 
@@ -221,6 +223,7 @@ export async function GET(request: NextRequest) {
       hourlyRate,
       specialPay:  Math.round(specialPay),
       gefenHours:  gHours,
+      gefenRate,
       gefenPay:    Math.round(gefenPay),
       travelPay:   Math.round(travelPay),
       travelLabel: TRAVEL_LABEL[travelConfigOf(p).type],

@@ -16,6 +16,12 @@ export const DEFAULT_RATE_PER_LESSON = 150
 // code to price a session at this rate instead of the instructor's own.
 export const GEFEN_HOURLY_RATE = 90
 
+// The Gefen rate for one instructor: staff_pay.gefen_hourly_rate when set
+// (a personal rate, e.g. Ofir's ₪120/hour), otherwise GEFEN_HOURLY_RATE.
+// Never falls back to staff_pay.hourly_rate — that prices camps, not Gefen.
+export const gefenRateOf = (pay: { gefen_hourly_rate?: number | string | null } | null | undefined): number =>
+  pay?.gefen_hourly_rate == null ? GEFEN_HOURLY_RATE : Number(pay.gefen_hourly_rate)
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared attendance save.
 //

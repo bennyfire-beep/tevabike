@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
-import { DEFAULT_HOURLY_RATE, GEFEN_HOURLY_RATE } from '@/lib/attendance'
+import { DEFAULT_HOURLY_RATE, GEFEN_HOURLY_RATE, gefenRateOf } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
 import { lessonPayConfigOf, lessonRateFor, coTaughtPresent } from '@/lib/lesson-pay'
 import { isSalaryAdmin, isBenny } from '@/lib/salary-access'
@@ -47,6 +47,7 @@ const BRANCH_COLOR: Record<string, string> = {
 type Role = {
   id: string; name: string; role: string
   hourly_rate: number | null
+  gefen_hourly_rate: number | null
   rate_per_lesson: number | null
   lesson_pay_model: string | null
   attendance_rate_low: number | null
@@ -136,7 +137,7 @@ export default function PayrollPage() {
     // Staff: names, both pay rates and monthly base for every role.
     const [{ data: roles }, { data: pay }] = await Promise.all([
       supabase.from('admin_roles').select('id, name, role'),
-      supabase.from('staff_pay').select('admin_role_id, hourly_rate, rate_per_lesson, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, monthly_base, travel_type, travel_km, travel_rate, travel_monthly_amount'),
+      supabase.from('staff_pay').select('admin_role_id, hourly_rate, gefen_hourly_rate, rate_per_lesson, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, monthly_base, travel_type, travel_km, travel_rate, travel_monthly_amount'),
     ])
     const payOf: Record<string, any> = {}
     for (const p of (pay ?? []) as any[]) payOf[p.admin_role_id] = p
@@ -144,6 +145,7 @@ export default function PayrollPage() {
     const roleRows = ((roles ?? []) as any[]).map(r => ({
       ...r,
       hourly_rate:           payOf[r.id]?.hourly_rate           ?? null,
+      gefen_hourly_rate:     payOf[r.id]?.gefen_hourly_rate     ?? null,
       rate_per_lesson:       payOf[r.id]?.rate_per_lesson       ?? null,
       lesson_pay_model:      payOf[r.id]?.lesson_pay_model      ?? null,
       attendance_rate_low:   payOf[r.id]?.attendance_rate_low   ?? null,
@@ -169,10 +171,12 @@ export default function PayrollPage() {
 
     const nameOf: Record<string, string> = {}
     const rateOf: Record<string, number> = {}       // per hour — special activities
+    const gefenRate: Record<string, number> = {}    // per hour — גפן only (gefenRateOf)
     const lessonCfgOf: Record<string, Role> = {}   // per lesson — flat or banded by attendance
     for (const r of roleRows) {
       nameOf[r.id] = r.name
       rateOf[r.id] = r.hourly_rate == null ? DEFAULT_HOURLY_RATE : Number(r.hourly_rate)
+      gefenRate[r.id] = gefenRateOf(r)
       lessonCfgOf[r.id] = r
     }
 
@@ -245,17 +249,17 @@ export default function PayrollPage() {
       }
 
       if (s.type === 'special') {
-        // "גפן" is priced at a fixed rate regardless of this instructor's own
+        // "גפן" is priced at the instructor's Gefen rate (staff_pay.
+        // gefen_hourly_rate, else GEFEN_HOURLY_RATE) regardless of their own
         // staff_pay.hourly_rate — the same person can also teach ordinary
-        // special activities (camps) at a different rate. Applies even to a
-        // credited instructor with no staff_pay row at all (e.g. Benny would,
-        // if his entries weren't filtered out above as unpaid) — the rate
-        // comes from GEFEN_HOURLY_RATE, never from rateOf/DEFAULT_HOURLY_RATE.
+        // special activities (camps) at a different rate. Never falls back to
+        // rateOf/DEFAULT_HOURLY_RATE.
         for (const iid of credited) {
-          const rate = s.is_gefen ? GEFEN_HOURLY_RATE : (rateOf[iid] ?? DEFAULT_HOURLY_RATE)
+          const gRate = gefenRate[iid] ?? GEFEN_HOURLY_RATE
+          const rate = s.is_gefen ? gRate : (rateOf[iid] ?? DEFAULT_HOURLY_RATE)
           items.push({
             key: s.id + iid, name: nameOf[iid] ?? 'מדריך לא ידוע', kind: 'special',
-            label: s.is_gefen ? `גפן · ${s.branch ?? '—'}` : (s.activity_name ?? s.class_name),
+            label: s.is_gefen ? `גפן · ${s.branch ?? '—'} · ${Number(s.duration ?? 0)}ש' × ₪${gRate}` : (s.activity_name ?? s.class_name),
             branch: s.branch, date: s.session_date,
             present: s.present_count ?? 0, pay: round2(Number(s.duration ?? 0) * rate),
             sessionId: s.id,

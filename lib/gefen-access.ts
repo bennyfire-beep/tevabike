@@ -28,12 +28,18 @@ export const GEFEN_PEOPLE = [
 
 export const GEFEN_USERS = GEFEN_PEOPLE.map(p => p.email)
 
-// The coordinator screen picks WHICH of the two instructors a Gefen session is
-// credited to from the same admin_roles instructor list every session uses —
-// matched by name, since that list carries no email. Not a security boundary
-// (the button itself is already gated by isGefenUser); just which two names
-// the picker offers.
-export const GEFEN_INSTRUCTOR_NAMES = GEFEN_PEOPLE.map(p => p.name)
+// The coordinator screen picks WHICH instructor a Gefen session is credited to
+// from the same admin_roles instructor list every session uses — matched by
+// name, since that list carries no email. Not a security boundary (the button
+// itself is already gated by isGefenUser); just which names the picker offers.
+//
+// A separate list from GEFEN_PEOPLE: Benny and Tal are still the only ones who
+// fill in the form, but they also log hours on behalf of instructors who don't
+// (Ofir Cohen, paid at his own staff_pay.gefen_hourly_rate). If Ofir should
+// log his own hours, add him to GEFEN_PEOPLE (ofiros396@gmail.com) — that also
+// shows him the "★ גפן" tab on the instructor screen.
+export const GEFEN_LOGGER_NAMES = GEFEN_PEOPLE.map(p => p.name)
+export const GEFEN_INSTRUCTOR_NAMES: readonly string[] = [...GEFEN_LOGGER_NAMES, 'אופיר כהן']
 
 export function isGefenUser(email: string | null | undefined): boolean {
   if (!email) return false
@@ -64,8 +70,9 @@ export interface GefenSessionRow {
 /**
  * Create one גפן session. No participant roster, unlike an ordinary special
  * activity — a school class isn't in `riders` — and is_gefen: true so the
- * payroll code prices it at the fixed GEFEN_HOURLY_RATE (lib/attendance.ts)
- * instead of the credited instructor's own staff_pay.hourly_rate.
+ * payroll code prices it at the credited instructor's Gefen rate (gefenRateOf in
+ * lib/attendance.ts: staff_pay.gefen_hourly_rate, else GEFEN_HOURLY_RATE)
+ * instead of the instructor's own staff_pay.hourly_rate.
  */
 export async function createGefenSession(
   { instructorId, school, hours, date }: CreateGefenSessionInput,

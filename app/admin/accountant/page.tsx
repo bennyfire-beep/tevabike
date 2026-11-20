@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAdminAuth } from '@/lib/use-admin-auth'
-import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON, GEFEN_HOURLY_RATE } from '@/lib/attendance'
+import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON, gefenRateOf } from '@/lib/attendance'
 import { computeTravel, travelConfigOf, TRAVEL_LABEL } from '@/lib/travel'
 import { lessonPayFor, coTaughtPresent } from '@/lib/lesson-pay'
 
@@ -16,8 +16,9 @@ type InstructorSummary = {
   lessonPay:     number
   specialHours:  number   // camps / ימי שיא — excludes גפן, priced separately below
   hourlyRate:    number
-  gefenHours:    number   // גפן — always ₪90/h (GEFEN_HOURLY_RATE), regardless of hourlyRate
-  specialPay:    number   // includes both: hours×hourlyRate + gefenHours×GEFEN_HOURLY_RATE
+  gefenHours:    number   // גפן — priced at gefenRate, regardless of hourlyRate
+  gefenRate:     number   // this instructor's גפן rate per hour (gefenRateOf)
+  specialPay:    number   // includes both: hours×hourlyRate + gefenHours×gefenRate
   travelPay:     number
   travelLabel:   string
   totalPay:      number
@@ -116,7 +117,7 @@ export default function AccountantPage() {
     // Both rates and the travel arrangement live on staff_pay.
     const { data: pay } = await supabase
       .from('staff_pay')
-      .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, travel_type, travel_km, travel_rate, travel_monthly_amount')
+      .select('admin_role_id, rate_per_lesson, hourly_rate, gefen_hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, travel_type, travel_km, travel_rate, travel_monthly_amount')
 
     // Per-month travel override, typed into the salary report.
     const { data: travelRows } = await supabase
@@ -179,6 +180,7 @@ export default function AccountantPage() {
       const p             = payOf.get(r.id)
       const ratePerLesson = p?.rate_per_lesson == null ? DEFAULT_RATE_PER_LESSON : Number(p.rate_per_lesson)
       const hourlyRate    = p?.hourly_rate     == null ? DEFAULT_HOURLY_RATE     : Number(p.hourly_rate)
+      const gefenRate     = gefenRateOf(p)
 
       const presents    = lessonPresents.get(r.id) ?? []
       const n           = presents.length
@@ -186,10 +188,11 @@ export default function AccountantPage() {
       const gHours      = Math.round((gefenHours.get(r.id) ?? 0) * 10) / 10
       const workingDays = workDays.get(r.id)?.size ?? 0
       const lessonPay   = lessonPayFor(p, presents)
-      // גפן is folded into specialPay (fixed ₪90/h, never hourlyRate) rather
-      // than a separate field — this screen's table has no room for a sixth
-      // column; the breakdown label below spells out the two rates separately.
-      const specialPay  = hours * hourlyRate + gHours * GEFEN_HOURLY_RATE
+      // גפן is folded into specialPay (at this instructor's Gefen rate, never
+      // hourlyRate) rather than a separate field — this screen's table has no
+      // room for a sixth column; the breakdown label below spells out the two
+      // rates separately.
+      const specialPay  = hours * hourlyRate + gHours * gefenRate
       const reportedKm  = reportedOf.has(r.id) ? Math.round(reportedOf.get(r.id)! * 100) / 100 : null
       const travelPay   = computeTravel(p, workingDays, overrideOf.has(r.id) ? overrideOf.get(r.id)! : null, reportedKm)
 
@@ -203,6 +206,7 @@ export default function AccountantPage() {
         specialHours: hours,
         hourlyRate,
         gefenHours:  gHours,
+        gefenRate,
         specialPay:  Math.round(specialPay),
         travelPay:   Math.round(travelPay),
         travelLabel: TRAVEL_LABEL[travelConfigOf(p).type],
@@ -400,7 +404,7 @@ export default function AccountantPage() {
                         <div style={{ color: '#7a8f7d', fontSize: 11 }}>
                           {[
                             ins.specialHours > 0 ? `${ins.specialHours}ש' × ₪${ins.hourlyRate}` : '',
-                            ins.gefenHours > 0 ? `גפן ${ins.gefenHours}ש' × ₪${GEFEN_HOURLY_RATE}` : '',
+                            ins.gefenHours > 0 ? `גפן ${ins.gefenHours}ש' × ₪${ins.gefenRate}` : '',
                           ].filter(Boolean).join(' + ') || '—'}
                         </div>
                       </div>
