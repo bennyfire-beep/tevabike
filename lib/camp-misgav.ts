@@ -11,7 +11,7 @@ export type CampDay = { key: string; label: string; short: string; price: number
 
 export const MISGAV_DAYS: CampDay[] = [
   { key: '2026-12-06', label: 'יום ראשון, 6.12', short: 'א׳ 6.12', price: 0,   title: 'יום החזר · רכיבה ביער' },
-  { key: '2026-12-07', label: 'יום שני, 7.12',  short: 'ב׳ 7.12', price: 200, title: 'איירבג והיכרות ביער' },
+  { key: '2026-12-07', label: 'יום שני, 7.12',  short: 'ב׳ 7.12', price: 200, title: 'איירבג וסינגלים חדשים ביער' },
 ]
 
 export const MISGAV_PAY_LINKS: Record<string, string> = {
