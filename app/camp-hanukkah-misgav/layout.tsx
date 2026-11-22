@@ -1,8 +1,7 @@
 import type { Metadata } from 'next'
 
 // Share preview (WhatsApp / Facebook) for the Misgav Hanukkah camp form — the
-// page itself is a client component, so its metadata lives here. When the
-// flyer is ready, add it under public/ and list it in openGraph.images.
+// page itself is a client component, so its metadata lives here.
 export const metadata: Metadata = {
   title: 'מחנה חנוכה במשגב — הרשמה',
   description:
@@ -10,6 +9,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'מחנה חנוכה במשגב 🕎🌲',
     description: '6–7.12 · 08:30–13:00 · רכיבה ביער, סינגלים ואיירבג · 200 ₪ ליום',
+    images: [{ url: '/camp-hanukkah-misgav-flyer.jpg', width: 1122, height: 1402 }],
   },
 }
 

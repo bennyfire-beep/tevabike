@@ -492,7 +492,8 @@ export default function Home() {
               {[
                 { label: '🏠 המועדון החדש ומנויים', href: '/club' },
                 { label: 'מורזין נוער 2027', href: '/morzine-2027' },
-                { label: 'מחנה חנוכה', href: '/camp-hanukkah' },
+                { label: 'מחנה חנוכה משגב', href: '/camp-hanukkah-misgav' },
+                { label: 'מחנה חנוכה בדרום', href: '/camp-hanukkah' },
                 { label: 'סשן איר באג 13.11', href: '/workshop-airbag' },
                 { label: 'טבע בייק אקדמי', href: '/instructors-course' },
                 { label: 'חוגים',    href: '#classes'  },
