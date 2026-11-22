@@ -141,7 +141,7 @@ export default function HanukkahMisgavAdminPage() {
         <div>
           <h2 style={{ margin: '0 0 3px', fontSize: 20, fontWeight: 800 }}>מחנה חנוכה · משגב</h2>
           <p style={{ color: '#7a8f7d', fontSize: 13, margin: 0 }}>
-            06.12–08.12 · 08:30–13:00 · {loading ? 'טוען...' : `${filtered.length} הרשמות`}
+            06.12–07.12 · 08:30–13:00 · {loading ? 'טוען...' : `${filtered.length} הרשמות`}
           </p>
         </div>
         <div style={{ marginRight: 'auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>

@@ -1,4 +1,4 @@
--- מחנה חנוכה במשגב — 6–8.12.2026, 08:30–13:00 at the Teva Bike club.
+-- מחנה חנוכה במשגב — 6–7.12.2026, 08:30–13:00 at the Teva Bike club.
 -- Day camp for the mini gravity / beginners groups (Misgav, Biriya, Mateh
 -- Asher), ages 10–13. Registration is per day, 200 ₪ each; `days` holds the
 -- chosen dates. Each day opens only with at least 8 riders. Config lives in

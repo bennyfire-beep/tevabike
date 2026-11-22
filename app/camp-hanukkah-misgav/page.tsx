@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 import {
-  MISGAV_DAYS, MISGAV_GROUPS, MISGAV_INSTRUCTORS, MISGAV_PRICE_PER_DAY, MISGAV_MIN_PER_DAY,
+  MISGAV_DAYS, MISGAV_GROUPS, MISGAV_INSTRUCTORS, MISGAV_PRICE_PER_DAY, MISGAV_MIN_PER_DAY, MISGAV_RAIN_NOTE,
 } from '@/lib/camp-misgav'
 
 const BG = '#0d0f0e'
@@ -120,7 +120,7 @@ export default function HanukkahMisgavPage() {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '40px 20px 150px' }}>
 
         <div style={{ marginBottom: 22 }}>
-          <div style={{ color: LIME, fontSize: 14, fontWeight: 700, marginBottom: 6 }}>6–8 בדצמבר · ראשון–שלישי · 08:30–13:00</div>
+          <div style={{ color: LIME, fontSize: 14, fontWeight: 700, marginBottom: 6 }}>6–7 בדצמבר · ראשון–שני · 08:30–13:00</div>
           <h1 style={{ margin: 0, fontSize: 'clamp(30px, 7vw, 44px)', fontWeight: 900, lineHeight: 1.15 }}>
             מחנה חנוכה <span style={{ color: LIME }}>במשגב</span> 🕎
           </h1>
@@ -130,7 +130,7 @@ export default function HanukkahMisgavPage() {
         </div>
 
         <p style={{ fontSize: 15, lineHeight: 1.8, margin: '0 0 12px' }}>
-          🌲 שלושה בקרים של רכיבה, יער וחברים בחופשת חנוכה!
+          🌲 שני בקרים של רכיבה, יער וחברים בחופשת חנוכה!
         </p>
         <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.9, margin: '0 0 24px' }}>
           טבע בייק מזמינה את רוכבי <b style={{ color: TEXT }}>מיני גרביטי משגב, המתחילים, מיני גרביטי ביריה ומטה אשר</b> לבקרים
@@ -163,13 +163,13 @@ export default function HanukkahMisgavPage() {
 
         <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginBottom: 24 }}>
           {[
-            ['תאריכים', 'ראשון–שלישי, 6–8 בדצמבר'],
+            ['תאריכים', 'ראשון–שני, 6–7 בדצמבר'],
             ['שעות', '08:30–13:00'],
             ['נקודת מפגש', 'מועדון טבע בייק · בוויז: "טבע בייק"'],
             ['הגעה ופיזור', 'עצמאיים'],
             ['גילאים', '10–13'],
             ['מדריכים', MISGAV_INSTRUCTORS.join(' · ')],
-            ['עלות', `${MISGAV_PRICE_PER_DAY} ₪ ליום · ${MISGAV_PRICE_PER_DAY * MISGAV_DAYS.length} ₪ לשלושת הימים`],
+            ['עלות', `${MISGAV_PRICE_PER_DAY} ₪ ליום · ${MISGAV_PRICE_PER_DAY * MISGAV_DAYS.length} ₪ לשני הימים`],
           ].map(([k, v]) => (
             <div key={k} style={{ background: PANEL, border: `1px solid ${BORDER}`, borderRight: `3px solid ${LIME}`, borderRadius: 12, padding: '12px 14px' }}>
               <div style={{ color: MUTED, fontSize: 12, fontWeight: 700, marginBottom: 3 }}>{k}</div>
@@ -182,15 +182,16 @@ export default function HanukkahMisgavPage() {
         <ul style={{ fontSize: 14, lineHeight: 2, margin: '0 0 24px', paddingRight: 20 }}>
           <li>אופניים תקינים, קסדה תקנית וכפפות</li>
           <li>בקבוק מים וארוחת בוקר קלה להפסקה</li>
-          <li><b>בגדים להחלפה</b> — למקרה של גשם 🌧️</li>
+          <li><b>בגדים להחלפה</b> 🌧️</li>
         </ul>
 
         <div style={{ background: '#1e1a0e', border: '1px solid #5a4a14', borderRadius: 12, padding: '14px 18px', marginBottom: 32, fontSize: 14, lineHeight: 1.9 }}>
           <b style={{ color: AMBER }}>חשוב לדעת</b><br />
-          ההרשמה לפי יום — אפשר לבחור יום אחד, שניים או את שלושתם.<br />
+          ההרשמה לפי יום — אפשר לבחור יום אחד או את שניהם.<br />
           כל יום יוצא לפועל רק עם <b>מינימום {MISGAV_MIN_PER_DAY} נרשמים</b>.<br />
           <b>ההתחייבות היא רק לאחר התשלום</b> — בסיום ההרשמה יופיע קישור תשלום לכל יום.<br />
-          מדיניות ביטול: ניתן לבטל עד 3 ימים לפני יום הפעילות.
+          מדיניות ביטול: ניתן לבטל עד 3 ימים לפני יום הפעילות.<br />
+          🌧️ {MISGAV_RAIN_NOTE}
         </div>
 
         {/* בחירת ימים */}

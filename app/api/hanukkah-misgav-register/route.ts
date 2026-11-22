@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 import {
-  MISGAV_DAYS, MISGAV_PAY_LINKS, MISGAV_PRICE_PER_DAY, MISGAV_MIN_PER_DAY,
+  MISGAV_DAYS, MISGAV_PAY_LINKS, MISGAV_PRICE_PER_DAY, MISGAV_MIN_PER_DAY, MISGAV_RAIN_NOTE,
   isMisgavDay, misgavDayLabel,
 } from '@/lib/camp-misgav'
 
-// מחנה חנוכה במשגב — 6–8.12, 08:30–13:00, הרשמה לפי יום.
+// מחנה חנוכה במשגב — 6–7.12, 08:30–13:00, הרשמה לפי יום.
 //
 // GET  → כמה נרשמו לכל יום (כדי להראות אם היום כבר עבר את המינימום)
 // POST → שומר הרשמה, שולח מייל אישור להורה (אם השאיר מייל) + התראה לבני וטל,
@@ -188,11 +188,14 @@ export async function POST(req: NextRequest) {
           <li>קסדה תקנית וכפפות</li>
           <li>בקבוק מים</li>
           <li>ארוחת בוקר קלה להפסקה</li>
-          <li>בגדים להחלפה — למקרה של גשם</li>
+          <li>בגדים להחלפה</li>
         </ul>
 
         <h3 style="margin:20px 0 8px">מדיניות ביטול</h3>
         <p style="margin:0;line-height:1.8">ניתן לבטל עד 3 ימים לפני יום הפעילות.</p>
+
+        <h3 style="margin:20px 0 8px">גשם</h3>
+        <p style="margin:0;line-height:1.8">${MISGAV_RAIN_NOTE}</p>
 
         <p style="margin-top:24px;color:#666;font-size:13px">
           שאלות? בני 052-5708084 · טל 050-5358071

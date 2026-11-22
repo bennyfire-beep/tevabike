@@ -1,4 +1,5 @@
-// מחנה חנוכה במשגב — בקרי רכיבה לקבוצות מיני גרביטי ומתחילים, 6–8.12.2026.
+// מחנה חנוכה במשגב — בקרי רכיבה לקבוצות מיני גרביטי ומתחילים, 6–7.12.2026.
+// If it rains, the day is postponed to another date and parents get a message in advance.
 // Shared by the public page, the registration API and the coordinator screen.
 //
 // Registration is per day (200 ₪ each). Every day has its own Arbox payment
@@ -10,19 +11,19 @@ export type CampDay = { key: string; label: string; short: string }
 export const MISGAV_DAYS: CampDay[] = [
   { key: '2026-12-06', label: 'יום ראשון, 6.12', short: 'א׳ 6.12' },
   { key: '2026-12-07', label: 'יום שני, 7.12',  short: 'ב׳ 7.12' },
-  { key: '2026-12-08', label: 'יום שלישי, 8.12', short: 'ג׳ 8.12' },
 ]
 
 export const MISGAV_PAY_LINKS: Record<string, string> = {
   '2026-12-06': '',   // ← קישור Arbox ליום ראשון 6.12
   '2026-12-07': '',   // ← קישור Arbox ליום שני 7.12
-  '2026-12-08': '',   // ← קישור Arbox ליום שלישי 8.12
 }
 
 export const MISGAV_PRICE_PER_DAY = 200
 export const MISGAV_MIN_PER_DAY = 8
 
 export const MISGAV_GROUPS = ['מיני גרביטי משגב', 'מתחילים', 'מיני גרביטי ביריה', 'מטה אשר', 'אחר']
+
+export const MISGAV_RAIN_NOTE = 'במקרה של גשם היום יידחה ליום אחר, ותצא הודעה מראש לכל הנרשמים.'
 
 export const MISGAV_INSTRUCTORS = ['ארז דגן', 'אלון טירוש', 'אופיר כהן']
 
