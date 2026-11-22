@@ -44,7 +44,8 @@ export default function SiteNav() {
             <a href="/calendar" className="nav-link">לוח שנה</a>
             <a href="/terms" className="nav-link">תקנון</a>
             <a href="/morzine-2027" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מורזין נוער 2027</a>
-            <a href="/camp-hanukkah" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מחנה חנוכה</a>
+            <a href="/camp-hanukkah-misgav" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מחנה חנוכה משגב</a>
+            <a href="/camp-hanukkah" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>מחנה חנוכה בדרום</a>
             <a href="/workshop-airbag" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>סשן איר באג 13.11</a>
             <a href="/rides" className="nav-link" style={{ color: '#ec4899', fontWeight: 700 }}>טיולי רכיבה</a>
             <a href="/instructors-course" className="nav-link" style={{ color: '#f0b90b', fontWeight: 700 }}>טבע בייק אקדמי</a>
