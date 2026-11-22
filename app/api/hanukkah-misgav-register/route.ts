@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { whatsappOptinFields } from '@/lib/whatsapp-optin'
 import {
-  MISGAV_DAYS, MISGAV_PAY_LINKS, MISGAV_PRICE_PER_DAY, MISGAV_MIN_PER_DAY, MISGAV_RAIN_NOTE,
+  MISGAV_DAYS, MISGAV_PAY_LINKS, MISGAV_MIN_PER_DAY, MISGAV_RAIN_NOTE, misgavDayPrice,
   isMisgavDay, misgavDayLabel,
 } from '@/lib/camp-misgav'
 
@@ -58,7 +58,7 @@ async function countsPerDay(supabase: Db) {
 export async function GET() {
   const supabase = db()
   const counts = supabase ? await countsPerDay(supabase) : Object.fromEntries(MISGAV_DAYS.map(d => [d.key, 0]))
-  return NextResponse.json({ ok: true, counts, minPerDay: MISGAV_MIN_PER_DAY, pricePerDay: MISGAV_PRICE_PER_DAY })
+  return NextResponse.json({ ok: true, counts, minPerDay: MISGAV_MIN_PER_DAY })
 }
 
 // ---------- POST ----------
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
   if (!body.consentApproved || !consentName)
     return NextResponse.json({ ok: false, error: 'יש לאשר את הצהרת ההורה' }, { status: 400 })
 
-  const total = days.length * MISGAV_PRICE_PER_DAY
+  const total = days.reduce((s, d) => s + misgavDayPrice(d), 0)
 
   const { error } = await supabase.from(TABLE).insert({
     rider_first_name: riderFirstName,
@@ -131,7 +131,8 @@ export async function POST(req: NextRequest) {
     city,
     health_notes: healthNotes || null,
     total_amount: total,
-    payment_status: 'pending',
+    // a free-day-only registration has nothing to pay, so it is confirmed at once
+    payment_status: total > 0 ? 'pending' : 'paid',
     consent_parent_name: consentName,
     consent_approved: true,
     ...whatsappOptinFields(body.whatsappOptin === true, 'camp_hanukkah_misgav'),
@@ -142,14 +143,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'ההרשמה לא נשמרה. נסו שוב.' }, { status: 500 })
   }
 
-  const payments = days.map(d => ({ day: d, label: misgavDayLabel(d), link: MISGAV_PAY_LINKS[d] || '' }))
+  const payments = days.map(d => ({ day: d, label: misgavDayLabel(d), link: MISGAV_PAY_LINKS[d] || '', price: misgavDayPrice(d) }))
   const counts = await countsPerDay(supabase)
   const rider = esc(`${riderFirstName} ${riderLastName}`)
 
   // מייל אישור להורה
   if (parentEmail) {
-    const payRows = payments.map(p => p.link
-      ? `<p style="margin:8px 0"><a href="${p.link}" style="background:#b5e853;color:#0d0f0e;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block">לתשלום — ${p.label} (${MISGAV_PRICE_PER_DAY} ₪)</a></p>`
+    const payRows = payments.map(p => p.price === 0
+      ? `<p style="margin:8px 0">${p.label} — ללא עלות, המקום שמור ✓</p>`
+      : p.link
+      ? `<p style="margin:8px 0"><a href="${p.link}" style="background:#b5e853;color:#0d0f0e;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block">לתשלום — ${p.label} (${p.price} ₪)</a></p>`
       : `<p style="margin:8px 0">${p.label} — קישור לתשלום יישלח אליכם בנפרד</p>`).join('')
 
     await sendEmail(
@@ -164,7 +167,7 @@ export async function POST(req: NextRequest) {
         <p style="font-size:18px"><b>סה"כ לתשלום: ${total} ₪</b></p>
         ${payRows}
         <p style="color:#666;font-size:13px">
-          המקום נשמר רק לאחר התשלום. כל יום יוצא לפועל בכפוף למינימום ${MISGAV_MIN_PER_DAY} נרשמים.
+          ${total > 0 ? 'ביום האיירבג המקום נשמר רק לאחר התשלום. ' : ''}כל יום יוצא לפועל בכפוף למינימום ${MISGAV_MIN_PER_DAY} נרשמים.
         </p>
 
         <hr style="border:none;border-top:1px solid #ddd;margin:24px 0">

@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { downloadCsv } from '@/lib/csv-export'
 import WhatsappOptinBadge from '@/components/WhatsappOptinBadge'
-import { MISGAV_DAYS, MISGAV_MIN_PER_DAY, MISGAV_PAY_LINKS, MISGAV_PRICE_PER_DAY, misgavDayLabel } from '@/lib/camp-misgav'
+import { MISGAV_DAYS, MISGAV_MIN_PER_DAY, MISGAV_PAY_LINKS, misgavDayLabel, misgavPriceText } from '@/lib/camp-misgav'
 
 type Reg = {
   id: string
@@ -192,7 +192,7 @@ export default function HanukkahMisgavAdminPage() {
         </div>
       </div>
 
-      {MISGAV_DAYS.some(d => !MISGAV_PAY_LINKS[d.key]) && (
+      {MISGAV_DAYS.some(d => d.price > 0 && !MISGAV_PAY_LINKS[d.key]) && (
         <div style={{ background: '#3a2f14', border: '1px solid #5a4a14', color: '#fbbf24', borderRadius: 10, padding: '10px 14px', fontSize: 13, marginBottom: 18 }}>
           חסרים קישורי תשלום ב־lib/camp-misgav.ts — הורים רואים כרגע &quot;קישור יישלח בנפרד&quot;.
         </div>
@@ -241,7 +241,7 @@ export default function HanukkahMisgavAdminPage() {
                   </td>
                   <td style={{ ...td, color: '#7a8f7d' }}>{r.city}</td>
                   <td style={{ ...td, maxWidth: 170, color: r.health_notes ? '#fbbf24' : '#7a8f7d' }}>{r.health_notes || '—'}</td>
-                  <td style={{ ...td, fontWeight: 700, whiteSpace: 'nowrap' }}>{r.total_amount} ₪</td>
+                  <td style={{ ...td, fontWeight: 700, whiteSpace: 'nowrap' }}>{misgavPriceText(r.total_amount)}</td>
                   <td style={td}>
                     <select
                       aria-label="סטטוס תשלום"
@@ -268,7 +268,7 @@ export default function HanukkahMisgavAdminPage() {
       </div>
 
       <p style={{ color: '#7a8f7d', fontSize: 12, marginTop: 14 }}>
-        מחיר: {MISGAV_PRICE_PER_DAY} ₪ ליום · מינימום {MISGAV_MIN_PER_DAY} נרשמים לכל יום · לחיצה על הטלפון פותחת וואטסאפ עם הודעה מוכנה (כולל קישורי תשלום למי שלא שילם).
+        {MISGAV_DAYS.map(d => `${d.short}: ${d.title} (${misgavPriceText(d.price)})`).join(' · ')} · מינימום {MISGAV_MIN_PER_DAY} נרשמים לכל יום · לחיצה על הטלפון פותחת וואטסאפ עם הודעה מוכנה (כולל קישורי תשלום למי שלא שילם).
       </p>
     </div>
   )

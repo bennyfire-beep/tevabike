@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react'
 import { WHATSAPP_OPTIN_LABEL } from '@/lib/whatsapp-optin'
 import {
-  MISGAV_DAYS, MISGAV_GROUPS, MISGAV_INSTRUCTORS, MISGAV_PRICE_PER_DAY, MISGAV_MIN_PER_DAY, MISGAV_RAIN_NOTE,
+  MISGAV_DAYS, MISGAV_GROUPS, MISGAV_INSTRUCTORS, MISGAV_MIN_PER_DAY, MISGAV_RAIN_NOTE,
+  misgavDayPrice, misgavPriceText,
 } from '@/lib/camp-misgav'
 
 const BG = '#0d0f0e'
@@ -13,7 +14,7 @@ const MUTED = '#7a8f7d'
 const LIME = '#b5e853'
 const AMBER = '#fbbf24'
 
-type Payment = { day: string; label: string; link: string }
+type Payment = { day: string; label: string; link: string; price: number }
 
 export default function HanukkahMisgavPage() {
   const [counts, setCounts] = useState<Record<string, number> | null>(null)
@@ -43,7 +44,7 @@ export default function HanukkahMisgavPage() {
     setDays(prev => prev.includes(key) ? prev.filter(d => d !== key) : [...prev, key])
   }
 
-  const total = days.length * MISGAV_PRICE_PER_DAY
+  const total = days.reduce((s, d) => s + misgavDayPrice(d), 0)
 
   async function submit() {
     setError('')
@@ -89,18 +90,23 @@ export default function HanukkahMisgavPage() {
           <div style={{ fontSize: 44, marginBottom: 8 }}>🌲</div>
           <h1 style={{ margin: '0 0 8px', fontSize: 26, fontWeight: 800 }}>ההרשמה נקלטה</h1>
           <p style={{ color: MUTED, margin: '0 0 24px', lineHeight: 1.7 }}>
-            נשאר רק לשלם — <b style={{ color: TEXT }}>המקום נשמר רק אחרי התשלום.</b><br />
-            יש קישור תשלום נפרד לכל יום.
+            {done.total > 0
+              ? <>נשאר רק לשלם על יום האיירבג — <b style={{ color: TEXT }}>המקום נשמר רק אחרי התשלום.</b></>
+              : <>המקום שמור — נתראה ביער! 🌲</>}
           </p>
           <div style={{ background: BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 18, marginBottom: 18 }}>
             <div style={{ color: MUTED, fontSize: 13 }}>מחנה חנוכה במשגב · {done.payments.length} {done.payments.length === 1 ? 'יום' : 'ימים'}</div>
             <div style={{ fontSize: 34, fontWeight: 800, color: LIME }}>{done.total} ₪</div>
           </div>
           <div style={{ display: 'grid', gap: 10 }}>
-            {done.payments.map(p => p.link ? (
+            {done.payments.map(p => p.price === 0 ? (
+              <div key={p.day} style={{ background: BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 14, fontSize: 14 }}>
+                {p.label} — ללא עלות, המקום שמור ✓
+              </div>
+            ) : p.link ? (
               <a key={p.day} href={p.link} target="_blank" rel="noopener noreferrer"
                 style={{ display: 'block', background: LIME, color: BG, padding: '14px', borderRadius: 10, textDecoration: 'none', fontWeight: 800, fontSize: 16 }}>
-                לתשלום · {p.label} · {MISGAV_PRICE_PER_DAY} ₪
+                לתשלום · {p.label} · {p.price} ₪
               </a>
             ) : (
               <div key={p.day} style={{ background: BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 14, fontSize: 14, color: MUTED }}>
@@ -142,7 +148,7 @@ export default function HanukkahMisgavPage() {
         <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.9, margin: '0 0 24px' }}>
           טבע בייק מזמינה את רוכבי <b style={{ color: TEXT }}>מיני גרביטי משגב, המתחילים, מיני גרביטי ביריה ומטה אשר</b> לבקרים
           של רכיבה ביערות משגב. נכיר סינגלים שאין לנו זמן להגיע אליהם באימונים הרגילים, נשחק, נתרגל טכניקה
-          — ובאחד הימים מחכה לנו גם <b style={{ color: TEXT }}>איירבג</b> 🤸
+          — וביום השני מחכה לנו גם <b style={{ color: TEXT }}>איירבג</b> 🤸
         </p>
 
         {/* לוח זמנים */}
@@ -164,7 +170,8 @@ export default function HanukkahMisgavPage() {
         <ul style={{ fontSize: 14, lineHeight: 2, margin: '0 0 24px', paddingRight: 20 }}>
           <li>🌲 רכיבה ופעילות ביער</li>
           <li>🚵 היכרות עם סינגלים שלא מגיעים אליהם במהלך האימונים</li>
-          <li>🤸 יום איירבג — קפיצות לכרית אוויר</li>
+          <li>🌲 <b>יום ראשון 6.12 — יום החזר:</b> רכיבה ופעילות ביער, ללא עלות</li>
+          <li>🤸 <b>יום שני 7.12 — איירבג והיכרות ביער:</b> קפיצות לכרית אוויר וסינגלים חדשים, 200 ₪</li>
           <li>🎉 אווירת חנוכה וחברים מכל הקבוצות</li>
         </ul>
 
@@ -176,7 +183,7 @@ export default function HanukkahMisgavPage() {
             ['הגעה ופיזור', 'עצמאיים'],
             ['גילאים', '10–13'],
             ['מדריכים', MISGAV_INSTRUCTORS.join(' · ')],
-            ['עלות', `${MISGAV_PRICE_PER_DAY} ₪ ליום · ${MISGAV_PRICE_PER_DAY * MISGAV_DAYS.length} ₪ לשני הימים`],
+            ['עלות', 'יום ראשון — ללא עלות · יום שני — 200 ₪'],
           ].map(([k, v]) => (
             <div key={k} style={{ background: PANEL, border: `1px solid ${BORDER}`, borderRight: `3px solid ${LIME}`, borderRadius: 12, padding: '12px 14px' }}>
               <div style={{ color: MUTED, fontSize: 12, fontWeight: 700, marginBottom: 3 }}>{k}</div>
@@ -194,9 +201,9 @@ export default function HanukkahMisgavPage() {
 
         <div style={{ background: '#1e1a0e', border: '1px solid #5a4a14', borderRadius: 12, padding: '14px 18px', marginBottom: 32, fontSize: 14, lineHeight: 1.9 }}>
           <b style={{ color: AMBER }}>חשוב לדעת</b><br />
-          ההרשמה לפי יום — אפשר לבחור יום אחד או את שניהם.<br />
+          ההרשמה לפי יום — אפשר לבחור יום אחד או את שניהם. גם ליום החינמי צריך להירשם.<br />
           כל יום יוצא לפועל רק עם <b>מינימום {MISGAV_MIN_PER_DAY} נרשמים</b>.<br />
-          <b>ההתחייבות היא רק לאחר התשלום</b> — בסיום ההרשמה יופיע קישור תשלום לכל יום.<br />
+          ביום האיירבג <b>ההתחייבות היא רק לאחר התשלום</b> — בסיום ההרשמה יופיע קישור לתשלום.<br />
           מדיניות ביטול: ניתן לבטל עד 3 ימים לפני יום הפעילות.<br />
           🌧️ {MISGAV_RAIN_NOTE}
         </div>
@@ -222,7 +229,7 @@ export default function HanukkahMisgavPage() {
                   {d.label}
                 </div>
                 <div style={{ color: MUTED, fontSize: 12, marginTop: 6 }}>
-                  {MISGAV_PRICE_PER_DAY} ₪
+                  <span style={{ color: TEXT, fontWeight: 700 }}>{d.title}</span> · {misgavPriceText(d.price)}
                   {n !== undefined && (n >= MISGAV_MIN_PER_DAY
                     ? <span style={{ color: LIME }}> · היום יוצא לדרך ✓</span>
                     : <span> · {n} נרשמו מתוך מינימום {MISGAV_MIN_PER_DAY}</span>)}
@@ -300,7 +307,7 @@ export default function HanukkahMisgavPage() {
       }}>
         <div style={{ minWidth: 130 }}>
           <div style={{ color: MUTED, fontSize: 12 }}>
-            {days.length ? `${days.length} ${days.length === 1 ? 'יום' : 'ימים'} × ${MISGAV_PRICE_PER_DAY} ₪` : `${MISGAV_PRICE_PER_DAY} ₪ ליום`}
+            {days.length ? `${days.length} ${days.length === 1 ? 'יום' : 'ימים'}` : 'בחרו ימים'}
           </div>
           <div style={{ fontSize: 24, fontWeight: 800, color: LIME }}>{total} ₪</div>
         </div>
