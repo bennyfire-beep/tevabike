@@ -126,7 +126,7 @@ export default function HanukkahMisgavPage() {
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '24px 20px 150px' }}>
 
         <img
-          src="/camp-hanukkah-misgav-flyer-v2.jpg"
+          src="/camp-hanukkah-misgav-flyer-v3.jpg"
           alt="מחנה חנוכה טבע בייק — ראשון ושני 6–7 בדצמבר, 08:30–13:00"
           width={1122} height={1402}
           style={{ width: '100%', maxWidth: 480, height: 'auto', display: 'block', margin: '0 auto 28px', borderRadius: 14 }}

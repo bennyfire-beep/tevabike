@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'מחנה חנוכה במשגב 🕎🌲',
     description: '6.12 יום החזר — ללא עלות · 7.12 איירבג וסינגלים חדשים ביער · 08:30–13:00',
-    images: [{ url: '/camp-hanukkah-misgav-flyer-v2.jpg', width: 1122, height: 1402 }],
+    images: [{ url: '/camp-hanukkah-misgav-flyer-v3.jpg', width: 1122, height: 1402 }],
   },
 }
 
