@@ -7,7 +7,7 @@ import {
   computeTravel, travelConfigOf, travelDetail, TRAVEL_LABEL, type TravelType,
 } from '@/lib/travel'
 import {
-  attendanceBandDetail, lessonPayConfigOf, lessonPayFor, coTaughtPresent, type LessonPayModel,
+  attendanceBandDetail, lessonPayConfigOf, lessonPayFor, lessonEntryFor, coTaughtPresent, type LessonEntry, type LessonPayModel,
 } from '@/lib/lesson-pay'
 import {
   ManageShell, Btn, Note, ErrorBox, C, inputStyle, labelStyle,
@@ -87,7 +87,7 @@ export default function SalariesClient() {
         .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, travel_type, travel_km, travel_rate, travel_monthly_amount'),
       supabase
         .from('class_sessions')
-        .select('id, instructor_id, instructor_ids, type, is_gefen, duration, session_date, present_count')
+        .select('id, instructor_id, instructor_ids, type, is_gefen, duration, session_date, present_count, class_name')
         .gte('session_date', from)
         .lte('session_date', to),
       // Per-month override — a fixed sum, or manual km for a per_km instructor.
@@ -106,7 +106,7 @@ export default function SalariesClient() {
     // listed in instructor_ids when it was co-taught.
     // One entry per ordinary lesson taught, holding that lesson's attendance —
     // by_attendance prices every lesson on its own, so a count is not enough.
-    const lessonPresents = new Map<string, number[]>()
+    const lessonPresents = new Map<string, LessonEntry[]>()
     const specialCount = new Map<string, number>()   // includes גפן — just a count
     const specialHours = new Map<string, number>()   // excludes גפן — see gefenHours
     const gefenHours   = new Map<string, number>()   // גפן — priced separately, see below
@@ -131,7 +131,7 @@ export default function SalariesClient() {
           bucket.set(id, (bucket.get(id) ?? 0) + (Number(s.duration) || 0))
         } else {
           if (!lessonPresents.has(id)) lessonPresents.set(id, [])
-          lessonPresents.get(id)!.push(bandPresent)
+          lessonPresents.get(id)!.push(lessonEntryFor(id, s.class_name, bandPresent))
         }
       }
     }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON, GEFEN_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, TRAVEL_LABEL, travelConfigOf } from '@/lib/travel'
-import { lessonPayFor, coTaughtPresent } from '@/lib/lesson-pay'
+import { lessonPayFor, lessonEntryFor, coTaughtPresent, type LessonEntry } from '@/lib/lesson-pay'
 
 // ─── Vercel Cron: runs at 08:00 on the 1st of every month ────────────────────
 // Add to vercel.json:  { "crons": [{ "path": "/api/salary/report", "schedule": "0 6 1 * *" }] }
@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
     db.from('staff_pay')
       .select('admin_role_id, rate_per_lesson, hourly_rate, lesson_pay_model, attendance_rate_low, attendance_rate_mid, attendance_rate_high, attendance_threshold, attendance_threshold_2, travel_type, travel_km, travel_rate, travel_monthly_amount'),
     db.from('class_sessions')
-      .select('instructor_id, instructor_ids, type, is_gefen, duration, session_date, present_count')
+      .select('instructor_id, instructor_ids, type, is_gefen, duration, session_date, present_count, class_name')
       .gte('session_date', first).lte('session_date', last),
     db.from('instructor_travel').select('instructor_id, amount').eq('month', month),
     db.from('instructor_travel_days').select('instructor_id, km').gte('travel_date', first).lte('travel_date', last),
@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
   // Tally per instructor; co-taught sessions count for everyone listed.
   // One entry per ordinary lesson, holding its attendance — the by_attendance
   // model prices each lesson on its own, so a count is not enough.
-  const lessonPresents = new Map<string, number[]>()
+  const lessonPresents = new Map<string, LessonEntry[]>()
   const specialHours = new Map<string, number>()   // special activities other than גפן
   const gefenHours   = new Map<string, number>()   // גפן — priced separately, see below
   const workDays     = new Map<string, Set<string>>()
@@ -181,7 +181,7 @@ export async function GET(request: NextRequest) {
         bucket.set(id, (bucket.get(id) ?? 0) + (Number(s.duration) || 0))
       } else {
         if (!lessonPresents.has(id)) lessonPresents.set(id, [])
-        lessonPresents.get(id)!.push(bandPresent)
+        lessonPresents.get(id)!.push(lessonEntryFor(id, s.class_name, bandPresent))
       }
     }
   }

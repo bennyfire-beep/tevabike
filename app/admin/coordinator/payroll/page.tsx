@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useCoordinator } from '@/lib/coordinator-context'
 import { DEFAULT_HOURLY_RATE, GEFEN_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
-import { lessonPayConfigOf, lessonRateFor, coTaughtPresent } from '@/lib/lesson-pay'
+import { lessonPayConfigOf, lessonRateFor, coTaughtPresent, sessionRateOverride } from '@/lib/lesson-pay'
 import { isSalaryAdmin, isBenny } from '@/lib/salary-access'
 import { currentMonth, monthBounds } from '@/lib/month'
 
@@ -285,14 +285,16 @@ export default function PayrollPage() {
         const bandPresent = coTaughtPresent(present, allCredited.length)
         for (const iid of credited) {
           const cfg  = lessonCfgOf[iid]
-          const rate = lessonRateFor(cfg, bandPresent)
+          // A fixed amount for this instructor in this group (lib/lesson-pay.ts) beats the model.
+          const fixed = sessionRateOverride(iid, s.class_name)
+          const rate = fixed ? fixed.rate : lessonRateFor(cfg, bandPresent)
           // Show which band was picked — the flat model has only one, so it says nothing.
-          const banded = lessonPayConfigOf(cfg).model === 'by_attendance'
+          const banded = !fixed && lessonPayConfigOf(cfg).model === 'by_attendance'
           items.push({
             key: s.id + iid,
             name: nameOf[iid] ?? 'מדריך לא ידוע',
             kind: 'regular',
-            label: banded ? `${s.class_name} · ₪${rate} (${present} נוכחים)` : s.class_name,
+            label: fixed ? `${s.class_name} · ${fixed.note}` : banded ? `${s.class_name} · ₪${rate} (${present} נוכחים)` : s.class_name,
             branch: s.branch, date: s.session_date,
             present,
             pay: rate,

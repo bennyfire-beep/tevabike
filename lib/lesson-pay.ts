@@ -134,13 +134,58 @@ export function lessonRateFor(
   return present >= cfg.threshold ? cfg.high : cfg.low
 }
 
-/** A month's lesson pay: every lesson priced on its own attendance. */
+// ─────────────────────────────────────────────────────────────────────────────
+// Fixed per-lesson amounts for one instructor in one group, replacing whatever
+// their staff_pay model would say. Matched on admin_roles.id + class_name.
+//
+// טל ברקן in "גרביטי מטה אשר": the group is paid by מטה אשר directly, so the
+// lesson itself pays ₪0 here — and מטה אשר also covers his car upkeep, so each
+// time he teaches it ₪180 is taken off his pay (net −₪180 per lesson).
+// ─────────────────────────────────────────────────────────────────────────────
+export const SESSION_RATE_OVERRIDES: ReadonlyArray<{
+  instructorId: string; className: string; rate: number; note: string
+}> = [
+  {
+    instructorId: 'f12f3570-49db-46f8-be77-6312c49dcdef', // טל ברקן (instructor)
+    className:    'גרביטי מטה אשר',
+    rate:         -180,
+    note:         'משולם ע״י מטה אשר · קיזוז אחזקת רכב',
+  },
+]
+
+/** The fixed amount this instructor gets for a lesson of this group, or null for the normal rate. */
+export function sessionRateOverride(
+  instructorId: string | null | undefined,
+  className: string | null | undefined,
+): { rate: number; note: string } | null {
+  if (!instructorId || !className) return null
+  const o = SESSION_RATE_OVERRIDES.find(
+    x => x.instructorId === instructorId && x.className === className.trim(),
+  )
+  return o ? { rate: o.rate, note: o.note } : null
+}
+
+/** One lesson in a month's tally: its (band-adjusted) attendance, or a fixed amount from SESSION_RATE_OVERRIDES. */
+export type LessonEntry = number | null | undefined | { fixed: number }
+
+/** The tally entry for one lesson — a fixed amount when an override applies, else the band headcount. */
+export function lessonEntryFor(
+  instructorId: string, className: string | null | undefined, bandPresent: number,
+): LessonEntry {
+  const o = sessionRateOverride(instructorId, className)
+  return o ? { fixed: o.rate } : bandPresent
+}
+
+/** A month's lesson pay: every lesson priced on its own attendance (or its fixed override). */
 export function lessonPayFor(
   row: Partial<LessonPayFields> | undefined | null,
-  presentCounts: Array<number | null | undefined>,
+  presentCounts: LessonEntry[],
 ): number {
   return Math.round(
-    presentCounts.reduce<number>((sum, pc) => sum + lessonRateFor(row, pc), 0) * 100,
+    presentCounts.reduce<number>(
+      (sum, pc) => sum + (pc != null && typeof pc === 'object' ? pc.fixed : lessonRateFor(row, pc)),
+      0,
+    ) * 100,
   ) / 100
 }
 
