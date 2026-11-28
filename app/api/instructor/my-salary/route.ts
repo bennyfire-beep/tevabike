@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveCaller, currentMonth, monthBounds } from '@/lib/instructor-identity'
 import { DEFAULT_HOURLY_RATE, GEFEN_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, travelDetail } from '@/lib/travel'
-import { lessonPayConfigOf, lessonRateFor, coTaughtPresent } from '@/lib/lesson-pay'
+import { lessonPayConfigOf, lessonRateFor, coTaughtPresent, sessionRateOverride } from '@/lib/lesson-pay'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "המשכורת שלי" — this month's pay for the signed-in instructor, and nobody
@@ -176,13 +176,17 @@ export async function GET(req: NextRequest) {
       if (s.instructor_id) taughtBy.add(s.instructor_id)
       for (const extra of s.instructor_ids ?? []) taughtBy.add(extra)
       const bandPresent = coTaughtPresent(present, taughtBy.size || 1)
-      const rate = lessonRateFor(pay, bandPresent)
+      // A fixed amount for this instructor in this group (lib/lesson-pay.ts) beats the model.
+      const fixed = sessionRateOverride(adminRoleId, s.class_name)
+      const rate = fixed ? fixed.rate : lessonRateFor(pay, bandPresent)
       items.push({
         key: 'ls-' + s.id,
         kind: 'regular',
         // The band only means something under the by_attendance model; the flat
         // model has a single rate, so saying "(N present)" there would mislead.
-        label: banded ? `${s.class_name ?? 'שיעור'} · ₪${rate} (${present} נוכחים)` : (s.class_name ?? 'שיעור'),
+        label: fixed
+          ? `${s.class_name} · ${fixed.note}`
+          : banded ? `${s.class_name ?? 'שיעור'} · ₪${rate} (${present} נוכחים)` : (s.class_name ?? 'שיעור'),
         branch: s.branch,
         date: s.session_date,
         present,

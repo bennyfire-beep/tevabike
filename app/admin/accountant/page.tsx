@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAdminAuth } from '@/lib/use-admin-auth'
 import { DEFAULT_HOURLY_RATE, DEFAULT_RATE_PER_LESSON, GEFEN_HOURLY_RATE } from '@/lib/attendance'
 import { computeTravel, travelConfigOf, TRAVEL_LABEL } from '@/lib/travel'
-import { lessonPayFor, coTaughtPresent } from '@/lib/lesson-pay'
+import { lessonPayFor, lessonEntryFor, coTaughtPresent, type LessonEntry } from '@/lib/lesson-pay'
 
 type InstructorSummary = {
   adminRoleId:   string
@@ -134,14 +134,14 @@ export default function AccountantPage() {
     // `duration` (not duration_hours) is the real column on class_sessions.
     const { data: sessions } = await supabase
       .from('class_sessions')
-      .select('instructor_id, instructor_ids, type, is_gefen, duration, session_date, present_count')
+      .select('instructor_id, instructor_ids, type, is_gefen, duration, session_date, present_count, class_name')
       .gte('session_date', firstDay)
       .lte('session_date', lastDay)
 
     // Tally per instructor, counting co-taught sessions for everyone listed.
     // One entry per ordinary lesson, holding its attendance — the by_attendance
     // model prices each lesson on its own, so a count is not enough.
-    const lessonPresents = new Map<string, number[]>()
+    const lessonPresents = new Map<string, LessonEntry[]>()
     const specialHours = new Map<string, number>()   // special activities other than גפן
     const gefenHours   = new Map<string, number>()   // גפן — priced separately, see below
     const workDays     = new Map<string, Set<string>>()
@@ -161,7 +161,7 @@ export default function AccountantPage() {
           bucket.set(id, (bucket.get(id) ?? 0) + (Number(s.duration) || 0))
         } else {
           if (!lessonPresents.has(id)) lessonPresents.set(id, [])
-          lessonPresents.get(id)!.push(bandPresent)
+          lessonPresents.get(id)!.push(lessonEntryFor(id, s.class_name, bandPresent))
         }
       }
     }
